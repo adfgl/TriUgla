@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36301.6 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Triangulation", "Triangulation\Triangulation.csproj", "{AEA0C15D-15EE-43A5-ABD3-5C6AC6E378EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeometryLib", "GeometryLib\GeometryLib.csproj", "{995B57BE-1813-4998-9C69-48544BE3F591}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AEA0C15D-15EE-43A5-ABD3-5C6AC6E378EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEA0C15D-15EE-43A5-ABD3-5C6AC6E378EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AEA0C15D-15EE-43A5-ABD3-5C6AC6E378EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AEA0C15D-15EE-43A5-ABD3-5C6AC6E378EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{995B57BE-1813-4998-9C69-48544BE3F591}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{995B57BE-1813-4998-9C69-48544BE3F591}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{995B57BE-1813-4998-9C69-48544BE3F591}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{995B57BE-1813-4998-9C69-48544BE3F591}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {324CB74C-37C5-458E-8C7C-437103DB0120}
+	EndGlobalSection
+EndGlobal
