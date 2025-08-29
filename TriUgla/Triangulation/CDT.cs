@@ -1,40 +1,11 @@
 ﻿using GeometryLib;
 using System.Runtime.CompilerServices;
+using static Triangulation.CDT;
 
 namespace Triangulation
 {
     public static class CDT
     {
-        public static bool ShouldRemove(Mesh mesh, int[] contour, HashSet<(int, int)> edges)
-        {
-            List<Triangle> tris = mesh.Triangles;
-            for (int i = 0; i < tris.Count; i++)
-            {
-                Triangle t = tris[i];
-                if (t.removed)
-                {
-                    continue;
-                }
-
-                if (ContainsSuperVertex(t, 3))
-                {
-                    t.removed = true;
-                    tris[i] = t;
-                    continue;
-                }
-
-                int i0 = t.vtx0;
-                int i1 = t.vtx1;
-                int i2 = t.vtx2;
-            }
-
-
-
-
-            return false;
-        }
-
-
 
 
 
@@ -43,10 +14,6 @@ namespace Triangulation
         {
             return t.vtx0 < super || t.vtx1 < super || t.vtx2 < super;
         }
-
-
-
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double Area(Vertex a, Vertex b, Vertex c)
@@ -64,7 +31,43 @@ namespace Triangulation
                 Vertex.Cross(d, a, b) > 0;
         }
 
+        public static Vertex? Intersect(Vertex p1, Vertex p2, Vertex q1, Vertex q2)
+        {
+            // P(u) = p1 + u * (p2 - p1)
+            // Q(v) = q1 + v * (q2 - q1)
 
+            // goal to vind such 'u' and 'v' so:
+            // p1 + u * (p2 - p1) = q1 + v * (q2 - q1)
+            // which is:
+            // u * (p2x - p1x) - v * (q2x - q1x) = q1x - p1x
+            // u * (p2y - p1y) - v * (q2y - q1y) = q1y - p1y
+
+            // | p2x - p1x  -(q2x - q1x) | *  | u | =  | q1x - p1x |
+            // | p2y - p1y  -(q2y - q1y) |    | v |    | q1y - p1y |
+
+            // | a  b | * | u | = | e |
+            // | c  d |   | v |   | f |
+
+            double a = p2.X - p1.X, b = q1.X - q2.X;
+            double c = p2.Y - p1.Y, d = q1.Y - q2.Y;
+
+            double det = a * d - b * c;
+            if (Math.Abs(det) < 1e-12)
+            {
+                return null;
+            }
+
+            double e = q1.X - p1.X, f = q1.Y - p1.Y;
+            double u = (e * d - b * f) / det;
+            double v = (a * f - e * c) / det;
+
+            if (u < 0 || u > 1 || v < 0 || v > 1)
+            {
+                return null;
+            }
+
+            return new Vertex(p1.X + u * a, p1.Y + u * c);
+        }
 
         public class Vertex : IPoint
         {
@@ -115,17 +118,130 @@ namespace Triangulation
         public class Mesh
         {
             readonly Stack<int> _affected = new Stack<int>();
+            readonly List<int> _path = new List<int>();
 
             public Rectangle Bounds { get; set; }
             public List<Triangle> Triangles { get; set; }
             public List<Vertex> Vertices { get; set; }
 
-            public Vertex Insert(int[] created, int count, int triangle, int edge, double x, double y, double eps)
+            public void Insert(double x0, double y0, double x1, double y1, int type, double eps, bool alwaysSplit = false)
+            {
+                List<Vertex> verts = Vertices;
+                List<Triangle> tris = Triangles;
+
+                Queue<(Vertex?, Vertex?)> queue = new Queue<(Vertex?, Vertex?)>();
+                queue.Enqueue((Insert(x0, y0, eps), Insert(x1, y1, eps)));
+                _affected.Clear();
+
+                int[] changed = new int[4];
+                int changedCount;
+                while (queue.Count > 0)
+                {
+                    changedCount = 0;
+                    (Vertex? start, Vertex? end) = queue.Dequeue();
+                    if (start is null || end is null || Vertex.CloseOrEqual(start, end, eps))
+                    {
+                        continue;
+                    }
+
+                    (int triangle, int edge) = FindEdge(start, end, true);
+                    if (edge != -1)
+                    {
+                        SetConstraint(triangle, edge, type);
+                        Legalize(_affected, changed, changedCount);
+                        continue;
+                    }
+
+                    Triangle t0 = OrientedEntranceTriangle(start, end, eps);
+                    Vertex next = verts[t0.vtx1];
+                    Vertex prev = verts[t0.vtx2];
+
+                    if (Math.Abs(Vertex.Cross(start, next, end)) <= eps)
+                    {
+                        queue.Enqueue((start, next));
+                        queue.Enqueue((next, end));
+                        continue;
+                    }
+
+                    if (Math.Abs(Vertex.Cross(start, end, prev)) <= eps)
+                    {
+                        queue.Enqueue((start, prev));
+                        queue.Enqueue((prev, end));
+                        continue;
+                    }
+
+                    Vertex? inter = Intersect(next, prev, start, end);
+                    if (inter == null)
+                    {
+                        throw new Exception("Expected intersection");
+                    }
+
+                    Triangle t1 = tris[t0.adj1].Orient(prev.Index, next.Index);
+                    Vertex opp = verts[t1.vtx2];
+
+                    if (alwaysSplit || CanFlip(t0.index, 1, out _))
+                    {
+                        Vertex inserted = Insert(t0.index, 1, inter.X, inter.Y, eps);
+
+                        queue.Enqueue((start, inserted));
+                        queue.Enqueue((inserted, opp));
+                        queue.Enqueue((opp, end));
+                    }
+                    else
+                    {
+                        changedCount = Flip(changed, t0.index, 1);
+
+                        queue.Enqueue((start, opp));
+                        queue.Enqueue((opp, end));
+                    }
+                }
+            }
+
+            Triangle OrientedEntranceTriangle(Vertex start, Vertex end, double eps)
+            {
+                List<Triangle> tris = Triangles;
+                List<Vertex> verts = Vertices;
+                Circler walker = new Circler(tris, start);
+                do
+                {
+                    Triangle t = tris[walker.Current];
+                    t = t.Orient(t.IndexOf(start.Index));
+
+                    Vertex v0 = verts[t.vtx0];
+                    Vertex v1 = verts[t.vtx1];
+                    Vertex v2 = verts[t.vtx2];
+
+                    if (Vertex.Cross(v0, v1, end) >= eps &&
+                        Vertex.Cross(v2, v0, end) >= eps)
+                    {
+                        return t;
+                    }
+
+                } while (walker.Next());
+
+                throw new Exception("Could not find entrance triangle.");
+            }
+
+            public Vertex? Insert(double x, double y, double eps, int searchStart = -1)
+            {
+                (int t, int e, int v) = FindContaining(_path, x, y, eps, searchStart);
+                if (t == -1) return null;
+                if (v != -1) return Vertices[v];
+                return Insert(t, e, x, y, eps);
+            }
+
+            public Vertex Insert(int triangle, int edge, double x, double y, double eps)
+            {
+                return Insert(new int[4], triangle, edge, x, y, eps);
+            }
+
+            public Vertex Insert(int[] created, int triangle, int edge, double x, double y, double eps)
             {
                 int vi = Vertices.Count;
                 Vertex vtx = new Vertex(x, y) { Index = vi, Triangle = -1 };
                 Vertices.Add(vtx);
 
+                int count;
                 if (edge == -1)
                 {
                     count = Split(created, triangle, vi);
@@ -138,16 +254,16 @@ namespace Triangulation
                 return vtx;
             }
 
-            public void Legalize(Stack<int> affected, int[] created, int count)
+            public int Legalize(Stack<int> affected, int[] created, int count)
             {
                 Stack<int> stack = new Stack<int>();
                 for (int i = 0; i < count; i++) stack.Push(created[i]);
 
                 const int MAX_FLIPS_PER_DIAGONAL = 5;
 
+                int flips = 0;
                 List<Triangle> tris = Triangles;
                 Dictionary<(int a, int b), int> flipCount = new Dictionary<(int a, int b), int>();
-
                 while (stack.Count > 0)
                 {
                     int t = stack.Pop();
@@ -164,6 +280,7 @@ namespace Triangulation
 
                         if (CanFlip(t, edge, out bool should) && should)
                         {
+                            flips++;
                             flipCount[key] = c + 1;
 
                             count = Flip(created, t, edge);
@@ -178,6 +295,7 @@ namespace Triangulation
                         }
                     }
                 }
+                return flips;
             }
 
             public void SetConstraint(int triangle, int edge, int type)
