@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace TriUgla
+﻿namespace TriUgla
 {
     public class Mesh
     {
@@ -14,7 +7,6 @@ namespace TriUgla
         public List<Circle> Circles { get; set; }
         public List<Triangle> Triangles { get; set; }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetAdjacent(int parent, int parentStart, int parentEnd, int child)
         {
             if (parent == -1) return;
@@ -23,6 +15,22 @@ namespace TriUgla
 
             t.adj0 = child;
             Triangles[parent] = t;
+        }
+
+        public void SetConstraint(int triangle, int edge, int type)
+        {
+            List<Triangle> tris = Triangles;
+            Triangle t = tris[triangle].Orient(edge);
+            t.con0 = type;
+
+            int adjIndex = t.adj0;
+            if (adjIndex != -1)
+            {
+                Triangle adj = tris[adjIndex].Orient(t.vtx1, t.vtx0);
+                adj.con0 = type;
+                tris[adjIndex] = adj;
+            }
+            tris[t.index] = t;
         }
     }
 }
