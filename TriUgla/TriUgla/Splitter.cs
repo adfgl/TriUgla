@@ -4,18 +4,6 @@ namespace TriUgla
 {
     public class Splitter
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetAdjacent(Mesh mesh, int parent, int parentStart, int parentEnd, int child)
-        {
-            if (parent == -1) return;
-
-            List<Triangle> tris = mesh.Triangles;
-            Triangle t = tris[parent].Orient(parentStart, parentEnd);
-
-            t.adj0 = child;
-            tris[parent] = t;
-        }
-
         /// <summary>
         /// Splits an existing triangle in the mesh into three smaller triangles by inserting
         /// a new vertex inside it. Updates the triangle and circle lists in the mesh and
@@ -29,7 +17,7 @@ namespace TriUgla
         /// <param name="triangleIndex">Index of the triangle in <see cref="Mesh.Triangles"/> to split.</param>
         /// <param name="vertexIndex">Index of the vertex in <see cref="Mesh.Vertices"/> to insert.</param>
         /// <returns>The number of triangles written into <paramref name="newTris"/> (always 4).</returns>
-        public int Split(int[] newTris, Mesh mesh, int triangleIndex, int vertexIndex)
+        public static int Split(int[] newTris, Mesh mesh, int triangleIndex, int vertexIndex)
         {
             List<Triangle> triangles = mesh.Triangles;
             List<Vertex> vertices = mesh.Vertices;
@@ -73,8 +61,8 @@ namespace TriUgla
                old.adj2, t0, t1,
                old.con2, -1, -1));
 
-            SetAdjacent(mesh, old.adj1, i2, i1, t1);
-            SetAdjacent(mesh, old.adj2, i0, i2, t2);
+            mesh.SetAdjacent(old.adj1, i2, i1, t1);
+            mesh.SetAdjacent(old.adj2, i0, i2, t2);
 
             v0.Triangle = v1.Triangle = v3.Triangle = t0;
             v2.Triangle = t1;
@@ -105,7 +93,7 @@ namespace TriUgla
         /// The number of triangle indices written to <paramref name="newTris"/>: 2 for boundary,
         /// or 4 for interior split.
         /// </returns>
-        public int Split(int[] newTris, Mesh mesh, int triangleIndex, int edgeIndex, int vertexIndex)
+        public static int Split(int[] newTris, Mesh mesh, int triangleIndex, int edgeIndex, int vertexIndex)
         {
             List<Triangle> triangles = mesh.Triangles;
             List<Vertex> vertices = mesh.Vertices;
@@ -145,7 +133,7 @@ namespace TriUgla
                     old0.adj1, t0, -1,
                     old0.con1, -1, con));
 
-                SetAdjacent(mesh, old0.adj1, i2, i1, t1);
+                mesh.SetAdjacent(old0.adj1, i2, i1, t1);
 
                 v0.Triangle = v2.Triangle = v3.Triangle = t0;
                 v1.Triangle = t1;
@@ -196,8 +184,8 @@ namespace TriUgla
                     old0.adj1, t0, t2,
                     old0.con1, -1, con));
 
-                SetAdjacent(mesh, old0.adj1, i2, i1, t3);
-                SetAdjacent(mesh, old1.adj2, i1, i3, t2);
+                mesh.SetAdjacent(old0.adj1, i2, i1, t3);
+                mesh.SetAdjacent(old1.adj2, i1, i3, t2);
 
                 v0.Triangle = v2.Triangle = t0;
                 v1.Triangle = t3;
