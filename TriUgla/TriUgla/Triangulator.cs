@@ -17,8 +17,18 @@ namespace TriUgla
     public class Triangulator
     {
         ETriangulatorState _state = ETriangulatorState.None;
+        Mesh _mesh;
+
+        public Triangulator(Rectangle rectangle)
+        {
+            _mesh = new Mesh()
+            {
+                Bounds = rectangle,
+            };
+        }
 
         public ETriangulatorState State => _state;
+        public Mesh Mesh => _mesh;
 
         public void Insert(double x, double y)
         {
@@ -30,10 +40,12 @@ namespace TriUgla
 
         }
 
-        public Triangulator Reset()
+        public Triangulator Reset(Rectangle? rectangle = null)
         {
-
-
+            _mesh = new Mesh()
+            {
+                Bounds = rectangle ?? _mesh.Bounds
+            };
             _state = ETriangulatorState.None;
             return this;
         }
