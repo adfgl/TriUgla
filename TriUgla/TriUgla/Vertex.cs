@@ -28,7 +28,7 @@ namespace TriUgla
             return Math.Sqrt(LengthSquared(a, b));
         }
 
-        public bool CloseOrEqual(Vertex a, Vertex b, double eps)
+        public static bool CloseOrEqual(Vertex a, Vertex b, double eps)
         {
             if (a.Index == b.Index && a.Index != -1)
             {
