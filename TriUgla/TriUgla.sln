@@ -5,6 +5,10 @@ VisualStudioVersion = 17.14.36301.6 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TriUgla", "TriUgla\TriUgla.csproj", "{83445D71-CD5A-4127-8018-BA759DC571E5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TriUglaConsole", "TriUglaConsole\TriUglaConsole.csproj", "{D757D06E-1264-4C68-BCBA-D791A7FC7837}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TriUglaTests", "TriUglaTests\TriUglaTests.csproj", "{73FE7789-B8D2-4923-89AE-D3B80188F889}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{83445D71-CD5A-4127-8018-BA759DC571E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{83445D71-CD5A-4127-8018-BA759DC571E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{83445D71-CD5A-4127-8018-BA759DC571E5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D757D06E-1264-4C68-BCBA-D791A7FC7837}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D757D06E-1264-4C68-BCBA-D791A7FC7837}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D757D06E-1264-4C68-BCBA-D791A7FC7837}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D757D06E-1264-4C68-BCBA-D791A7FC7837}.Release|Any CPU.Build.0 = Release|Any CPU
+		{73FE7789-B8D2-4923-89AE-D3B80188F889}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{73FE7789-B8D2-4923-89AE-D3B80188F889}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{73FE7789-B8D2-4923-89AE-D3B80188F889}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{73FE7789-B8D2-4923-89AE-D3B80188F889}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

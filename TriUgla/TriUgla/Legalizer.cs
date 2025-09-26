@@ -22,7 +22,7 @@
 
             int flips = 0;
             List<Triangle> tris = mesh.Triangles;
-            Dictionary<(int a, int b), int> flipCount = new Dictionary<(int a, int b), int>();
+            Dictionary<(int a, int b), int> flipCount = new Dictionary<(int a, int b), int>(64);
             while (stack.Count > 0)
             {
                 int t = stack.Pop();
