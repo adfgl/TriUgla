@@ -58,6 +58,14 @@ namespace TriUgla
                 Cross(d, a, b) > 0;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool AreParallel(Node p1, Node p2, Node q1, Node q2, double eps)
+        {
+            double a = p2.X - p1.X, b = q1.X - q2.X;
+            double c = p2.Y - p1.Y, d = q1.Y - q2.Y;
+            return Math.Abs(a * d - b * c) <= eps;
+        }
+
         public static Node? Intersect(Node p1, Node p2, Node q1, Node q2)
         {
             // P(u) = p1 + u * (p2 - p1)

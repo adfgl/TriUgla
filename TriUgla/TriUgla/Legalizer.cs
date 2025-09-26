@@ -11,11 +11,11 @@
         /// and returns the total number of flips performed.
         /// </summary>
         /// <param name="mesh">Mesh to modify (triangles/circles/adjacency updated in-place).</param>
-        /// <param name="affected">Stack collecting triangles touched during legalization.</param>
         /// <param name="created">Buffer containing seed triangle indices to process.</param>
         /// <param name="count">Number of valid entries in <paramref name="created"/>.</param>
+        /// <param name="affected">Stack collecting triangles touched during legalization.</param>
         /// <returns>Total number of edge flips executed.</returns>
-        public int Legalize(Mesh mesh, Stack<int> affected, int[] created, int count)
+        public static int Legalize(Mesh mesh, int[] created, int count, Stack<int>? affected = null)
         {
             Stack<int> stack = new Stack<int>();
             for (int i = 0; i < count; i++) stack.Push(created[i]);
@@ -26,7 +26,10 @@
             while (stack.Count > 0)
             {
                 int t = stack.Pop();
-                affected.Push(t);
+                if (affected is not null)
+                {
+                    affected.Push(t);
+                }
 
                 for (int edge = 0; edge < 3; edge++)
                 {
@@ -47,7 +50,10 @@
                         {
                             int idx = created[i];
                             stack.Push(idx);
-                            if (t != idx) affected.Push(idx);
+                            if (t != idx && affected is not null)
+                            {
+                                affected.Push(idx);
+                            }
                         }
                         stack.Push(t);
                         break;
@@ -58,7 +64,7 @@
             return flips;
         }
 
-        public bool CanFlip(Mesh mesh, int triangle, int edge, out bool should)
+        public static bool CanFlip(Mesh mesh, int triangle, int edge, out bool should)
         {
             should = false;
             List<Triangle> tris = mesh.Triangles;
@@ -88,7 +94,7 @@
         /// <param name="edgeIndex">Local edge (0..2) of the triangle to flip.</param>
         /// <param name="forceFlip">Flip even if the edge is constrained.</param>
         /// <returns>2 if flipped; 0 if not (boundary or constrained without forcing).</returns>
-        public int Flip(int[] newIndices, Mesh mesh, int triangleIndex, int edgeIndex, bool forceFlip)
+        public static int Flip(int[] newIndices, Mesh mesh, int triangleIndex, int edgeIndex, bool forceFlip)
         {
             List<Triangle> triangles = mesh.Triangles;
             List<Node> vertices = mesh.Nodes;

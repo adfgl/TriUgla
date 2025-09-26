@@ -7,6 +7,16 @@
         public List<Circle> Circles { get; set; } = new List<Circle>();
         public List<Triangle> Triangles { get; set; } = new List<Triangle>();
 
+        public Node Add(double x, double y)
+        {
+            Node node = new Node(x, y)
+            {
+                Index = Nodes.Count
+            };
+            Nodes.Add(node);
+            return node;
+        }
+
         public void SetAdjacent(int parent, int parentStart, int parentEnd, int child)
         {
             if (parent == -1) return;

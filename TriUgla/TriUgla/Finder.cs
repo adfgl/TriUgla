@@ -1,14 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace TriUgla
+﻿namespace TriUgla
 {
     public class Finder
     {
-        public (int t, int e) FindEdge(Mesh mesh, Node start, Node end, bool invariant)
+        public static Triangle EntranceTriangle(Mesh mesh, Node start, Node end, double eps)
+        {
+            List<Triangle> tris = mesh.Triangles;
+            List<Node> nodes = mesh.Nodes;
+
+            Circler walker = new Circler(tris, start);
+            do
+            {
+                Triangle t = tris[walker.Current];
+                t = t.Orient(t.IndexOf(start.Index));
+
+                if (Node.Cross(nodes[t.vtx0], nodes[t.vtx1], end) < -eps || 
+                    Node.Cross(nodes[t.vtx2], nodes[t.vtx0], end) < -eps) continue;
+
+                return t;
+
+            } while (walker.Next());
+
+            throw new Exception("Could not find entrance triangle.");
+        }
+
+        public static (int t, int e) FindEdge(Mesh mesh, Node start, Node end, bool invariant)
         {
             List<Triangle> tris = mesh.Triangles;
             Circler circler = new Circler(tris, start);
@@ -36,7 +51,7 @@ namespace TriUgla
             return (-1, -1);
         }
 
-        public (int t, int e, int v) FindContaining(Mesh mesh, List<int> path, double x, double y, double eps, int searchStart = -1)
+        public static (int t, int e, int v) FindContaining(Mesh mesh, double x, double y, double eps, List<int>? path = null, int searchStart = -1)
         {
             List<Triangle> tris = mesh.Triangles;
             List<Node> verts = mesh.Nodes;
@@ -52,7 +67,10 @@ namespace TriUgla
             Node vertex = new Node(x, y);
             while (trianglesChecked++ < maxSteps)
             {
-                path.Add(current);
+                if (path is not null)
+                {
+                    path.Add(current);
+                }
 
                 Triangle t = tris[current];
                 Node v0 = verts[t.vtx0];
