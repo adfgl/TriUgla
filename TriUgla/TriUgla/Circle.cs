@@ -56,7 +56,7 @@ namespace TriUgla
             this.radiusSqr = x * x + y * y - c;
         }
 
-        public Circle(Vertex p0, Vertex p1, Vertex p2)
+        public Circle(Node p0, Node p1, Node p2)
             : this(p0.X, p0.Y, p1.X, p1.Y, p2.X, p2.Y)
         {
 

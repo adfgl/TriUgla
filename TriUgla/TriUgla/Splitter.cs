@@ -15,12 +15,12 @@ namespace TriUgla
         /// </param>
         /// <param name="mesh">Target mesh whose triangle, vertex, and circle lists will be modified.</param>
         /// <param name="triangleIndex">Index of the triangle in <see cref="Mesh.Triangles"/> to split.</param>
-        /// <param name="vertexIndex">Index of the vertex in <see cref="Mesh.Vertices"/> to insert.</param>
+        /// <param name="vertexIndex">Index of the vertex in <see cref="Mesh.Nodes"/> to insert.</param>
         /// <returns>The number of triangles written into <paramref name="newTris"/> (always 4).</returns>
         public static int Split(int[] newTris, Mesh mesh, int triangleIndex, int vertexIndex)
         {
             List<Triangle> triangles = mesh.Triangles;
-            List<Vertex> vertices = mesh.Vertices;
+            List<Node> vertices = mesh.Nodes;
             List<Circle> circles = mesh.Circles;
 
             Triangle old = triangles[triangleIndex];
@@ -30,10 +30,10 @@ namespace TriUgla
             int i2 = old.vtx2;
             int i3 = vertexIndex;
 
-            Vertex v0 = vertices[i0];
-            Vertex v1 = vertices[i1];
-            Vertex v2 = vertices[i2];
-            Vertex v3 = vertices[i3];
+            Node v0 = vertices[i0];
+            Node v1 = vertices[i1];
+            Node v2 = vertices[i2];
+            Node v3 = vertices[i3];
 
             // 1) 0-1-3
             // 2) 1-2-3
@@ -88,7 +88,7 @@ namespace TriUgla
         /// Oriented local edge index of <paramref name="triangleIndex"/> to use as the base (0,1,2).  
         /// The triangle is first oriented so that this edge becomes (v0–v1).
         /// </param>
-        /// <param name="vertexIndex">Index into <see cref="Mesh.Vertices"/> of the inserted vertex.</param>
+        /// <param name="vertexIndex">Index into <see cref="Mesh.Nodes"/> of the inserted vertex.</param>
         /// <returns>
         /// The number of triangle indices written to <paramref name="newTris"/>: 2 for boundary,
         /// or 4 for interior split.
@@ -96,7 +96,7 @@ namespace TriUgla
         public static int Split(int[] newTris, Mesh mesh, int triangleIndex, int edgeIndex, int vertexIndex)
         {
             List<Triangle> triangles = mesh.Triangles;
-            List<Vertex> vertices = mesh.Vertices;
+            List<Node> vertices = mesh.Nodes;
             List<Circle> circles = mesh.Circles;
 
             Triangle old0 = triangles[triangleIndex].Orient(edgeIndex);
@@ -107,10 +107,10 @@ namespace TriUgla
             int i2 = old0.vtx2;
             int i3 = vertexIndex;
 
-            Vertex v0 = vertices[i0];
-            Vertex v1 = vertices[i1];
-            Vertex v2 = vertices[i2];
-            Vertex v3 = vertices[i3];
+            Node v0 = vertices[i0];
+            Node v1 = vertices[i1];
+            Node v2 = vertices[i2];
+            Node v3 = vertices[i3];
 
             int adj = old0.adj0;
             if (adj == -1)
@@ -152,7 +152,7 @@ namespace TriUgla
                 int t3 = t2 + 1;
 
                 int i4 = old1.vtx2;
-                Vertex v4 = vertices[i4];
+                Node v4 = vertices[i4];
 
                 // 1) 2-0-3
                 // 2) 0-4-3

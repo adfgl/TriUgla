@@ -62,20 +62,20 @@
         {
             should = false;
             List<Triangle> tris = mesh.Triangles;
-            List<Vertex> verts = mesh.Vertices;
+            List<Node> verts = mesh.Nodes;
 
             Triangle t0 = tris[triangle].Orient(edge);
             if (t0.adj0 == -1 || t0.con0 != -1) return false;
 
-            Vertex v0 = verts[t0.vtx0];
-            Vertex v1 = verts[t0.vtx1];
-            Vertex v2 = verts[t0.vtx2];
+            Node v0 = verts[t0.vtx0];
+            Node v1 = verts[t0.vtx1];
+            Node v2 = verts[t0.vtx2];
 
             Triangle t1 = tris[t0.adj0].Orient(v1.Index, v0.Index);
-            Vertex v3 = verts[t1.vtx2];
+            Node v3 = verts[t1.vtx2];
 
             should = mesh.Circles[triangle].Contains(v3.X, v3.Y);
-            return Vertex.IsConvex(v1, v2, v0, v3);
+            return Node.IsConvex(v1, v2, v0, v3);
         }
 
         /// <summary>
@@ -91,7 +91,7 @@
         public int Flip(int[] newIndices, Mesh mesh, int triangleIndex, int edgeIndex, bool forceFlip)
         {
             List<Triangle> triangles = mesh.Triangles;
-            List<Vertex> vertices = mesh.Vertices;
+            List<Node> vertices = mesh.Nodes;
             List<Circle> circles = mesh.Circles;
 
             Triangle old0 = triangles[triangleIndex].Orient(edgeIndex);
@@ -112,10 +112,10 @@
             int t0 = old0.index;
             int t1 = old1.index;
 
-            Vertex v0 = vertices[i0];
-            Vertex v1 = vertices[i1];
-            Vertex v2 = vertices[i2];
-            Vertex v3 = vertices[i3];
+            Node v0 = vertices[i0];
+            Node v1 = vertices[i1];
+            Node v2 = vertices[i2];
+            Node v3 = vertices[i3];
 
             // the first diagonal MUST be opposite to v2 to avoid degeneracy
             // 1) 0-3-2

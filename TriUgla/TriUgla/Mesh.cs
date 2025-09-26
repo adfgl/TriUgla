@@ -3,7 +3,7 @@
     public class Mesh
     {
         public Rectangle Bounds { get; set; }
-        public List<Vertex> Vertices { get; set; } = new List<Vertex>();
+        public List<Node> Nodes { get; set; } = new List<Node>();
         public List<Circle> Circles { get; set; } = new List<Circle>();
         public List<Triangle> Triangles { get; set; } = new List<Triangle>();
 

@@ -8,7 +8,7 @@ namespace TriUgla
 {
     public class Finder
     {
-        public (int t, int e) FindEdge(Mesh mesh, Vertex start, Vertex end, bool invariant)
+        public (int t, int e) FindEdge(Mesh mesh, Node start, Node end, bool invariant)
         {
             List<Triangle> tris = mesh.Triangles;
             Circler circler = new Circler(tris, start);
@@ -39,7 +39,7 @@ namespace TriUgla
         public (int t, int e, int v) FindContaining(Mesh mesh, List<int> path, double x, double y, double eps, int searchStart = -1)
         {
             List<Triangle> tris = mesh.Triangles;
-            List<Vertex> verts = mesh.Vertices;
+            List<Node> verts = mesh.Nodes;
             if (tris.Count == 0 || !mesh.Bounds.Contains(x, y))
             {
                 return (-1, -1, -1);
@@ -49,19 +49,19 @@ namespace TriUgla
             int maxSteps = tris.Count * 3;
             int trianglesChecked = 0;
 
-            Vertex vertex = new Vertex(x, y);
+            Node vertex = new Node(x, y);
             while (trianglesChecked++ < maxSteps)
             {
                 path.Add(current);
 
                 Triangle t = tris[current];
-                Vertex v0 = verts[t.vtx0];
-                Vertex v1 = verts[t.vtx1];
-                Vertex v2 = verts[t.vtx2];
+                Node v0 = verts[t.vtx0];
+                Node v1 = verts[t.vtx1];
+                Node v2 = verts[t.vtx2];
 
-                double cross01 = Vertex.Cross(v0, v1, vertex);
-                double cross12 = Vertex.Cross(v1, v2, vertex);
-                double cross20 = Vertex.Cross(v2, v0, vertex);
+                double cross01 = Node.Cross(v0, v1, vertex);
+                double cross12 = Node.Cross(v1, v2, vertex);
+                double cross20 = Node.Cross(v2, v0, vertex);
 
                 int bestExitTriangle = t.adj0;
                 int worstEdge = 0;
@@ -85,14 +85,14 @@ namespace TriUgla
                 {
                     (int si, int ei) = t.Edge(worstEdge);
 
-                    Vertex start = verts[si];
-                    if (Vertex.CloseOrEqual(start, vertex, eps))
+                    Node start = verts[si];
+                    if (Node.CloseOrEqual(start, vertex, eps))
                     {
                         return (current, -1, si);
                     }
 
-                    Vertex end = verts[ei];
-                    if (Vertex.CloseOrEqual(end, vertex, eps))
+                    Node end = verts[ei];
+                    if (Node.CloseOrEqual(end, vertex, eps))
                     {
                         return (current, -1, ei);
                     }
@@ -127,7 +127,7 @@ namespace TriUgla
             _current = triangleIndex;
         }
 
-        public Circler(List<Triangle> triangles, Vertex vtx) : this(triangles, vtx.Triangle, vtx.Index)
+        public Circler(List<Triangle> triangles, Node vtx) : this(triangles, vtx.Triangle, vtx.Index)
         {
 
         }

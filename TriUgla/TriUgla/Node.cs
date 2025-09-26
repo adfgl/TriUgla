@@ -2,9 +2,9 @@
 
 namespace TriUgla
 {
-    public class Vertex : IPoint
+    public class Node : IPoint
     {
-        public Vertex(double x, double y)
+        public Node(double x, double y)
         {
             X = x;
             Y = y;
@@ -16,19 +16,19 @@ namespace TriUgla
         public double X { get; set; }
         public double Y { get; set; }
 
-        public static double LengthSquared(Vertex a, Vertex b)
+        public static double LengthSquared(Node a, Node b)
         {
             double dx = a.X - b.X;
             double dy = a.Y - b.Y;
             return dx * dx + dy * dy;
         }
 
-        public static double Length(Vertex a, Vertex b)
+        public static double Length(Node a, Node b)
         {
             return Math.Sqrt(LengthSquared(a, b));
         }
 
-        public static bool CloseOrEqual(Vertex a, Vertex b, double eps)
+        public static bool CloseOrEqual(Node a, Node b, double eps)
         {
             if (a.Index == b.Index && a.Index != -1)
             {
@@ -38,18 +38,18 @@ namespace TriUgla
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double Cross(Vertex a, Vertex b, Vertex c)
+        public static double Cross(Node a, Node b, Node c)
         {
             return (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
         }
 
-        public static double Area(Vertex a, Vertex b, Vertex c)
+        public static double Area(Node a, Node b, Node c)
         {
             return Cross(a, b, c) * 0.5;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsConvex(Vertex a, Vertex b, Vertex c, Vertex d)
+        public static bool IsConvex(Node a, Node b, Node c, Node d)
         {
             return
                 Cross(a, b, c) > 0 &&
@@ -58,7 +58,7 @@ namespace TriUgla
                 Cross(d, a, b) > 0;
         }
 
-        public static Vertex? Intersect(Vertex p1, Vertex p2, Vertex q1, Vertex q2)
+        public static Node? Intersect(Node p1, Node p2, Node q1, Node q2)
         {
             // P(u) = p1 + u * (p2 - p1)
             // Q(v) = q1 + v * (q2 - q1)
@@ -95,7 +95,7 @@ namespace TriUgla
 
             double x = p1.X + u * a;
             double y = p1.Y + u * c;
-            return new Vertex(x, y);
+            return new Node(x, y);
         }
     }
 }
