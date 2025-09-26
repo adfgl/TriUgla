@@ -40,6 +40,13 @@
             return -1;
         }
 
+        public int IndexOfInvariant(int start, int end)
+        {
+            int edge = IndexOf(start, end);
+            if (edge == -1) edge = IndexOf(end, start);
+            return edge;
+        }
+
         public (int start, int end) Edge(int index)
         {
             return index switch

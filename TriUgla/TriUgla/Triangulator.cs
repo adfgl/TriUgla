@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+﻿using System.Runtime.CompilerServices;
 
 namespace TriUgla
 {
@@ -92,21 +86,21 @@ namespace TriUgla
             while (queue.Count > 0)
             {
                 var (n0, n1) = queue.Dequeue();
-                if (Node.CloseOrEqual(n0, n1, 1e-4))
+                if (Node.CloseOrEqual(n0, n1, eps))
                 {
                     continue;
                 }
 
-                (int t, int e) = Finder.FindEdge(_mesh, n0, n1, true);
+                Triangle triangle = Finder.EntranceTriangle(_mesh, n0, n1, eps);
+                int t = triangle.index;
+                _mesh.Triangles[t] = triangle;
+
+                int e = triangle.IndexOfInvariant(n0.Index, n1.Index);
                 if (e != -1)
                 {
                     _mesh.SetConstraint(t, e, type);
                     continue;
                 }
-
-                Triangle triangle = Finder.EntranceTriangle(_mesh, n0, n1, eps);
-                t = triangle.index;
-                _mesh.Triangles[t] = triangle;
 
                 Node next = _mesh.Nodes[triangle.vtx1];
                 if (Node.AreParallel(start, end, n0, next, eps))
@@ -199,26 +193,226 @@ namespace TriUgla
             return this;
         }
 
-        public Triangulator Refine()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]  
+        public static bool ContainsSuper(Triangle t)
         {
-            if (_state != ETriangulatorState.Triangulated && _state != ETriangulatorState.Refined)
+            return t.vtx0 < 3 || t.vtx1 < 3 || t.vtx2 < 3;
+        }
+
+        bool Bad(Triangle t, Quality qt)
+        {
+            Node a = _mesh.Nodes[t.vtx0];
+            Node b = _mesh.Nodes[t.vtx1];
+            Node c = _mesh.Nodes[t.vtx2];
+
+            double area = Node.Cross(a, b, c) * 0.5;
+            return area > qt.MaxArea;
+        }
+
+        public Triangulator Refine(Quality quality, double eps)
+        {
+            if (!quality.ShouldRefine()) return this;
+
+            if (_state != ETriangulatorState.Triangulated || _state == ETriangulatorState.Finalized)
             {
                 return this;
             }
 
+            HashSet<RefinedEdge> seen = new HashSet<RefinedEdge>();
+            Queue<int> triangleQueue = new Queue<int>();
+            Queue<RefinedEdge> segmentQueue = new Queue<RefinedEdge>();
+            int[] created = new int[4];
+
+            QuadTree<Node> qt = new QuadTree<Node>(_mesh.Bounds, 64);
+            foreach (Node item in _mesh.Nodes.Skip(3)) qt.Add(item);
+
+            foreach (Triangle t in _mesh.Triangles)
+            {
+                if (ContainsSuper(t)) continue;
+
+                if (Bad(t, quality))
+                {
+                    triangleQueue.Enqueue(t.index);
+                }
+
+                addSegment(t.con0, t.vtx0, t.vtx1);
+                addSegment(t.con1, t.vtx1, t.vtx2);
+                addSegment(t.con2, t.vtx2, t.vtx0);
+            }
+
+            Stack<int> affected = new Stack<int>();
+            while (segmentQueue.Count > 0 || triangleQueue.Count > 0)
+            {
+                while (affected.Count > 0)
+                    triangleQueue.Enqueue(affected.Pop());
+
+                if (segmentQueue.Count > 0)
+                {
+                    RefinedEdge constraint = segmentQueue.Dequeue();
+                    (int t, int e) = Finder.FindEdge(_mesh, constraint.start, constraint.end, true);
+                    if (e == -1) continue;
+
+                    double x = constraint.circle.x;
+                    double y = constraint.circle.y;
+
+                    Node inserted = Insert(created, x, y, t, e, affected);
+                    qt.Add(inserted);
+
+                    seen.Remove(constraint);
+                    foreach (RefinedEdge edge in constraint.Split(inserted, eps))
+                    {
+                        if (seen.Add(edge) && edge.Enchrouched(qt, eps) && edge.VisibleFromInterior(seen, x, y))
+                        {
+                            segmentQueue.Enqueue(edge);
+                        }
+                    }
+                    continue;
+                }
+
+                if (triangleQueue.Count > 0)
+                {
+                    int ti = triangleQueue.Dequeue();
+                    Triangle t = _mesh.Triangles[ti];
+                    if (!Bad(t, quality)) continue;
+
+                    Circle c = _mesh.Circles[ti];
+                    double x = c.x;
+                    double y = c.y;
+                    if (!_mesh.Bounds.Contains(x, y))
+                    {
+                        continue;
+                    }
+
+                    bool encroaches = false;
+                    foreach (RefinedEdge seg in seen)
+                    {
+                        if (seg.circle.Contains(x, y) && seg.VisibleFromInterior(seen, x, y))
+                        {
+                            segmentQueue.Enqueue(seg);
+                            encroaches = true;
+                        }
+                    }
+
+                    if (encroaches)
+                    {
+                        continue;
+                    }
+
+                    Node? inserted = Insert(x, y, eps);
+                    if (inserted != null)
+                    {
+                        qt.Add(inserted);
+                    }
+                }
+            }
+
             _state = ETriangulatorState.Refined;
             return this;
+
+            void addSegment(int constraint, int a, int b)
+            {
+                if (constraint == -1) return;
+
+                RefinedEdge edge = new RefinedEdge(constraint, _mesh.Nodes[a], _mesh.Nodes[b]);
+                if (seen.Add(edge) && edge.Enchrouched(qt, eps))
+                {
+                    segmentQueue.Enqueue(edge);
+                }
+            }
         }
 
         public Triangulator Finalize()
         {
-            if (_state != ETriangulatorState.Triangulated && _state != ETriangulatorState.Refined)
+            if (_state != ETriangulatorState.Triangulated || _state == ETriangulatorState.Finalized)
             {
                 return this;
             }
 
             _state = ETriangulatorState.Finalized;
             return this;
+        }
+
+        readonly struct RefinedEdge : IEquatable<RefinedEdge>
+        {
+            public readonly int type;
+            public readonly Node start, end;
+            public readonly Circle circle;
+
+            public RefinedEdge(int type, Node start, Node end)
+            {
+                this.type = type;
+                this.circle = new Circle(start.X, start.Y, end.X, end.Y);
+
+                if (start.Index < end.Index)
+                {
+                    this.start = start;
+                    this.end = end;
+                }
+                else
+                {
+                    this.start = end;
+                    this.end = start;
+                }
+            }
+
+            public bool Contains(Node node, double eps)
+            {
+                return Node.CloseOrEqual(start, node, eps) || Node.CloseOrEqual(end, node, eps);
+            }
+
+            public RefinedEdge[] Split(Node node, double eps)
+            {
+                if (Contains(node, eps))
+                {
+                    return [this];
+                }
+                return [new RefinedEdge(type, start, node), new RefinedEdge(type, node, end)];
+            }
+
+            public bool Equals(RefinedEdge other)
+            {
+                return start.Index == other.start.Index && end.Index == other.end.Index;
+            }
+
+            public override bool Equals(object? obj)
+            {
+                return obj is Edge other && Equals(other);
+            }
+
+            public bool VisibleFromInterior(IEnumerable<RefinedEdge> segments, double x, double y)
+            {
+                Node center = new Node(circle.x, circle.y);
+                Node pt = new Node(x, y);
+                foreach (var s in segments)
+                {
+                    if (this.Equals(s))
+                        continue;
+
+                    if (Node.Intersect(center, pt, s.start, s.end) is not null)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            public bool Enchrouched(List<Node> nodes, double eps)
+            {
+                foreach (Node item in nodes)
+                {
+                    if (circle.Contains(item.X, item.Y) && !Contains(item, eps))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            public bool Enchrouched(QuadTree<Node> qt, double eps)
+            {
+                List<Node> points = qt.Query(new Rectangle(circle));
+                return Enchrouched(points, eps);
+            }
         }
     }
 }
