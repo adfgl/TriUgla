@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace TriUgla.Geometry
 {
@@ -25,6 +26,12 @@ namespace TriUgla.Geometry
         public static double Cross(IPoint a, IPoint b, IPoint c)
         {
             return (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool AreCollinear(IPoint a, IPoint b, IPoint c, double eps)
+        {
+            return Math.Abs(Cross(a, b, c)) <= eps;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

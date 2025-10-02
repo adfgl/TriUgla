@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
+﻿using System.Data;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using TriUgla.Geometry;
 
 namespace TriUgla.Meshing
@@ -31,9 +25,143 @@ namespace TriUgla.Meshing
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static bool AreCollinear(Node a, Node b, Node c, double eps) => Math.Abs(GeometryHelper.Cross(a, b, c)) <= eps;
+        public static bool ContainsSuper(Triangle t, int super = 3)
+        {
+            return t.vtx0 < super || t.vtx1 < super || t.vtx2 < super;
+        }
 
-        public List<(Node, Node)> Insert(int type, int start, int end, double eps, bool alwaysSplit = false)
+        public bool Bad(Triangle t, double maxArea)
+        {
+            Node a = Nodes[t.vtx0];
+            Node b = Nodes[t.vtx1];
+            Node c = Nodes[t.vtx2];
+
+            double area = GeometryHelper.Area(a, b, c);
+            return area > maxArea;
+        }
+
+        public void Refine(double maxArea, double eps)
+        {
+            QuadTree<Node> qt = new QuadTree<Node>(Nodes.Skip(3).ToList(), eps);
+            if (qt.Count == 0) return;
+
+            HashSet<RefinedEdge> seen = new HashSet<RefinedEdge>();
+            Queue<int> triangleQueue = new Queue<int>();
+            Queue<RefinedEdge> segmentQueue = new Queue<RefinedEdge>();
+
+            foreach (Triangle t in Triangles)
+            {
+                if (ContainsSuper(t)) continue;
+
+                for (int i = 0; i < 3; i++)
+                {
+                    int s, e, c;
+                    switch (i)
+                    {
+                        case 0:
+                            s = t.vtx0;
+                            e = t.vtx1;
+                            c = t.con0;
+                            break;
+
+                        case 1:
+                            s = t.vtx1;
+                            e = t.vtx2;
+                            c = t.con1;
+                            break;
+
+                        default:
+                            s = t.vtx2;
+                            e = t.vtx0;
+                            c = t.con2;
+                            break;
+                    }
+
+                    if (c == -1) continue;
+
+                    RefinedEdge edge = new RefinedEdge(c, Nodes[s], Nodes[e]);
+                    if (seen.Add(edge) && edge.Enchrouched(qt, eps))
+                    {
+                        segmentQueue.Enqueue(edge);
+                    }
+
+                    if (Bad(t, maxArea))
+                    {
+                        triangleQueue.Enqueue(t.index);
+                    }
+                }
+            }
+
+            Stack<int> affected = new Stack<int>();
+            while (segmentQueue.Count > 0 || triangleQueue.Count > 0)
+            {
+                while (affected.Count > 0)
+                    triangleQueue.Enqueue(affected.Pop());
+
+                if (segmentQueue.Count > 0)
+                {
+                    RefinedEdge constraint = segmentQueue.Dequeue();
+                    (int t, int e) = FindEdge(constraint.start, constraint.end, true);
+                    if (e == -1) continue;
+
+                    double x = constraint.circle.x;
+                    double y = constraint.circle.y;
+                    double seed = (constraint.start.Seed + constraint.end.Seed) * 0.5;
+
+                    Node inserted = InsertNode(x, y, seed, t, e, affected);
+                    qt.Add(inserted);
+
+                    seen.Remove(constraint);
+                    foreach (RefinedEdge edge in constraint.Split(inserted, eps))
+                    {
+                        if (seen.Add(edge) && edge.Enchrouched(qt, eps) && edge.VisibleFromInterior(seen, x, y))
+                        {
+                            segmentQueue.Enqueue(edge);
+                        }
+                    }
+                    continue;
+                }
+
+                if (triangleQueue.Count > 0)
+                {
+                    int ti = triangleQueue.Dequeue();
+                    Triangle t = Triangles[ti];
+                    if (!Bad(t, maxArea)) continue;
+
+                    Circle c = Circles[ti];
+                    double x = c.x;
+                    double y = c.y;
+                    if (!qt.Bounds.Contains(x, y))
+                    {
+                        continue;
+                    }
+
+                    bool encroaches = false;
+                    foreach (RefinedEdge seg in seen)
+                    {
+                        if (seg.circle.Contains(x, y) && seg.VisibleFromInterior(seen, x, y))
+                        {
+                            segmentQueue.Enqueue(seg);
+                            encroaches = true;
+                        }
+                    }
+
+                    if (encroaches)
+                    {
+                        continue;
+                    }
+
+                    double seed = (Nodes[t.vtx0].Seed + Nodes[t.vtx1].Seed + Nodes[t.vtx2].Seed) / 3.0;
+                    Node? inserted = TryInsertNode(x, y, seed, eps);
+                    if (inserted != null)
+                    {
+                        qt.Add(inserted);
+                    }
+                }
+            }
+        }
+
+        public List<(Node, Node)> InsertEdge(int type, int start, int end, double eps, bool alwaysSplit = false)
         {
             List<(Node, Node)> edges = new List<(Node, Node)>();
             List<Node> nodes = Nodes;
@@ -62,7 +190,7 @@ namespace TriUgla.Meshing
                 }
 
                 Node next = nodes[t.vtx1];
-                if (AreCollinear(startNode, endNode, next, eps))
+                if (GeometryHelper.AreCollinear(startNode, endNode, next, eps))
                 {
                     queue.Enqueue((startNode, next));
                     queue.Enqueue((next, endNode));
@@ -70,7 +198,7 @@ namespace TriUgla.Meshing
                 }
 
                 Node prev = nodes[t.vtx2];
-                if (AreCollinear(startNode, endNode, prev, eps))
+                if (GeometryHelper.AreCollinear(startNode, endNode, prev, eps))
                 {
                     queue.Enqueue((startNode, prev));
                     queue.Enqueue((prev, endNode));
@@ -115,15 +243,15 @@ namespace TriUgla.Meshing
             return edges;
         }
 
-        public Node? Insert(double x, double y, double seed, double eps)
+        public Node? TryInsertNode(double x, double y, double seed, double eps)
         {
             (int t, int e, int v) = FindContaining(x, y, eps);
             if (t == -1) return null;
             if (v != -1) return Nodes[v];
-            return Insert(x, y, seed, t, e);
+            return InsertNode(x, y, seed, t, e);
         }
 
-        Node Insert(double x, double y, double seed, int triangle, int edge, Stack<int>? affected = null)
+        public Node InsertNode(double x, double y, double seed, int triangle, int edge, Stack<int>? affected = null)
         {
             Node node = Add(x, y, seed);
             int count = Split(triangle, edge, node.Index);

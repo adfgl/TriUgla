@@ -5,6 +5,15 @@
         readonly QuadNode root;
         readonly List<T> _items;
 
+        public QuadTree(List<T> points, double eps) 
+            : this(Rectangle.FromPoints(points, o => o.X, o => o.Y), points.Count)
+        {
+            foreach (T point in points)
+            {
+                TryAdd(point, eps);
+            }
+        }
+
         public QuadTree(Rectangle bounds, int numPoints)
         {
             bounds = ExpandedBounds(bounds);
