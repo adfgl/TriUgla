@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using TriUgla.Geometry;
@@ -16,6 +19,117 @@ namespace TriUgla.Meshing
         public List<Node> Nodes {  get; set; } = new List<Node>();
         public List<Triangle> Triangles { get; set; } = new List<Triangle>();
         public List<Circle> Circles { get; set; } = new List<Circle>();
+
+        Node Add(double x, double y, double seed)
+        {
+            Node node = new Node(x, y, seed)
+            {
+                Index = Nodes.Count
+            };
+            Nodes.Add(node);
+            return node;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static bool AreCollinear(Node a, Node b, Node c, double eps) => Math.Abs(GeometryHelper.Cross(a, b, c)) <= eps;
+
+        public List<(Node, Node)> Insert(int type, int start, int end, double eps, bool alwaysSplit = false)
+        {
+            List<(Node, Node)> edges = new List<(Node, Node)>();
+            List<Node> nodes = Nodes;
+            if (start < 0 || start > nodes.Count ||
+                end < 0 || end > nodes.Count)
+            {
+                return edges;
+            }
+
+            Queue<(Node, Node)> queue = new Queue<(Node, Node)>();
+            queue.Enqueue((nodes[start], nodes[end]));
+
+            List<int> toLegalize = new List<int>();
+            while (queue.Count > 0)
+            {
+                var (startNode, endNode) = queue.Dequeue();
+                if (Node.CloseOrEqual(startNode, endNode, eps)) continue;
+
+                Triangle t = OrientedEntranceTriangle(startNode, endNode, eps);
+                int ti = t.index;
+
+                if (SetConstraint(startNode, endNode, type))
+                {
+                    edges.Add((startNode, endNode));
+                    continue;
+                }
+
+                Node next = nodes[t.vtx1];
+                if (AreCollinear(startNode, endNode, next, eps))
+                {
+                    queue.Enqueue((startNode, next));
+                    queue.Enqueue((next, endNode));
+                    continue;
+                }
+
+                Node prev = nodes[t.vtx2];
+                if (AreCollinear(startNode, endNode, prev, eps))
+                {
+                    queue.Enqueue((startNode, prev));
+                    queue.Enqueue((prev, endNode));
+                    continue;
+                }
+
+                if (!GeometryHelper.Intersect(startNode, endNode, next, prev, out double x, out double y))
+                {
+                    throw new Exception("Expected intersection");
+                }
+
+                Triangle adjacent = Triangles[t.adj1].Orient(prev.Index, next.Index);
+                Node oppositeNode = nodes[adjacent.vtx2];
+
+                int count;
+                if (alwaysSplit || !CanFlip(ti, 1, out _))
+                {
+                    double seed1 = Node.Interpolate(startNode, endNode, x, y);
+                    double seed2 = Node.Interpolate(next, prev, x, y);
+                    double seed = (seed1 + seed2) * 0.5;
+
+                    Node inserted = Add(x, y, seed);
+
+                    count = SplitEdge(ti, 1, inserted.Index);
+
+                    queue.Enqueue((startNode, inserted));
+                    queue.Enqueue((inserted, oppositeNode));
+                    queue.Enqueue((oppositeNode, endNode));
+                }
+                else
+                {
+                    count = Flip(ti, 1, false);
+
+                    queue.Enqueue((startNode, oppositeNode));
+                    queue.Enqueue((oppositeNode, endNode));
+                }
+
+                toLegalize.AddRange(m_newTris.Take(count));
+            }
+
+            Legalize(toLegalize);
+            return edges;
+        }
+
+        public Node? Insert(double x, double y, double seed, double eps)
+        {
+            (int t, int e, int v) = FindContaining(x, y, eps);
+            if (t == -1) return null;
+            if (v != -1) return Nodes[v];
+            return Insert(x, y, seed, t, e);
+        }
+
+        Node Insert(double x, double y, double seed, int triangle, int edge, Stack<int>? affected = null)
+        {
+            Node node = Add(x, y, seed);
+            int count = Split(triangle, edge, node.Index);
+            int legalized = Legalize(m_newTris.Take(count), affected);
+            return node;
+        }
 
         public int Legalize(IEnumerable<int> indices, Stack<int>? affected = null)
         {
@@ -134,6 +248,15 @@ namespace TriUgla.Meshing
             return 2;
         }
 
+        public int Split(int triangleIndex, int edgeIndex, int vertexIndex)
+        {
+            if (edgeIndex == -1)
+            {
+                return SplitEdge(triangleIndex, edgeIndex, vertexIndex);    
+            }
+            return SplitTriangle(triangleIndex, vertexIndex);
+        }
+
         /// <summary>
         /// Splits the triangle by inserting an interior vertex. Updates connectivity and circumcircles.
         /// </summary>
@@ -142,7 +265,7 @@ namespace TriUgla.Meshing
         /// <returns>
         /// 3. Resulting triangle indices are written to <c>m_newTris[0..2]</c>.
         /// </returns>
-        public int Split(int triangleIndex, int vertexIndex)
+        public int SplitTriangle(int triangleIndex, int vertexIndex)
         {
             List<Triangle> triangles = Triangles;
             List<Node> vertices = Nodes;
@@ -208,7 +331,7 @@ namespace TriUgla.Meshing
         /// <returns>
         /// 2 for boundary, 4 for interior. Resulting triangle indices are written to <c>m_newTris[0..count-1]</c>.
         /// </returns>
-        public int Split(int triangleIndex, int edgeIndex, int vertexIndex)
+        public int SplitEdge(int triangleIndex, int edgeIndex, int vertexIndex)
         {
             List<Triangle> triangles = Triangles;
             List<Node> vertices = Nodes;
@@ -343,6 +466,25 @@ namespace TriUgla.Meshing
             Triangle t = tris[parent].Orient(parentStart, parentEnd);
             t.adj0 = child;
             tris[parent] = t;
+        }
+
+        public bool SetConstraint(Node start, Node end, int type)
+        {
+            Circler walker = new Circler(Triangles, start);
+            do
+            {
+                int ti = walker.Current;
+                Triangle t = Triangles[ti];
+                int edge = t.IndexOfInvariant(start.Index, end.Index); 
+                if (edge != -1)
+                {
+                    SetConstraint(ti, edge, type);
+                    return true;
+                }
+
+            } while (walker.Next());
+
+            return false;
         }
 
         public void SetConstraint(int triangle, int edge, int type)
@@ -486,6 +628,92 @@ namespace TriUgla.Meshing
             while (circler.Next());
 
             return (-1, -1);
+        }
+
+
+        readonly struct RefinedEdge : IEquatable<RefinedEdge>
+        {
+            public readonly int type;
+            public readonly Node start, end;
+            public readonly Circle circle;
+
+            public RefinedEdge(int type, Node start, Node end)
+            {
+                this.type = type;
+                this.circle = new Circle(start.X, start.Y, end.X, end.Y);
+
+                if (start.Index < end.Index)
+                {
+                    this.start = start;
+                    this.end = end;
+                }
+                else
+                {
+                    this.start = end;
+                    this.end = start;
+                }
+            }
+
+            public bool Contains(Node node, double eps)
+            {
+                return Node.CloseOrEqual(start, node, eps) || Node.CloseOrEqual(end, node, eps);
+            }
+
+            public RefinedEdge[] Split(Node node, double eps)
+            {
+                if (Contains(node, eps))
+                {
+                    return [this];
+                }
+                return [new RefinedEdge(type, start, node), new RefinedEdge(type, node, end)];
+            }
+
+            public override int GetHashCode() => HashCode.Combine(start.Index, end.Index);
+
+            public bool Equals(RefinedEdge other)
+            {
+                return start.Index == other.start.Index && end.Index == other.end.Index;
+            }
+
+            public override bool Equals(object? obj)
+            {
+                return obj is Edge other && Equals(other);
+            }
+
+            public bool VisibleFromInterior(IEnumerable<RefinedEdge> segments, double x, double y)
+            {
+                Node center = new Node(circle.x, circle.y, -1);
+                Node pt = new Node(x, y, -1);
+                foreach (var s in segments)
+                {
+                    if (this.Equals(s))
+                        continue;
+
+                    if (GeometryHelper.Intersect(center, pt, s.start, s.end, out _, out _))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            public bool Enchrouched(List<Node> nodes, double eps)
+            {
+                foreach (Node item in nodes)
+                {
+                    if (circle.Contains(item.X, item.Y) && !Contains(item, eps))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            public bool Enchrouched(QuadTree<Node> qt, double eps)
+            {
+                List<Node> points = qt.Query(new Rectangle(circle));
+                return Enchrouched(points, eps);
+            }
         }
     }
 }

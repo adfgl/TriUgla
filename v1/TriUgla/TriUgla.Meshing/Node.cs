@@ -40,5 +40,10 @@ namespace TriUgla.Meshing
             }
             return GeometryHelper.LengthSquared(a, b) <= eps;
         }
+
+        public override string ToString()
+        {
+            return $"[{Index}] {X} {Y}";
+        }
     }
 }

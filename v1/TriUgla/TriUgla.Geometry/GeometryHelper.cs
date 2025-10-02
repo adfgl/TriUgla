@@ -21,7 +21,6 @@ namespace TriUgla.Geometry
             return Math.Sqrt(LengthSquared(a, b));
         }
 
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double Cross(IPoint a, IPoint b, IPoint c)
         {
