@@ -369,6 +369,8 @@ namespace TriUgla
                 return [new RefinedEdge(type, start, node), new RefinedEdge(type, node, end)];
             }
 
+            public override int GetHashCode() => HashCode.Combine(start.Index, end.Index);
+
             public bool Equals(RefinedEdge other)
             {
                 return start.Index == other.start.Index && end.Index == other.end.Index;

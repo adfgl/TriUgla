@@ -2,8 +2,12 @@
 
 namespace TriUgla
 {
-    public class Splitter
+    public class Splitter : MeshHelperBase
     {
+        public Splitter(Mesh mesh) : base(mesh)
+        {
+        }
+
         /// <summary>
         /// Splits an existing triangle in the mesh into three smaller triangles by inserting
         /// a new vertex inside it. Updates the triangle and circle lists in the mesh and
@@ -17,11 +21,11 @@ namespace TriUgla
         /// <param name="triangleIndex">Index of the triangle in <see cref="Mesh.Triangles"/> to split.</param>
         /// <param name="vertexIndex">Index of the vertex in <see cref="Mesh.Nodes"/> to insert.</param>
         /// <returns>The number of triangles written into <paramref name="newTris"/> (always 4).</returns>
-        public static int Split(int[] newTris, Mesh mesh, int triangleIndex, int vertexIndex)
+        public int Split(int triangleIndex, int vertexIndex)
         {
-            List<Triangle> triangles = mesh.Triangles;
-            List<Node> vertices = mesh.Nodes;
-            List<Circle> circles = mesh.Circles;
+            List<Triangle> triangles = _mesh.Triangles;
+            List<Node> vertices = _mesh.Nodes;
+            List<Circle> circles = _mesh.Circles;
 
             Triangle old = triangles[triangleIndex];
 
@@ -61,8 +65,8 @@ namespace TriUgla
                old.adj2, t0, t1,
                old.con2, -1, -1));
 
-            mesh.SetAdjacent(old.adj1, i2, i1, t1);
-            mesh.SetAdjacent(old.adj2, i0, i2, t2);
+            _mesh.SetAdjacent(old.adj1, i2, i1, t1);
+            _mesh.SetAdjacent(old.adj2, i0, i2, t2);
 
             v0.Triangle = v1.Triangle = v3.Triangle = t0;
             v2.Triangle = t1;
