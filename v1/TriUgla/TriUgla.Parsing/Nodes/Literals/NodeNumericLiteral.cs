@@ -1,6 +1,6 @@
 ﻿using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Literals
 {
     public class NodeNumericLiteral : INode
     {

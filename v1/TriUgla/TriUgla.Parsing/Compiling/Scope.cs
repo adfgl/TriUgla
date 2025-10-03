@@ -40,7 +40,7 @@ namespace TriUgla.Parsing.Compiling
 
         public Variable Declare(Token identifer, Value value)
         {
-            if (Resolve(identifer.value.text!, out _))
+            if (Resolve(identifer.value, out _))
             {
                 throw new Exception("Already declared");
             }
@@ -50,18 +50,13 @@ namespace TriUgla.Parsing.Compiling
                 Identifier = identifer,
                 Value = value
             };
-            _variables.Add(variable.ToString(), variable);
+            _variables.Add(identifer.value, variable);
             return variable;
         }
 
         public Variable? Get(Token token)
         {
-            string? name = token.value.text;
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new Exception("Invalid variable name");
-            }
-
+            string name = token.value;
             if (Resolve(name, out Scope scope))
             {
                 return scope._variables[name];
@@ -71,12 +66,7 @@ namespace TriUgla.Parsing.Compiling
 
         public Variable GetOrDeclare(Token token)
         {
-            string? name = token.value.text;
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new Exception("Invalid variable name");
-            }
-
+            string name = token.value;
             if (Resolve(name, out Scope scope))
             {
                 return scope._variables[name];

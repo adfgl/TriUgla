@@ -12,13 +12,13 @@ namespace TriUgla.Parsing
 
         public Value Visit(NodeNumericLiteral n)
         {
-            Value value = n.Token.value;
+            Value value = new Value(n.Token.numeric);
             return value;
         }
 
         public Value Visit(NodeStringLiteral n)
         {
-            Value value = n.Token.value;
+            Value value = new Value(n.Token.value);
             return value;
         }
 

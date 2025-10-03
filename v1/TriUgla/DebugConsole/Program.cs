@@ -7,8 +7,8 @@ namespace DebugConsole
     {
         static void Main(string[] args)
         {
-            //string txt = File.ReadAllText(@"text.txt");
-            //Console.WriteLine(txt);
+            string txt = File.ReadAllText(@"text.txt");
+            Console.WriteLine(txt);
 
             //Console.WriteLine();
 
