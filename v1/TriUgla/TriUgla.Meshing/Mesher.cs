@@ -31,7 +31,6 @@ namespace TriUgla.Meshing
             Rectangle bounds = Rectangle.FromPoints(vertices, o => o.X, o => o.Y);
 
             Mesh mesh = new Mesh();
-            mesh = SuperStructure.AddTriangle(mesh, bounds, 2);
 
 
 

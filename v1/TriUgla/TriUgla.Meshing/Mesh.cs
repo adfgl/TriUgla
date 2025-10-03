@@ -8,50 +8,104 @@ namespace TriUgla.Meshing
     {
         public const int MAX_FLIPS_PER_DIAGONAL = 5;
 
-        readonly int[] m_newTris = new int[4];
+        readonly int[] _newTris = new int[4];
+        readonly List<Circle> _circles = new List<Circle>();
+        readonly List<Triangle> _triangles = new List<Triangle>();
+        readonly List<Node> _nodes = new List<Node>();
 
-        public List<Node> Nodes {  get; set; } = new List<Node>();
-        public List<Triangle> Triangles { get; set; } = new List<Triangle>();
-        public List<Circle> Circles { get; set; } = new List<Circle>();
+        public IReadOnlyList<Node> Nodes => _nodes;
+        public IReadOnlyList<Triangle> Triangles => _triangles;
+        public IReadOnlyList<int> RecentlyProcessed => _newTris;
 
         Node Add(double x, double y, double seed)
         {
             Node node = new Node(x, y, seed)
             {
-                Index = Nodes.Count
+                Index = _nodes.Count
             };
-            Nodes.Add(node);
+            _nodes.Add(node);
             return node;
         }
 
+        public void AddSuperTriangle(Rectangle bounds, double scale)
+        {
+            double dmax = Math.Max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+            double midx = (bounds.maxX + bounds.minX) * 0.5;
+            double midy = (bounds.maxY + bounds.minY) * 0.5;
+            double size = Math.Max(scale, 2) * dmax;
+
+            Node a = new Node(midx - size, midy - size, -1)
+            {
+                Index = 0,
+                Triangle = 0
+            };
+
+            Node b = new Node(midx + size, midy - size, -1)
+            {
+                Index = 1,
+                Triangle = 0
+            };
+
+            Node c = new Node(midx, midy + size, -1)
+            {
+                Index = 2,
+                Triangle = 0
+            };
+
+            _nodes.Add(a);
+            _nodes.Add(b);
+            _nodes.Add(c);
+
+            _circles.Add(new Circle(a, b, c));
+            _triangles.Add(new Triangle(0,
+                0, 1, 2,
+                -1, -1, -1,
+                -1, -1, -1,
+
+                ETriangleState.Keep));
+        }
+
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool ContainsSuper(Triangle t, int super = 3)
+        public static bool ContainsSuper(Triangle t, int super)
         {
             return t.vtx0 < super || t.vtx1 < super || t.vtx2 < super;
         }
 
         public bool Bad(Triangle t, double maxArea)
         {
-            Node a = Nodes[t.vtx0];
-            Node b = Nodes[t.vtx1];
-            Node c = Nodes[t.vtx2];
+            Node a = _nodes[t.vtx0];
+            Node b = _nodes[t.vtx1];
+            Node c = _nodes[t.vtx2];
 
             double area = GeometryHelper.Area(a, b, c);
             return area > maxArea;
         }
 
+        public void MarkTriangles(Func<Triangle, bool> shouldKeep)
+        {
+            int n = _triangles.Count;
+            for (int i = 0; i < n; i++)
+            {
+                Triangle t = _triangles[i];
+                bool keep = !ContainsSuper(t, 3) && shouldKeep(t);
+                ETriangleState state = keep ? ETriangleState.Keep : ETriangleState.Remove;
+                if (t.state != state) _triangles[i] = t;
+            }
+        }
+
         public void Refine(double maxArea, double eps)
         {
-            QuadTree<Node> qt = new QuadTree<Node>(Nodes.Skip(3).ToList(), eps);
+            QuadTree<Node> qt = new QuadTree<Node>(_nodes.Skip(3).ToList(), eps);
             if (qt.Count == 0) return;
 
             HashSet<RefinedEdge> seen = new HashSet<RefinedEdge>();
             Queue<int> triangleQueue = new Queue<int>();
             Queue<RefinedEdge> segmentQueue = new Queue<RefinedEdge>();
 
-            foreach (Triangle t in Triangles)
+            foreach (Triangle t in _triangles)
             {
-                if (ContainsSuper(t)) continue;
+                if (t.state == ETriangleState.Remove) continue;
 
                 for (int i = 0; i < 3; i++)
                 {
@@ -79,7 +133,7 @@ namespace TriUgla.Meshing
 
                     if (c == -1) continue;
 
-                    RefinedEdge edge = new RefinedEdge(c, Nodes[s], Nodes[e]);
+                    RefinedEdge edge = new RefinedEdge(c, _nodes[s], _nodes[e]);
                     if (seen.Add(edge) && edge.Enchrouched(qt, eps))
                     {
                         segmentQueue.Enqueue(edge);
@@ -125,10 +179,10 @@ namespace TriUgla.Meshing
                 if (triangleQueue.Count > 0)
                 {
                     int ti = triangleQueue.Dequeue();
-                    Triangle t = Triangles[ti];
+                    Triangle t = _triangles[ti];
                     if (!Bad(t, maxArea)) continue;
 
-                    Circle c = Circles[ti];
+                    Circle c = _circles[ti];
                     double x = c.x;
                     double y = c.y;
                     if (!qt.Bounds.Contains(x, y))
@@ -151,7 +205,7 @@ namespace TriUgla.Meshing
                         continue;
                     }
 
-                    double seed = (Nodes[t.vtx0].Seed + Nodes[t.vtx1].Seed + Nodes[t.vtx2].Seed) / 3.0;
+                    double seed = (_nodes[t.vtx0].Seed + _nodes[t.vtx1].Seed + _nodes[t.vtx2].Seed) / 3.0;
                     Node? inserted = TryInsertNode(x, y, seed, eps);
                     if (inserted != null)
                     {
@@ -164,7 +218,7 @@ namespace TriUgla.Meshing
         public List<(Node, Node)> InsertEdge(int type, int start, int end, double eps, bool alwaysSplit = false)
         {
             List<(Node, Node)> edges = new List<(Node, Node)>();
-            List<Node> nodes = Nodes;
+            List<Node> nodes = _nodes;
             if (start < 0 || start > nodes.Count ||
                 end < 0 || end > nodes.Count)
             {
@@ -210,7 +264,7 @@ namespace TriUgla.Meshing
                     throw new Exception("Expected intersection");
                 }
 
-                Triangle adjacent = Triangles[t.adj1].Orient(prev.Index, next.Index);
+                Triangle adjacent = _triangles[t.adj1].Orient(prev.Index, next.Index);
                 Node oppositeNode = nodes[adjacent.vtx2];
 
                 int count;
@@ -236,7 +290,7 @@ namespace TriUgla.Meshing
                     queue.Enqueue((oppositeNode, endNode));
                 }
 
-                toLegalize.AddRange(m_newTris.Take(count));
+                toLegalize.AddRange(_newTris.Take(count));
             }
 
             Legalize(toLegalize);
@@ -247,7 +301,7 @@ namespace TriUgla.Meshing
         {
             (int t, int e, int v) = FindContaining(x, y, eps);
             if (t == -1) return null;
-            if (v != -1) return Nodes[v];
+            if (v != -1) return _nodes[v];
             return InsertNode(x, y, seed, t, e);
         }
 
@@ -255,7 +309,7 @@ namespace TriUgla.Meshing
         {
             Node node = Add(x, y, seed);
             int count = Split(triangle, edge, node.Index);
-            int legalized = Legalize(m_newTris.Take(count), affected);
+            int legalized = Legalize(_newTris.Take(count), affected);
             return node;
         }
 
@@ -264,7 +318,7 @@ namespace TriUgla.Meshing
             Stack<int> stack = new Stack<int>(indices);
 
             int totalFlips = 0;
-            List<Triangle> tris = Triangles;
+            List<Triangle> tris = _triangles;
             Dictionary<Edge, int> flipCount = new Dictionary<Edge, int>(64);
             while (stack.Count > 0)
             {
@@ -274,7 +328,7 @@ namespace TriUgla.Meshing
                 Triangle t = tris[ti];
                 for (int ei = 0; ei < 3; ei++)
                 {
-                    var (u, v) = t.Edge(ei);
+                    t.Edge(ei, out int u, out int v);
                     Edge key = new Edge(u, v);
 
                     if (flipCount.TryGetValue(key, out int flipsMade) && flipsMade >= MAX_FLIPS_PER_DIAGONAL)
@@ -292,7 +346,7 @@ namespace TriUgla.Meshing
 
                     for (int i = 0; i < Flip(ti, ei, false); i++)
                     {
-                        int idx = m_newTris[i];
+                        int idx = _newTris[i];
                         stack.Push(idx);
 
                         if (ti != idx && affected is not null)
@@ -312,7 +366,7 @@ namespace TriUgla.Meshing
         /// Performs a 2–2 edge flip on <paramref name="edgeIndex"/> of <paramref name="triangleIndex"/>.
         /// Updates connectivity and circumcircles. Skips if boundary or constrained (unless <paramref name="forceFlip"/>).
         /// </summary>
-        /// <param name="triangleIndex">Triangle index in <see cref="Triangles"/>.</param>
+        /// <param name="triangleIndex">Triangle index in <see cref="_triangles"/>.</param>
         /// <param name="edgeIndex">Local edge (0..2) to flip.</param>
         /// <param name="forceFlip">Flip even if the edge is constrained.</param>
         /// <returns>
@@ -320,9 +374,9 @@ namespace TriUgla.Meshing
         /// </returns>
         public int Flip(int triangleIndex, int edgeIndex, bool forceFlip)
         {
-            List<Triangle> triangles = Triangles;
-            List<Node> vertices = Nodes;
-            List<Circle> circles = Circles;
+            List<Triangle> triangles = _triangles;
+            List<Node> vertices = _nodes;
+            List<Circle> circles = _circles;
 
             Triangle old0 = triangles[triangleIndex].Orient(edgeIndex);
             int constraint = old0.con0;
@@ -354,16 +408,17 @@ namespace TriUgla.Meshing
             circles[t0] = new Circle(v0, v3, v2);
             circles[t1] = new Circle(v3, v1, v2);
 
+            ETriangleState state = (old0.state == old1.state) ? old0.state : ETriangleState.Ambiguous;
 
             triangles[t0] = new Triangle(t0,
                 i0, i3, i2,
                 old1.adj1, t1, old0.adj2,
-                old1.con1, constraint, old0.con2);
+                old1.con1, constraint, old0.con2, state);
 
             triangles[t1] = new Triangle(t1,
                 i3, i1, i2,
                 old1.adj2, old0.adj1, t0,
-                old1.con2, old0.con1, constraint);
+                old1.con2, old0.con1, constraint, state);
 
             SetAdjacent(old0.adj1, i2, i1, t1);
             SetAdjacent(old1.adj1, i3, i0, t0);
@@ -371,8 +426,8 @@ namespace TriUgla.Meshing
             v0.Triangle = v2.Triangle = v3.Triangle = t0;
             v1.Triangle = t1;
 
-            m_newTris[0] = t0;
-            m_newTris[1] = t1;
+            _newTris[0] = t0;
+            _newTris[1] = t1;
             return 2;
         }
 
@@ -388,16 +443,16 @@ namespace TriUgla.Meshing
         /// <summary>
         /// Splits the triangle by inserting an interior vertex. Updates connectivity and circumcircles.
         /// </summary>
-        /// <param name="triangleIndex">Triangle index in <see cref="Triangles"/>.</param>
-        /// <param name="vertexIndex">Vertex index in <see cref="Nodes"/> (assumed inside).</param>
+        /// <param name="triangleIndex">Triangle index in <see cref="_triangles"/>.</param>
+        /// <param name="vertexIndex">Vertex index in <see cref="_nodes"/> (assumed inside).</param>
         /// <returns>
         /// 3. Resulting triangle indices are written to <c>m_newTris[0..2]</c>.
         /// </returns>
         public int SplitTriangle(int triangleIndex, int vertexIndex)
         {
-            List<Triangle> triangles = Triangles;
-            List<Node> vertices = Nodes;
-            List<Circle> circles = Circles;
+            List<Triangle> triangles = _triangles;
+            List<Node> vertices = _nodes;
+            List<Circle> circles = _circles;
 
             Triangle old = triangles[triangleIndex];
 
@@ -425,17 +480,23 @@ namespace TriUgla.Meshing
             triangles[t0] = new Triangle(t0,
                 i0, i1, i3,
                 old.adj0, t1, t2,
-                old.con0, -1, -1);
+                old.con0, -1, -1,
+
+                old.state);
 
             triangles.Add(new Triangle(t1,
                 i1, i2, i3,
                 old.adj1, t2, t0,
-                old.con1, -1, -1));
+                old.con1, -1, -1,
+
+                old.state));
 
             triangles.Add(new Triangle(t2,
                i2, i0, i3,
                old.adj2, t0, t1,
-               old.con2, -1, -1));
+               old.con2, -1, -1,
+
+               old.state));
 
             SetAdjacent(old.adj1, i2, i1, t1);
             SetAdjacent(old.adj2, i0, i2, t2);
@@ -443,9 +504,9 @@ namespace TriUgla.Meshing
             v0.Triangle = v1.Triangle = v3.Triangle = t0;
             v2.Triangle = t1;
 
-            m_newTris[0] = t0;
-            m_newTris[1] = t1;
-            m_newTris[2] = t2;
+            _newTris[0] = t0;
+            _newTris[1] = t1;
+            _newTris[2] = t2;
             return 3;
         }
 
@@ -453,17 +514,17 @@ namespace TriUgla.Meshing
         /// Splits using a vertex on the given local edge. Boundary → 2 triangles; interior pair → 4.
         /// Updates connectivity and circumcircles.
         /// </summary>
-        /// <param name="triangleIndex">Triangle index in <see cref="Triangles"/>.</param>
+        /// <param name="triangleIndex">Triangle index in <see cref="_triangles"/>.</param>
         /// <param name="edgeIndex">Local edge (0..2) to split along.</param>
-        /// <param name="vertexIndex">Vertex index in <see cref="Nodes"/> (on the edge).</param>
+        /// <param name="vertexIndex">Vertex index in <see cref="_nodes"/> (on the edge).</param>
         /// <returns>
         /// 2 for boundary, 4 for interior. Resulting triangle indices are written to <c>m_newTris[0..count-1]</c>.
         /// </returns>
         public int SplitEdge(int triangleIndex, int edgeIndex, int vertexIndex)
         {
-            List<Triangle> triangles = Triangles;
-            List<Node> vertices = Nodes;
-            List<Circle> circles = Circles;
+            List<Triangle> triangles = _triangles;
+            List<Node> vertices = _nodes;
+            List<Circle> circles = _circles;
 
             Triangle old0 = triangles[triangleIndex].Orient(edgeIndex);
             int con = old0.con0;
@@ -492,20 +553,24 @@ namespace TriUgla.Meshing
                 triangles[t0] = new Triangle(t0,
                     i0, i1, i3,
                     old0.adj2, -1, t1,
-                    old0.con2, con, -1);
+                    old0.con2, con, -1,
+
+                    old0.state);
 
                 triangles.Add(new Triangle(t1,
                     i2, i1, i3,
                     old0.adj1, t0, -1,
-                    old0.con1, -1, con));
+                    old0.con1, -1, con,
+
+                    old0.state));
 
                 SetAdjacent(old0.adj1, i2, i1, t1);
 
                 v0.Triangle = v2.Triangle = v3.Triangle = t0;
                 v1.Triangle = t1;
 
-                m_newTris[0] = t0;
-                m_newTris[1] = t1;
+                _newTris[0] = t0;
+                _newTris[1] = t1;
                 return 2;
             }
             else
@@ -533,22 +598,30 @@ namespace TriUgla.Meshing
                 triangles[t0] = new Triangle(t0,
                     i2, i0, i3,
                     old0.adj2, t1, t3,
-                    old0.con2, con, -1);
+                    old0.con2, con, -1,
+                    
+                    old0.state);
 
                 triangles[t1] = new Triangle(t1,
                     i0, i4, i3,
                     old1.adj1, t2, t0,
-                    old1.con1, -1, con);
+                    old1.con1, -1, con,
+                    
+                    old1.state);
 
                 triangles.Add(new Triangle(t2,
                     i4, i1, i3,
-                    old0.adj2, t3, t1,
-                    old0.con2, con, -1));
+                    old1.adj2, t3, t1,
+                    old1.con2, con, -1,
+                    
+                    old1.state));
 
                 triangles.Add(new Triangle(t3,
                     i1, i2, i3,
                     old0.adj1, t0, t2,
-                    old0.con1, -1, con));
+                    old0.con1, -1, con,
+
+                    old0.state));
 
                 SetAdjacent(old0.adj1, i2, i1, t3);
                 SetAdjacent(old1.adj2, i1, i3, t2);
@@ -557,18 +630,18 @@ namespace TriUgla.Meshing
                 v1.Triangle = t3;
                 v3.Triangle = t1;
 
-                m_newTris[0] = t0;
-                m_newTris[1] = t1;
-                m_newTris[2] = t2;
-                m_newTris[3] = t3;
+                _newTris[0] = t0;
+                _newTris[1] = t1;
+                _newTris[2] = t2;
+                _newTris[3] = t3;
                 return 4;
             }
         }
 
         public Triangle OrientedEntranceTriangle(Node start, Node end, double eps)
         {
-            List<Node> nodes = Nodes;
-            List<Triangle> tris = Triangles;
+            List<Node> nodes = _nodes;
+            List<Triangle> tris = _triangles;
 
             Circler walker = new Circler(tris, start);
             do
@@ -590,7 +663,7 @@ namespace TriUgla.Meshing
         public void SetAdjacent(int parent, int parentStart, int parentEnd, int child)
         {
             if (parent == -1) return;
-            List<Triangle> tris = Triangles;
+            List<Triangle> tris = _triangles;
             Triangle t = tris[parent].Orient(parentStart, parentEnd);
             t.adj0 = child;
             tris[parent] = t;
@@ -598,11 +671,11 @@ namespace TriUgla.Meshing
 
         public bool SetConstraint(Node start, Node end, int type)
         {
-            Circler walker = new Circler(Triangles, start);
+            Circler walker = new Circler(_triangles, start);
             do
             {
                 int ti = walker.Current;
-                Triangle t = Triangles[ti];
+                Triangle t = _triangles[ti];
                 int edge = t.IndexOfInvariant(start.Index, end.Index); 
                 if (edge != -1)
                 {
@@ -617,7 +690,7 @@ namespace TriUgla.Meshing
 
         public void SetConstraint(int triangle, int edge, int type)
         {
-            List<Triangle> tris = Triangles;
+            List<Triangle> tris = _triangles;
             Triangle t = tris[triangle].Orient(edge);
             t.con0 = type;
 
@@ -635,8 +708,8 @@ namespace TriUgla.Meshing
         {
             should = false;
 
-            List<Node> nodes = Nodes;
-            List<Triangle> tris = Triangles;
+            List<Node> nodes = _nodes;
+            List<Triangle> tris = _triangles;
             Triangle t0 = tris[triangle].Orient(edge);
             if (t0.adj0 == -1 || t0.con0 != -1)
             {
@@ -650,13 +723,13 @@ namespace TriUgla.Meshing
             Triangle t1 = tris[t0.adj0].Orient(v1.Index, v0.Index);
             Node v3 = nodes[t1.vtx2];
              
-            should = Circles[triangle].Contains(v3.X, v3.Y);
+            should = _circles[triangle].Contains(v3.X, v3.Y);
             return GeometryHelper.IsConvex(v1, v2, v0, v3);
         }
 
         public (int t, int e, int v) FindContaining(double x, double y, double eps, List<int>? path = null, int searchStart = -1)
         {
-            List<Triangle> tris = Triangles;
+            List<Triangle> tris = _triangles;
             int n = tris.Count;
             if (n == 0)
             {
@@ -667,7 +740,7 @@ namespace TriUgla.Meshing
             int maxSteps = n * 3;
             int steps = 0;
 
-            List<Node> nodes = Nodes;
+            List<Node> nodes = _nodes;
             Node vertex = new Node(x, y, -1);
             while (steps++ < maxSteps)
             {
@@ -702,7 +775,7 @@ namespace TriUgla.Meshing
 
                 if (Math.Abs(worstCross) <= eps)
                 {
-                    (int si, int ei) = t.Edge(worstEdge);
+                    t.Edge(worstEdge, out int si, out int ei);
 
                     Node start = nodes[si];
                     if (Node.CloseOrEqual(start, vertex, eps))
@@ -733,7 +806,7 @@ namespace TriUgla.Meshing
 
         public (int t, int e) FindEdge(Node start, Node end, bool invariant)
         {
-            List<Triangle> triangles = Triangles;
+            List<Triangle> triangles = _triangles;
             Circler circler = new Circler(triangles, start);
 
             int ai = start.Index, bi = end.Index;
