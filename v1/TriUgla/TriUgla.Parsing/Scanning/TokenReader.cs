@@ -5,9 +5,9 @@ namespace TriUgla.Parsing.Scanning
 {
     public sealed class TokenReader
     {
-        private const char EOF = '\0';
-        private readonly string _src;
-        private int _pos, _line, _col;
+        const char EOF = '\0';
+        readonly string _src;
+        int _pos, _line, _col;
 
         public int Current => _pos;
         public int Line => _line;
@@ -112,12 +112,7 @@ namespace TriUgla.Parsing.Scanning
 
             int len = _pos - start;
             string lexeme = _src.Substring(start, len);
-
-            if (double.TryParse(lexeme, out double num))
-            {
-                return new Token(ETokenType.NumericLiteral, line, col, lexeme, num);
-            }
-            return new Token(ETokenType.Error, line, col, $"Couldn't parse {lexeme}.");
+            return new Token(ETokenType.NumericLiteral, line, col, lexeme);
         }
 
         private Token ReadString()

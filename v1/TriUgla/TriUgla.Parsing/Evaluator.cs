@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Nodes;
+using TriUgla.Parsing.Nodes.Functions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
@@ -12,8 +13,12 @@ namespace TriUgla.Parsing
 
         public Value Visit(NodeNumericLiteral n)
         {
-            Value value = new Value(n.Token.numeric);
-            return value;
+            if (Double.TryParse(n.Token.value, out double d))
+            {
+                return new Value(d);
+            }
+
+            throw new Exception();
         }
 
         public Value Visit(NodeStringLiteral n)
@@ -22,8 +27,18 @@ namespace TriUgla.Parsing
             return value;
         }
 
+        public static bool ValidIdentifier(string id)
+        {
+            return true;
+        }
+
         public Value Visit(NodeIdentifierLiteral n)
         {
+            if (!ValidIdentifier(n.Token.value))
+            {
+                throw new Exception($"Invalid id '{n.Token.value}'");
+            }
+
             Variable? v = _stack.Current.Get(n.Token);
             if (v is null)
             {
@@ -132,6 +147,35 @@ namespace TriUgla.Parsing
             return variable.Value;
         }
 
-     
+        Value SingleArgFunction(NodeFun fn, Func<double, double> f)
+        {
+            ValidateNumberOfArguments(1, 1, fn.Args.Count);
+            Value v = fn.Args[0].Accept(this);
+            if (v.type == EDataType.Numeric)
+            {
+                return new Value(f(v.numeric));
+            }
+            throw new Exception();
+        }
+
+        void ValidateNumberOfArguments(int min, int max, int args)
+        {
+            if (min <= args && args <= max)
+            {
+                return;
+            }
+        }
+
+        public Value Visit(NodeFunAbs n) => SingleArgFunction(n, Math.Abs);
+        public Value Visit(NodeFunSqrt n) => SingleArgFunction(n, Math.Sqrt);
+        public Value Visit(NodeFunExp n) => SingleArgFunction(n, Math.Exp);
+        public Value Visit(NodeFunSin n) => SingleArgFunction(n, Math.Sin);
+        public Value Visit(NodeFunCos n) => SingleArgFunction(n, Math.Cos);
+        public Value Visit(NodeFunLog n) => SingleArgFunction(n, Math.Log);
+        public Value Visit(NodeFunLog10 n) => SingleArgFunction(n, Math.Log10);
+        public Value Visit(NodeFunAtan n) => SingleArgFunction(n, Math.Atan);
+        public Value Visit(NodeFunAcos n) => SingleArgFunction(n, Math.Acos);
+        public Value Visit(NodeFunAsin n) => SingleArgFunction(n, Math.Asin);
+        public Value Visit(NodeFunTan n) => SingleArgFunction(n, Math.Tan);
     }
 }
