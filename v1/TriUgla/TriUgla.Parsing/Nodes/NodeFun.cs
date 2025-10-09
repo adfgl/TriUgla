@@ -20,5 +20,10 @@ namespace TriUgla.Parsing.Nodes
         public IReadOnlyList<INode> Args { get; }
 
         public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"{Name.value}({Args.Count})";
+        }
     }
 }

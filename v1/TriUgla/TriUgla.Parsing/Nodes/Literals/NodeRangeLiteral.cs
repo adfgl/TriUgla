@@ -25,5 +25,6 @@ namespace TriUgla.Parsing.Nodes.Literals
         {
             return visitor.Visit(this);
         }
+
     }
 }

@@ -1,6 +1,8 @@
-rng = {0:10:2}
+For i In {0:5} 
+	For j In {0:2} 
+		Print(i)
+		Print(j)
+	EndFor
 
-
-For i In rng 
-	Print(i)
+	Print("")
 EndFor
