@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Functions
+namespace TriUgla.Parsing.Nodes
 {
-    public abstract class NodeFun : INode
+    public class NodeFun : INode
     {
         public NodeFun(Token name, IEnumerable<INode> args)
         {
@@ -19,6 +19,6 @@ namespace TriUgla.Parsing.Nodes.Functions
         public Token Name { get; }
         public IReadOnlyList<INode> Args { get; }
 
-        public abstract Value Accept(INodeVisitor visitor);
+        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
     }
 }

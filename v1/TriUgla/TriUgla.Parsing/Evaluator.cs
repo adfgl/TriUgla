@@ -1,7 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Nodes;
-using TriUgla.Parsing.Nodes.Functions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 using Range = TriUgla.Parsing.Compiling.Range;
@@ -157,41 +156,6 @@ namespace TriUgla.Parsing
             return variable.Value;
         }
 
-        Value SingleArgFunction(NodeFun fn, Func<double, double> f)
-        {
-            ValidateNumberOfArguments(1, 1, fn.Args.Count);
-            Value v = fn.Args[0].Accept(this);
-            if (v.type == EDataType.Numeric)
-            {
-                return new Value(f(v.AsNumeric()));
-            }
-            throw new Exception();
-        }
-
-        Value TwoArgFunction(NodeFun fn, Func<double, double, double> f)
-        {
-            ValidateNumberOfArguments(1, 2, fn.Args.Count);
-
-            Value v1 = fn.Args[0].Accept(this);
-            if (v1.type == EDataType.Numeric)
-            {
-                Value v2 = fn.Args[1].Accept(this);
-                if (v2.type == EDataType.Numeric)
-                {
-                    return new Value(f(v1.AsNumeric(), v2.AsNumeric()));
-                }
-            }
-            throw new Exception();
-        }
-
-        void ValidateNumberOfArguments(int min, int max, int args)
-        {
-            if (min <= args && args <= max)
-            {
-                return;
-            }
-        }
-
         public Value Visit(NodeRangeLiteral n)
         {
             Value from = n.From.Accept(this);
@@ -228,51 +192,9 @@ namespace TriUgla.Parsing
             throw new NotImplementedException();
         }
 
-        public Value Visit(NodeFunAbs n) => SingleArgFunction(n, Math.Abs);
-        public Value Visit(NodeFunSqrt n) => SingleArgFunction(n, Math.Sqrt);
-        public Value Visit(NodeFunExp n) => SingleArgFunction(n, Math.Exp);
-        public Value Visit(NodeFunSin n) => SingleArgFunction(n, Math.Sin);
-        public Value Visit(NodeFunCos n) => SingleArgFunction(n, Math.Cos);
-        public Value Visit(NodeFunLog n) => SingleArgFunction(n, Math.Log);
-        public Value Visit(NodeFunLog10 n) => SingleArgFunction(n, Math.Log10);
-        public Value Visit(NodeFunAtan n) => SingleArgFunction(n, Math.Atan);
-        public Value Visit(NodeFunAcos n) => SingleArgFunction(n, Math.Acos);
-        public Value Visit(NodeFunAsin n) => SingleArgFunction(n, Math.Asin);
-        public Value Visit(NodeFunTan n) => SingleArgFunction(n, Math.Tan);
-        public Value Visit(NodeFunRad n) => SingleArgFunction(n, Double.RadiansToDegrees);
-        public Value Visit(NodeFunDeg n) => SingleArgFunction(n, Double.DegreesToRadians);
-        public Value Visit(NodeFunTanh n) => SingleArgFunction(n, Math.Tanh);
-        public Value Visit(NodeFunSinh n) => SingleArgFunction(n, Math.Sinh);
-        public Value Visit(NodeFunCosh n) => SingleArgFunction(n, Math.Cosh);
-        public Value Visit(NodeFunFloor n) => SingleArgFunction(n, Math.Floor);
-        public Value Visit(NodeFunCeil n) => SingleArgFunction(n, Math.Ceiling);
-
-        public Value Visit(NodeFunRound n)
+        public Value Visit(NodeFun n)
         {
-            ValidateNumberOfArguments(1, 2, n.Args.Count);
-
-            Value v1 = n.Args[0].Accept(this);
-            if (n.Args.Count == 1)
-            {
-                if (v1.type == EDataType.Numeric)
-                {
-                    return new Value(Math.Round(v1.AsNumeric()));
-                }
-            }
-            else
-            {
-                Value v2 = n.Args[0].Accept(this);
-                if (v2.type == EDataType.Numeric)
-                {
-                    return new Value(Math.Round(v1.AsNumeric(), (int)v2.AsNumeric()));
-                }
-            }
-            throw new Exception();
-
+            throw new NotImplementedException();
         }
-
-        public Value Visit(NodeFunSign n) => SingleArgFunction(n, o => o == 0 ? 0 : (o < 0 ? -1 : +1));
-        public Value Visit(NodeFunMin n) => TwoArgFunction(n, Math.Min);
-        public Value Visit(NodeFunMax n) => TwoArgFunction(n, Math.Max);
     }
 }

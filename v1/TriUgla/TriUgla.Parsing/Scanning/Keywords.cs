@@ -15,6 +15,7 @@
             { "For", ETokenType.For },
             { "In", ETokenType.In },
             { "EndFor", ETokenType.EndFor },
+
         };
     }
 }

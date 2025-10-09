@@ -33,6 +33,8 @@ namespace TriUgla.Parsing.Scanning
 
         If, Else, ElseIf, EndIf,
 
-        For, In, EndFor
+        For, In, EndFor,
+
+        NativeFunction
     }
 }
