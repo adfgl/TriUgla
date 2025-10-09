@@ -1,6 +1,6 @@
-﻿namespace TriUgla.Parsing.Compiling.RuntimeObjects
+﻿namespace TriUgla.Parsing.Compiling
 {
-    public abstract class Object
+    public abstract class TuObject
     {
         public override abstract string ToString();
     }

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 
 namespace TriUgla.Parsing.Nodes
 {
@@ -21,7 +20,7 @@ namespace TriUgla.Parsing.Nodes
         public INode Range { get; }
         public NodeBlock Block { get; }
 
-        public Value Accept(INodeVisitor visitor)
+        public TuValue Accept(INodeVisitor visitor)
         {
             return visitor.Visit(this);
         }

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
@@ -20,7 +19,7 @@ namespace TriUgla.Parsing.Nodes
         public Token Name { get; }
         public IReadOnlyList<INode> Args { get; }
 
-        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {

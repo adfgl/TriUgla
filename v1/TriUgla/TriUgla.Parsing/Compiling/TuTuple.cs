@@ -1,12 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace TriUgla.Parsing.Compiling
+﻿namespace TriUgla.Parsing.Compiling
 {
-    internal class TuTuple
+    public class TuTuple : TuObject
     {
+        public TuTuple(IEnumerable<double> values)
+        {
+            Values = values.ToArray();
+        }
+
+        public double[] Values { get; set; }
+
+        public override string ToString()
+        {
+            return String.Join(", ", Values);
+        }
     }
 }

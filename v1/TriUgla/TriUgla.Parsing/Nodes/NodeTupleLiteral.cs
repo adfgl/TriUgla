@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TriUgla.Parsing.Nodes
 {
-    internal class NodeTupleLiteral
+    public class NodeTupleLiteral
     {
     }
 }

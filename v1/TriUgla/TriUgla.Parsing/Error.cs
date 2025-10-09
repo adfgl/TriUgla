@@ -1,4 +1,4 @@
-﻿using TriUgla.Parsing.Compiling.RuntimeObjects;
+﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing
@@ -16,12 +16,12 @@ namespace TriUgla.Parsing
         public int Column { get; set; }
         public string Message { get; set; } = string.Empty;
 
-        public static Error InvalidOperator(Value left, Token op, Value right)
+        public static Error InvalidOperator(TuValue left, Token op, TuValue right)
         {
             return new Error(op.line, op.column, $"Operator '{op.type}' cannot be applied to operands of type '{left.type}' and '{right.type}'.");
         }
 
-        public static Error InvalidOperator(Token op, Value operand)
+        public static Error InvalidOperator(Token op, TuValue operand)
         {
             return new Error(op.line, op.column, $"Operator '{op.type}' cannot be applied to operand of type '{operand.type}'.");
         }

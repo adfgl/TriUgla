@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TriUgla.Parsing.Compiling.RuntimeObjects
+namespace TriUgla.Parsing.Compiling
 {
-    public class Text : Object
+    public class TuText : TuObject
     {
-        public Text(string content)
+        public TuText(string content)
         {
             Content = content;
         }

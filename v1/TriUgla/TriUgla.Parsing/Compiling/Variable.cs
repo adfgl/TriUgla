@@ -1,5 +1,4 @@
-﻿using TriUgla.Parsing.Compiling.RuntimeObjects;
-using TriUgla.Parsing.Scanning;
+﻿using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Compiling
 {

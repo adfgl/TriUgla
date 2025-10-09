@@ -2,46 +2,54 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
-namespace TriUgla.Parsing.Compiling.RuntimeObjects
+namespace TriUgla.Parsing.Compiling
 {
     [DebuggerDisplay("{ToString()}")]
-    public struct Value
+    public struct TuValue
     {
-        public static readonly Value Nothing = new Value();
+        public static readonly TuValue Nothing = new TuValue();
 
         public readonly EDataType type;
         readonly double numeric;
-        readonly TUObject? obj = null;
+        readonly TuObject? obj = null;
 
-        public Value(bool b)
+        public TuValue(bool b)
         {
             type = EDataType.Numeric;
             numeric = b ? 1 : 0;
         }
 
-        public Value(int n)
+        public TuValue(int n)
         {
             type = EDataType.Numeric;
             numeric = n;
         }
 
-        public Value(double n)
+        public TuValue(double n)
         {
             type = EDataType.Numeric;
             numeric = n;
         }
 
-        public Value(string s)
+        public TuValue(string s)
         {
             type = EDataType.String;
-            obj = new Text(s);
+            obj = new TuText(s);
         }
 
-        public Value(Range range)
+        public TuValue(TuRange range)
         {
             type = EDataType.Range;
             obj = range;
         }
+
+        public TuValue(TuTuple tuple)
+        {
+            type = EDataType.Tuple;
+            obj = tuple;
+        }
+
+  
 
         public double AsNumeric()
         {
@@ -77,7 +85,7 @@ namespace TriUgla.Parsing.Compiling.RuntimeObjects
                 return numeric > 0;
             }
 
-            if (type == EDataType.String || type == EDataType.Range)
+            if (type == EDataType.String || type == EDataType.Range || type == EDataType.Tuple)
             {
                 return obj is not null;
             }
@@ -85,13 +93,22 @@ namespace TriUgla.Parsing.Compiling.RuntimeObjects
             throw new InvalidCastException();
         }
 
-        public Range? AsRange()
+        public TuRange? AsRange()
         {
             if (type == EDataType.Range)
             {
-                return obj as Range;
+                return obj as TuRange;
             }
 
+            throw new InvalidCastException();
+        }
+
+        public TuTuple? AsTuple()
+        {
+            if (type == EDataType.Tuple)
+            {
+                return obj as TuTuple;
+            }
             throw new InvalidCastException();
         }
 

@@ -1,13 +1,13 @@
 ﻿using System.Collections;
 
-namespace TriUgla.Parsing.Compiling.RuntimeObjects
+namespace TriUgla.Parsing.Compiling
 {
-    public class Range : Object, IEnumerable<double>
+    public class TuRange : TuObject, IEnumerable<double>
     {
         readonly double _from, _to, _by;
         double _current;
 
-        public Range(double from, double to, double by = 1)
+        public TuRange(double from, double to, double by = 1)
         {
             int steps = (int)((_from - _to) / _by);
             if (steps < 0) throw new Exception("Ivalid range.");

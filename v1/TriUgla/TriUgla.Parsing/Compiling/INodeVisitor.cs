@@ -1,23 +1,22 @@
-﻿using TriUgla.Parsing.Compiling.RuntimeObjects;
-using TriUgla.Parsing.Nodes;
+﻿using TriUgla.Parsing.Nodes;
 
 namespace TriUgla.Parsing.Compiling
 {
     public interface INodeVisitor
     {
-        Value Visit(NodeNumericLiteral n);
-        Value Visit(NodeStringLiteral n);
-        Value Visit(NodeIdentifierLiteral n);
-        Value Visit(NodeRangeLiteral n);
+        TuValue Visit(NodeNumericLiteral n);
+        TuValue Visit(NodeStringLiteral n);
+        TuValue Visit(NodeIdentifierLiteral n);
+        TuValue Visit(NodeRangeLiteral n);
 
-        Value Visit(NodeUnary n);
-        Value Visit(NodeBinary n);
-        Value Visit(NodeGroup n);
-        Value Visit(NodeBlock n);
-        Value Visit(NodeIfElse n);
-        Value Visit(NodeDeclarationOrAssignment n);
-        Value Visit(NodeFor n);
-        Value Visit(NodeFun n);
-        Value Visit(NodeProgram n);
+        TuValue Visit(NodeUnary n);
+        TuValue Visit(NodeBinary n);
+        TuValue Visit(NodeGroup n);
+        TuValue Visit(NodeBlock n);
+        TuValue Visit(NodeIfElse n);
+        TuValue Visit(NodeDeclarationOrAssignment n);
+        TuValue Visit(NodeFor n);
+        TuValue Visit(NodeFun n);
+        TuValue Visit(NodeProgram n);
     }
 }

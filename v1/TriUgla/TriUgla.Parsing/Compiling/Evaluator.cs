@@ -1,9 +1,8 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Scanning;
-using Range = TriUgla.Parsing.Compiling.RuntimeObjects.Range;
+using Range = TriUgla.Parsing.Compiling.TuRange;
 
 namespace TriUgla.Parsing.Compiling
 {
@@ -13,19 +12,19 @@ namespace TriUgla.Parsing.Compiling
 
         public Stack Stack => _stack;
 
-        public Value Visit(NodeNumericLiteral n)
+        public TuValue Visit(NodeNumericLiteral n)
         {
             if (double.TryParse(n.Token.value, out double d))
             {
-                return new Value(d);
+                return new TuValue(d);
             }
 
             throw new Exception();
         }
 
-        public Value Visit(NodeStringLiteral n)
+        public TuValue Visit(NodeStringLiteral n)
         {
-            Value value = new Value(n.Token.value);
+            TuValue value = new TuValue(n.Token.value);
             return value;
         }
 
@@ -34,7 +33,7 @@ namespace TriUgla.Parsing.Compiling
             return true;
         }
 
-        public Value Visit(NodeIdentifierLiteral n)
+        public TuValue Visit(NodeIdentifierLiteral n)
         {
             if (!ValidIdentifier(n.Token.value))
             {
@@ -49,30 +48,30 @@ namespace TriUgla.Parsing.Compiling
             return v.Value;
         }
 
-        public Value Visit(NodeUnary n)
+        public TuValue Visit(NodeUnary n)
         {
-            Value value = n.Expression.Accept(this);
+            TuValue value = n.Expression.Accept(this);
             ETokenType op = n.Operation.type;
             if (value.type == EDataType.Numeric)
             {
                 switch (op)
                 {
-                    case ETokenType.Minus: return new Value(-value.AsNumeric());
+                    case ETokenType.Minus: return new TuValue(-value.AsNumeric());
                     case ETokenType.Plus:  return value; 
                 }
             }
 
             if (op == ETokenType.Not)
             {
-                return new Value(!value.AsBoolean());
+                return new TuValue(!value.AsBoolean());
             }
             throw new Exception();
         }
 
-        public Value Visit(NodeBinary n)
+        public TuValue Visit(NodeBinary n)
         {
-            Value left = n.Left.Accept(this);
-            Value right = n.Right.Accept(this);
+            TuValue left = n.Left.Accept(this);
+            TuValue right = n.Right.Accept(this);
 
             ETokenType op = n.Operation.type;
 
@@ -83,21 +82,21 @@ namespace TriUgla.Parsing.Compiling
 
                 switch (op)
                 {
-                    case ETokenType.Minus:          return new Value(l - r);
-                    case ETokenType.Plus:           return new Value(l + r);
-                    case ETokenType.Slash:          return new Value(l / r);
-                    case ETokenType.Star:           return new Value(l * r);
-                    case ETokenType.Modulo:         return new Value(l % r);
-                    case ETokenType.Power:          return new Value(Math.Pow(l, r));
-                    case ETokenType.Less:           return new Value(l < r);
-                    case ETokenType.Greater:        return new Value(l > r);
-                    case ETokenType.LessOrEqual:    return new Value(l <= r);
-                    case ETokenType.GreaterOrEqual: return new Value(l >= r);
+                    case ETokenType.Minus:          return new TuValue(l - r);
+                    case ETokenType.Plus:           return new TuValue(l + r);
+                    case ETokenType.Slash:          return new TuValue(l / r);
+                    case ETokenType.Star:           return new TuValue(l * r);
+                    case ETokenType.Modulo:         return new TuValue(l % r);
+                    case ETokenType.Power:          return new TuValue(Math.Pow(l, r));
+                    case ETokenType.Less:           return new TuValue(l < r);
+                    case ETokenType.Greater:        return new TuValue(l > r);
+                    case ETokenType.LessOrEqual:    return new TuValue(l <= r);
+                    case ETokenType.GreaterOrEqual: return new TuValue(l >= r);
 
-                    case ETokenType.EqualEqual:     return new Value(l == r);
-                    case ETokenType.NotEqual:       return new Value(r != l);
-                    case ETokenType.Or:             return new Value(r != 0 || l != 0);
-                    case ETokenType.And:            return new Value(r != 0 && l != 0);
+                    case ETokenType.EqualEqual:     return new TuValue(l == r);
+                    case ETokenType.NotEqual:       return new TuValue(r != l);
+                    case ETokenType.Or:             return new TuValue(r != 0 || l != 0);
+                    case ETokenType.And:            return new TuValue(r != 0 && l != 0);
                 } 
             }
 
@@ -105,21 +104,21 @@ namespace TriUgla.Parsing.Compiling
             {
                 switch (op)
                 {
-                    case ETokenType.Plus: return new Value(left.AsString() + right.AsString());
+                    case ETokenType.Plus: return new TuValue(left.AsString() + right.AsString());
                 }
             }
 
             throw new Exception();
         }
 
-        public Value Visit(NodeGroup n)
+        public TuValue Visit(NodeGroup n)
         {
             return n.Expression.Accept(this);
         }
 
-        public Value Visit(NodeBlock n)
+        public TuValue Visit(NodeBlock n)
         {
-            Value value = Value.Nothing;
+            TuValue value = TuValue.Nothing;
             foreach (INode exp in n.Nodes)
             {
                 value = exp.Accept(this);
@@ -127,9 +126,9 @@ namespace TriUgla.Parsing.Compiling
             return value;
         }
 
-        public Value Visit(NodeIfElse n)
+        public TuValue Visit(NodeIfElse n)
         {
-            Value ifValue = n.If.Accept(this);
+            TuValue ifValue = n.If.Accept(this);
             if (ifValue.AsBoolean())
             {
                 return n.IfBlock.Accept(this);
@@ -137,7 +136,7 @@ namespace TriUgla.Parsing.Compiling
 
             foreach ((INode elif, NodeBlock elifBlock) in n.ElseIfs)
             {
-                Value elifValue = elifBlock.Accept(this);
+                TuValue elifValue = elifBlock.Accept(this);
                 if (elifValue.AsBoolean())
                 {
                     return elifBlock.Accept(this);
@@ -148,12 +147,12 @@ namespace TriUgla.Parsing.Compiling
             {
                 return n.ElseBlock.Accept(this);
             }
-            return Value.Nothing;
+            return TuValue.Nothing;
         }
 
-        public Value Visit(NodeDeclarationOrAssignment n)
+        public TuValue Visit(NodeDeclarationOrAssignment n)
         {
-            Value value = n.Expression is not null ? n.Expression.Accept(this) : Value.Nothing;
+            TuValue value = n.Expression is not null ? n.Expression.Accept(this) : TuValue.Nothing;
             Variable variable = _stack.Current.GetOrDeclare(n.Identifier);
 
             if (variable.Value.type == EDataType.None || variable.Value.type == value.type)
@@ -167,21 +166,21 @@ namespace TriUgla.Parsing.Compiling
             return variable.Value;
         }
 
-        public Value Visit(NodeRangeLiteral n)
+        public TuValue Visit(NodeRangeLiteral n)
         {
-            Value from = n.From.Accept(this);
+            TuValue from = n.From.Accept(this);
             if (from.type != EDataType.Numeric)
             {
                 throw new Exception();
             }
 
-            Value to = n.To.Accept(this);
+            TuValue to = n.To.Accept(this);
             if (from.type != EDataType.Numeric)
             {
                 throw new Exception();
             }
 
-            Value by = n.By is null ? new Value(1) : n.By.Accept(this);
+            TuValue by = n.By is null ? new TuValue(1) : n.By.Accept(this);
             if (from.type != EDataType.Numeric)
             {
                 throw new Exception();
@@ -195,28 +194,28 @@ namespace TriUgla.Parsing.Compiling
             {
                 throw new Exception();
             }
-            return new Value(new Range(f, t, b));
+            return new TuValue(new Range(f, t, b));
         }
 
-        public Value Visit(NodeFor n)
+        public TuValue Visit(NodeFor n)
         {
             Variable i = _stack.Current.GetOrDeclare(n.Identifier.Token);
-            Value range = n.Range.Accept(this);
+            TuValue range = n.Range.Accept(this);
 
-            Value inter = Value.Nothing;
+            TuValue inter = TuValue.Nothing;
             foreach (double item in range.AsRange())
             {
-                i.Value = new Value(item);
+                i.Value = new TuValue(item);
                 inter = n.Block.Accept(this);
             }
             return inter;
         }
 
-        public Value Visit(NodeFun n)
+        public TuValue Visit(NodeFun n)
         {
             string function = n.Name.value;
 
-            Value[] args = new Value[n.Args.Count];
+            TuValue[] args = new TuValue[n.Args.Count];
             for (int i = 0; i < args.Length; i++)
             {
                 args[i] = n.Args[i].Accept(this);
@@ -233,7 +232,7 @@ namespace TriUgla.Parsing.Compiling
                     {
                         Console.WriteLine(args[0].AsString());
                     }
-                    return Value.Nothing;
+                    return TuValue.Nothing;
 
                 default:
                     throw new Exception($"Unknown function.");
@@ -242,7 +241,7 @@ namespace TriUgla.Parsing.Compiling
             throw new Exception();
         }
 
-        public Value Visit(NodeProgram n)
+        public TuValue Visit(NodeProgram n)
         {
             return n.Block.Accept(this);
         }

@@ -6,5 +6,6 @@
         Numeric,
         String,
         Range,
+        Tuple
     }
 }

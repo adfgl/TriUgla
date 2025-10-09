@@ -1,8 +1,7 @@
 ﻿using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes
 {
     public class NodeIdentifierLiteral : INode
     {
@@ -13,7 +12,7 @@ namespace TriUgla.Parsing.Nodes.Literals
 
         public Token Token { get; }
 
-        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {
