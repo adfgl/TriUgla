@@ -8,9 +8,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Functions
 {
-    public class NodeFunAsin : NodeFun
+    public class NodeFunCeil : NodeFun
     {
-        public NodeFunAsin(Token name, IEnumerable<INode> args) : base(name, args)
+        public NodeFunCeil(Token name, IEnumerable<INode> args) : base(name, args)
         {
         }
 

@@ -32,5 +32,7 @@ namespace TriUgla.Parsing.Scanning
         Ampersand, Bar,
 
         If, Else, ElseIf, EndIf,
+
+        For, In, EndFor
     }
 }

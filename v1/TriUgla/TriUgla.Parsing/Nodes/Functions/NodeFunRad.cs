@@ -8,12 +8,15 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Functions
 {
-    public class NodeFunAsin : NodeFun
+    public class NodeFunRad : NodeFun
     {
-        public NodeFunAsin(Token name, IEnumerable<INode> args) : base(name, args)
+        public NodeFunRad(Token name, IEnumerable<INode> args) : base(name, args)
         {
         }
 
-        public override Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public override Value Accept(INodeVisitor visitor)
+        {
+            return visitor.Visit(this);
+        }
     }
 }

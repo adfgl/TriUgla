@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Functions
 {
-    public class NodeFunTan : NodeFun
+    public class NodeFunSign : NodeFun
     {
-        public NodeFunTan(Token name, IEnumerable<INode> args) : base(name, args)
+        public NodeFunSign(Token name, IEnumerable<INode> args) : base(name, args)
         {
         }
 

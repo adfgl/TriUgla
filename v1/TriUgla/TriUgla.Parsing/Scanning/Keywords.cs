@@ -12,6 +12,9 @@
             { "Else", ETokenType.Else },
             { "ElseIf", ETokenType.ElseIf },
             { "EndIf", ETokenType.EndIf },
+            { "For", ETokenType.For },
+            { "In", ETokenType.In },
+            { "EndFor", ETokenType.EndFor },
         };
     }
 }
