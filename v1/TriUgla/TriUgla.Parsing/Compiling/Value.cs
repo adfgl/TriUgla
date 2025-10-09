@@ -74,7 +74,7 @@ namespace TriUgla.Parsing.Compiling
         {
             if (type == EDataType.Numeric)
             {
-                return numeric >= 0;
+                return numeric > 0;
             }
 
             if (type == EDataType.String || type == EDataType.Range)

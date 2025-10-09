@@ -1,10 +1,6 @@
-a = 2
-b = 3
+rng = {0:10:2}
 
-If (a == b)
-	c = "yes"
-Else
-	c = "no"
-EndIf
 
-Print(c)
+For i In rng 
+	Print(i)
+EndFor

@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
@@ -158,6 +159,23 @@ namespace TriUgla.Parsing
             return ParsePrimaryExpression();
         }
 
+        INode ParseRange()
+        {
+            INode[] args = ParseArguments(ETokenType.OpenCurly, ETokenType.CloseCurly, ETokenType.Colon);
+
+            switch (args.Length)
+            {
+                case 2:
+                    return new NodeRangeLiteral(args[0], args[1], null);
+
+                case 3:
+                    return new NodeRangeLiteral(args[0], args[1], args[2]);
+
+                default:
+                    throw new Exception();
+            }
+        }
+
         INode ParseSimplePrimaryExpression()
         {
             Token token = Peek();
@@ -171,6 +189,9 @@ namespace TriUgla.Parsing
 
                 case ETokenType.StringLiteral:
                     return new NodeStringLiteral(Consume());
+
+                case ETokenType.OpenCurly:
+                    return ParseRange();
 
                 case ETokenType.OpenParen:
                     Consume();
@@ -243,7 +264,26 @@ namespace TriUgla.Parsing
             return new NodeDeclarationOrAssignment(id.Token, expression);
         }
 
-        INode ParseIfElseStatement()
+        INode ParseFor()
+        {
+            ReadStop stop = new ReadStop(ETokenType.EndFor, ETokenType.EOF);
+
+            Consume(ETokenType.For);
+            INode var = ParseExpression();
+            Consume(ETokenType.In);
+            INode rng = ParseExpression();
+
+            NodeBlock forBlock = ParseBlockUntil(stop);
+
+            NodeIdentifierLiteral? id = var as NodeIdentifierLiteral;
+            if (id is null)
+            {
+                throw new Exception();
+            }
+            return new NodeFor(id, rng, forBlock);
+        }
+
+        INode ParseIfElse()
         {
             ReadStop stop = new ReadStop(ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF);
 
@@ -326,7 +366,11 @@ namespace TriUgla.Parsing
                         break;
 
                     case ETokenType.If:
-                        statements.Add(ParseIfElseStatement());
+                        statements.Add(ParseIfElse());
+                        break;
+
+                    case ETokenType.For:
+                        statements.Add(ParseFor());
                         break;
 
                     case ETokenType.ElseIf:

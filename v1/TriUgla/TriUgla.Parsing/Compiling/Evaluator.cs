@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Threading;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
@@ -175,13 +176,13 @@ namespace TriUgla.Parsing.Compiling
             }
 
             Value to = n.To.Accept(this);
-            if (from.type == EDataType.Numeric)
+            if (from.type != EDataType.Numeric)
             {
                 throw new Exception();
             }
 
             Value by = n.By is null ? new Value(1) : n.By.Accept(this);
-            if (from.type == EDataType.Numeric)
+            if (from.type != EDataType.Numeric)
             {
                 throw new Exception();
             }
@@ -199,12 +200,13 @@ namespace TriUgla.Parsing.Compiling
 
         public Value Visit(NodeFor n)
         {
-            Value id = n.Identifier.Accept(this);
+            Variable i = _stack.Current.GetOrDeclare(n.Identifier.Token);
             Value range = n.Range.Accept(this);
 
             Value inter = Value.Nothing;
             foreach (double item in range.AsRange())
             {
+                i.Value = new Value(item);
                 inter = n.Block.Accept(this);
             }
             return inter;

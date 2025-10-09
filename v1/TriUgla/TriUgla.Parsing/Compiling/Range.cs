@@ -32,30 +32,28 @@ namespace TriUgla.Parsing.Compiling
             s_first = true;
         }
 
-        public bool Next(out double result)
+        public bool Next()
         {
             if (s_first)
             {
                 s_first = false;
-                result = _current;
                 return true;
             }
             double next = _current + _by;
             if (next >= _to)
             {
-                result = double.NaN;
                 return false;
             }
 
-            result = next;
+            _current = next;
             return true;
         }
 
         public IEnumerator<double> GetEnumerator()
         {
-            while (Next(out double v))
+            while (Next())
             {
-                yield return v;
+                yield return _current;
             }
         }
 
