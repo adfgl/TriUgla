@@ -14,9 +14,9 @@ namespace TriUgla.Parsing
             _scanner = scanner;
         }
 
-        public NodeProgram Parse()
+        public NodeBlock Parse()
         {
-            return new NodeProgram(new NodeBlock(ParseStatements()));
+            return new NodeBlock(new Token(), ParseStatements());
         }
 
         INode ParseExpression()
@@ -160,15 +160,16 @@ namespace TriUgla.Parsing
 
         INode ParseRange()
         {
+            Token tkOpen = Peek();
             var args = ParseArguments(ETokenType.OpenCurly, ETokenType.CloseCurly, ETokenType.Colon);
 
             switch (args.Count)
             {
                 case 2:
-                    return new NodeRangeLiteral(args[0], args[1], null);
+                    return new NodeRangeLiteral(tkOpen, args[0], args[1], null);
 
                 case 3:
-                    return new NodeRangeLiteral(args[0], args[1], args[2]);
+                    return new NodeRangeLiteral(tkOpen, args[0], args[1], args[2]);
 
                 default:
                     throw new Exception();
@@ -194,10 +195,10 @@ namespace TriUgla.Parsing
                     return ParseRange();
 
                 case ETokenType.OpenParen:
-                    Consume(ETokenType.OpenParen);
+                    Token tkOpenParen = Consume(ETokenType.OpenParen);
                     INode expr = ParseExpression();
                     Consume(ETokenType.CloseParen);
-                    return new NodeGroup(expr);
+                    return new NodeGroup(tkOpenParen, expr);
             }
 
             throw new Exception();
@@ -238,10 +239,24 @@ namespace TriUgla.Parsing
             var identTok = Peek();
             Consume(ETokenType.IdentifierLiteral);
 
-            if (TryConsume(ETokenType.Equal, out _))
+            if (TryConsume(ETokenType.OpenSquare, out _))
             {
-                var rhs = ParseExpression();
-                return new NodeDeclarationOrAssignment(identTok, rhs);
+                Consume(ETokenType.CloseSquare);
+                Consume(ETokenType.Equal);
+
+                List<INode> values = ParseArguments(ETokenType.OpenCurly, ETokenType.CloseCurly);
+
+                NodeTupleLiteral tuple = new NodeTupleLiteral(new Token(), values);
+
+                return new NodeDeclarationOrAssignment(identTok, tuple);
+            }
+            else
+            {
+                if (TryConsume(ETokenType.Equal, out _))
+                {
+                    var rhs = ParseExpression();
+                    return new NodeDeclarationOrAssignment(identTok, rhs);
+                }
             }
             return new NodeIdentifierLiteral(identTok);
         }
@@ -250,7 +265,7 @@ namespace TriUgla.Parsing
         {
             ReadStop stop = new ReadStop(ETokenType.EndFor, ETokenType.EOF);
 
-            Consume(ETokenType.For);
+            Token tkFor = Consume(ETokenType.For);
             INode var = ParseExpression();
             Consume(ETokenType.In);
             INode rng = ParseExpression();
@@ -262,14 +277,14 @@ namespace TriUgla.Parsing
             {
                 throw new Exception();
             }
-            return new NodeFor(id, rng, forBlock);
+            return new NodeFor(tkFor, id, rng, forBlock);
         }
 
         INode ParseIfElse()
         {
             ReadStop stop = new ReadStop(ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF);
 
-            Consume(ETokenType.If);
+            var tkIf = Consume(ETokenType.If);
 
             Consume(ETokenType.OpenParen);
             INode condition = ParseExpression();
@@ -295,12 +310,13 @@ namespace TriUgla.Parsing
             }
 
             Consume(ETokenType.EndIf);
-            return new NodeIfElse(condition, ifBlock, elifs, elseBlock);
+            return new NodeIfElse(tkIf, condition, ifBlock, elifs, elseBlock);
         }
 
         NodeBlock ParseBlockUntil(ReadStop stop)
         {
             var stmts = new List<INode>(8);
+
             while (true)
             {
                 var t = Peek().type;
@@ -308,7 +324,7 @@ namespace TriUgla.Parsing
                 stmts.AddRange(ParseStatements());
                 if (t == ETokenType.EOF) break;
             }
-            return new NodeBlock(stmts);
+            return new NodeBlock(new Token(), stmts);
         }
 
         readonly struct ReadStop

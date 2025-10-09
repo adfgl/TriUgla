@@ -13,7 +13,7 @@ namespace TriUgla.Parsing
             Scanner scanner = new Scanner(code);
             Parser parser = new Parser(scanner);
 
-            NodeProgram program = parser.Parse();
+            var program = parser.Parse();
             return program.Accept(_evaluator);
         }
     }

@@ -67,7 +67,7 @@ namespace TriUgla.Parsing.Compiling
                 return numeric.ToString(CultureInfo.InvariantCulture);
             }
 
-            if (type == EDataType.String || type == EDataType.Range)
+            if (type == EDataType.String || type == EDataType.Range || type == EDataType.Tuple)
             {
                 if (obj is null) return "";
                 return obj.ToString();

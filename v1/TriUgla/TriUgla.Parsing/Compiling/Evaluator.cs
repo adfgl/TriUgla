@@ -51,7 +51,7 @@ namespace TriUgla.Parsing.Compiling
         public TuValue Visit(NodeUnary n)
         {
             TuValue value = n.Expression.Accept(this);
-            ETokenType op = n.Operation.type;
+            ETokenType op = n.Token.type;
             if (value.type == EDataType.Numeric)
             {
                 switch (op)
@@ -73,7 +73,7 @@ namespace TriUgla.Parsing.Compiling
             TuValue left = n.Left.Accept(this);
             TuValue right = n.Right.Accept(this);
 
-            ETokenType op = n.Operation.type;
+            ETokenType op = n.Token.type;
 
             if (left.type == EDataType.Numeric && right.type == EDataType.Numeric)
             {
@@ -153,7 +153,7 @@ namespace TriUgla.Parsing.Compiling
         public TuValue Visit(NodeDeclarationOrAssignment n)
         {
             TuValue value = n.Expression is not null ? n.Expression.Accept(this) : TuValue.Nothing;
-            Variable variable = _stack.Current.GetOrDeclare(n.Identifier);
+            Variable variable = _stack.Current.GetOrDeclare(n.Token);
 
             if (variable.Value.type == EDataType.None || variable.Value.type == value.type)
             {
@@ -213,7 +213,7 @@ namespace TriUgla.Parsing.Compiling
 
         public TuValue Visit(NodeFun n)
         {
-            string function = n.Name.value;
+            string function = n.Token.value;
 
             TuValue[] args = new TuValue[n.Args.Count];
             for (int i = 0; i < args.Length; i++)
@@ -241,9 +241,19 @@ namespace TriUgla.Parsing.Compiling
             throw new Exception();
         }
 
-        public TuValue Visit(NodeProgram n)
+        public TuValue Visit(NodeTupleLiteral n)
         {
-            return n.Block.Accept(this);
+            List<double> values = new List<double>(n.Args.Count);
+            foreach (INode item in n.Args)
+            {
+                TuValue v = item.Accept(this);
+                if (v.type != EDataType.Numeric)
+                {
+                    throw new Exception();
+                }
+                values.Add(v.AsNumeric());
+            }
+            return new TuValue(new TuTuple(values));
         }
     }
 }

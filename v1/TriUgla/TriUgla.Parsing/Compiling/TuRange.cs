@@ -66,5 +66,10 @@ namespace TriUgla.Parsing.Compiling
         {
             return string.Join(", ", this) ;
         }
+
+        public override TuRange Clone()
+        {
+            return new TuRange(_from, _to, _by);
+        }
     }
 }

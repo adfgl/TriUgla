@@ -17,6 +17,6 @@ namespace TriUgla.Parsing.Compiling
         TuValue Visit(NodeDeclarationOrAssignment n);
         TuValue Visit(NodeFor n);
         TuValue Visit(NodeFun n);
-        TuValue Visit(NodeProgram n);
+        TuValue Visit(NodeTupleLiteral n);
     }
 }

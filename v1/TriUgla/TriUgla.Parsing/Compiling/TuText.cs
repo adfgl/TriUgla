@@ -19,5 +19,10 @@ namespace TriUgla.Parsing.Compiling
         {
             return Content;
         }
+
+        public override TuText Clone()
+        {
+            return new TuText(Content);
+        }
     }
 }

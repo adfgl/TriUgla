@@ -7,11 +7,11 @@ namespace TriUgla.Parsing.Nodes
     {
         public NodeUnary(Token op, INode exp)
         {
-            Operation = op;
+            Token = op;
             Expression = exp;
         }
         
-        public Token Operation { get; }
+        public Token Token { get; }
         public INode Expression { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);

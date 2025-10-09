@@ -148,7 +148,6 @@ namespace TriUgla.Parsing.Scanning
             int line = _line, col = _col;
             char a = Peek(), b = Peek(1);
 
-            // two-char ops
             if (b != EOF)
             {
                 if (a == '!' && b == '=') { Advance(); Advance(); return new Token(ETokenType.NotEqual, line, col, ""); }
@@ -159,10 +158,10 @@ namespace TriUgla.Parsing.Scanning
                 if (a == '|' && b == '|') { Advance(); Advance(); return new Token(ETokenType.Or, line, col, ""); }
             }
 
-            // single-char
             Advance();
             return a switch
             {
+                '#' => new Token(ETokenType.Hash, line, col, ""),
                 '=' => new Token(ETokenType.Equal, line, col, ""),
                 '*' => new Token(ETokenType.Star, line, col, ""),
                 '+' => new Token(ETokenType.Plus, line, col, ""),

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
@@ -13,12 +8,12 @@ namespace TriUgla.Parsing.Nodes
         public NodeBinary(INode left, Token op, INode right)
         {
             Left = left;
-            Operation = op;
+            Token = op;
             Right = right;
         }
 
         public INode Left { get; }
-        public Token Operation { get; }
+        public Token Token { get; }
         public INode Right { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);

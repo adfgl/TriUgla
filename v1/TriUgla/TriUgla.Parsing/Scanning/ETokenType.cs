@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Scanning
 
         Equal,
 
-        Colon, SemiColon, Comma, Dot,
+        Colon, SemiColon, Comma, Dot, Hash,
 
         Point, Line,
 
@@ -34,7 +34,5 @@ namespace TriUgla.Parsing.Scanning
         If, Else, ElseIf, EndIf,
 
         For, In, EndFor,
-
-        NativeFunction
     }
 }

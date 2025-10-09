@@ -12,18 +12,18 @@ namespace TriUgla.Parsing.Nodes
     {
         public NodeFun(Token name, IEnumerable<INode> args)
         {
-            Name = name;
+            Token = name;
             Args = args.ToArray();
         }
 
-        public Token Name { get; }
+        public Token Token { get; }
         public IReadOnlyList<INode> Args { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {
-            return $"{Name.value}({Args.Count})";
+            return $"{Token.value}({Args.Count})";
         }
     }
 }
