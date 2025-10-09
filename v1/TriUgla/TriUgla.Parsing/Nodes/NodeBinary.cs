@@ -22,6 +22,6 @@ namespace TriUgla.Parsing.Nodes
         public Token Operation { get; }
         public INode Right { get; }
 
-        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
     }
 }

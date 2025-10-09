@@ -6,6 +6,6 @@ namespace TriUgla.Parsing.Compiling
     public class Variable
     {
         public Token Identifier { get; set; }
-        public Value Value { get; set; }
+        public TuValue Value { get; set; }
     }
 }

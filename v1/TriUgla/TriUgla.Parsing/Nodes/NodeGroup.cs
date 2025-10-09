@@ -1,6 +1,5 @@
 ﻿
 using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 
 namespace TriUgla.Parsing.Nodes
 {
@@ -13,6 +12,6 @@ namespace TriUgla.Parsing.Nodes
 
         public INode Expression { get; }
 
-        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
     }
 }

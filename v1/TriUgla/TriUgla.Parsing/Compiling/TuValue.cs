@@ -11,7 +11,7 @@ namespace TriUgla.Parsing.Compiling.RuntimeObjects
 
         public readonly EDataType type;
         readonly double numeric;
-        readonly Object? obj = null;
+        readonly TUObject? obj = null;
 
         public Value(bool b)
         {

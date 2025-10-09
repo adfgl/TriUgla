@@ -39,7 +39,7 @@ namespace TriUgla.Parsing.Compiling
             return false;
         }
 
-        public Variable Declare(Token identifer, Value value)
+        public Variable Declare(Token identifer, TuValue value)
         {
             if (Resolve(identifer.value, out _))
             {
@@ -72,7 +72,7 @@ namespace TriUgla.Parsing.Compiling
             {
                 return scope._variables[name];
             }
-            return Declare(token, Value.Nothing);
+            return Declare(token, TuValue.Nothing);
         }
     }
 }

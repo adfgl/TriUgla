@@ -25,6 +25,6 @@ namespace TriUgla.Parsing.Nodes
         public IReadOnlyList<(INode elif, NodeBlock elifBlock)> ElseIfs { get; }
         public NodeBlock? ElseBlock { get; }
 
-        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
     }
 }

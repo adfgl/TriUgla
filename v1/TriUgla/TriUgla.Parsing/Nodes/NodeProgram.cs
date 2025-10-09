@@ -17,6 +17,6 @@ namespace TriUgla.Parsing.Nodes
 
         public NodeBlock Block { get; }
 
-        public Value Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
     }
 }
