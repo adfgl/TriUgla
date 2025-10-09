@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 namespace TriUgla.Parsing.Compiling
 {
     [DebuggerDisplay("{ToString()}")]
-    public struct TuValue
+    public readonly struct TuValue 
     {
         public static readonly TuValue Nothing = new TuValue();
 
@@ -49,8 +49,6 @@ namespace TriUgla.Parsing.Compiling
             obj = tuple;
         }
 
-  
-
         public double AsNumeric()
         {
             if (type == EDataType.Numeric)
@@ -72,9 +70,6 @@ namespace TriUgla.Parsing.Compiling
                 if (obj is null) return "";
                 return obj.ToString();
             }
-
-            if (type == EDataType.None) return "";
-
             throw new InvalidCastException();
         }
 
@@ -116,5 +111,6 @@ namespace TriUgla.Parsing.Compiling
         {
             return AsString();
         }
+
     }
 }

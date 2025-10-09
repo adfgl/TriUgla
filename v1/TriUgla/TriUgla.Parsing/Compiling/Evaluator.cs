@@ -155,7 +155,7 @@ namespace TriUgla.Parsing.Compiling
             TuValue value = n.Expression is not null ? n.Expression.Accept(this) : TuValue.Nothing;
             Variable variable = _stack.Current.GetOrDeclare(n.Token);
 
-            if (variable.Value.type == EDataType.None || variable.Value.type == value.type)
+            if (variable.Value.type == value.type)
             {
                 variable.Value = value;
             }

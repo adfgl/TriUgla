@@ -242,7 +242,9 @@ namespace TriUgla.Parsing
             if (TryConsume(ETokenType.OpenSquare, out _))
             {
                 Consume(ETokenType.CloseSquare);
+
                 Consume(ETokenType.Equal);
+
 
                 List<INode> values = ParseArguments(ETokenType.OpenCurly, ETokenType.CloseCurly);
 
@@ -250,15 +252,10 @@ namespace TriUgla.Parsing
 
                 return new NodeDeclarationOrAssignment(identTok, tuple);
             }
-            else
-            {
-                if (TryConsume(ETokenType.Equal, out _))
-                {
-                    var rhs = ParseExpression();
-                    return new NodeDeclarationOrAssignment(identTok, rhs);
-                }
-            }
-            return new NodeIdentifierLiteral(identTok);
+
+            Consume(ETokenType.Equal);
+            var rhs = ParseExpression();
+            return new NodeDeclarationOrAssignment(identTok, rhs);
         }
 
         INode ParseFor()
