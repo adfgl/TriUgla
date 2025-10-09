@@ -1,9 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Compiling.RuntimeObjects
 {
     [DebuggerDisplay("{ToString()}")]
     public struct Value
@@ -16,32 +15,32 @@ namespace TriUgla.Parsing.Compiling
 
         public Value(bool b)
         {
-            this.type = EDataType.Numeric;
-            this.numeric = b ? 1 : 0;
+            type = EDataType.Numeric;
+            numeric = b ? 1 : 0;
         }
 
         public Value(int n)
         {
-            this.type = EDataType.Numeric;
-            this.numeric = n;
+            type = EDataType.Numeric;
+            numeric = n;
         }
 
         public Value(double n)
         {
-            this.type = EDataType.Numeric;
-            this.numeric = n;
+            type = EDataType.Numeric;
+            numeric = n;
         }
 
         public Value(string s)
         {
-            this.type = EDataType.String;
-            this.obj = new Text(s);
+            type = EDataType.String;
+            obj = new Text(s);
         }
 
         public Value(Range range)
         {
-            this.type = EDataType.Range;
-            this.obj = range;
+            type = EDataType.Range;
+            obj = range;
         }
 
         public double AsNumeric()

@@ -1,5 +1,4 @@
-﻿
-namespace TriUgla.Parsing.Compiling
+﻿namespace TriUgla.Parsing.Compiling.RuntimeObjects
 {
     public abstract class Object
     {

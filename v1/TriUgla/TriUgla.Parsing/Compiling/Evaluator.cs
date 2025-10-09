@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading;
+using TriUgla.Parsing.Compiling.RuntimeObjects;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;

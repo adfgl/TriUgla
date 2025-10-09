@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling.RuntimeObjects;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Compiling.RuntimeObjects
 {
     public class Text : Object
     {
