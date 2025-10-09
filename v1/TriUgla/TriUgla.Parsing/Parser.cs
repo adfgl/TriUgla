@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Runtime.CompilerServices;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
@@ -13,9 +9,14 @@ namespace TriUgla.Parsing
     {
         readonly Scanner _scanner;
 
-        public Parser(string source)
+        public Parser(Scanner scanner)
         {
-            _scanner = new Scanner(source);
+            _scanner = scanner;
+        }
+
+        public NodeProgram Parse()
+        {
+            return new NodeProgram(new NodeBlock(ParseStatements()));
         }
 
         INode ParseExpression()
@@ -211,22 +212,140 @@ namespace TriUgla.Parsing
             {
                 Token token = Peek();
 
-                switch (token.type)
+                if (token.type == ETokenType.OpenParen)
                 {
-                    case ETokenType.OpenParen:
-                        INode[] args = ParseArguments();
-                        expr = new NodeFun(id!.Token, args);
-                        break;
-
-                    default:
-                        chaining = false;
-                        break;
+                    expr = new NodeFun(id!.Token, ParseArguments());
+                }
+                else
+                {
+                    chaining = false;
                 }
             }
             return expr;
         }
 
+        INode ParseDeclaration()
+        {
+            var exp = ParseExpression();
 
+            NodeIdentifierLiteral? id = exp as NodeIdentifierLiteral;
+            if (id is null)
+            {
+                return exp;
+                throw new Exception();
+            }
+
+            INode? expression = null;
+            if (TryConsume(ETokenType.Equal, out _))
+            {
+                expression = ParseExpression();
+            }
+            return new NodeDeclarationOrAssignment(id.Token, expression);
+        }
+
+        INode ParseIfElseStatement()
+        {
+            ReadStop stop = new ReadStop(ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF);
+
+            Consume(ETokenType.If);
+
+            Consume(ETokenType.OpenParen);
+            INode condition = ParseExpression();
+            Consume(ETokenType.CloseParen);
+
+            NodeBlock ifBlock = ParseBlockUntil(stop);
+
+            List<(INode Cond, NodeBlock Block)> elifs = new List<(INode Cond, NodeBlock Block)>();
+            while (TryConsume(ETokenType.ElseIf, out _))
+            {
+                Consume(ETokenType.OpenParen);
+                INode elifCond = ParseExpression();
+                Consume(ETokenType.CloseParen);
+
+                NodeBlock elifBlock = ParseBlockUntil(stop);
+                elifs.Add((elifCond, elifBlock));
+            }
+
+            NodeBlock? elseBlock = null;
+            if (TryConsume(ETokenType.Else, out _))
+            {
+                elseBlock = ParseBlockUntil(new ReadStop(ETokenType.EndIf, ETokenType.EOF));
+            }
+
+            Consume(ETokenType.EndIf);
+            return new NodeIfElse(condition, ifBlock, elifs, elseBlock);
+        }
+
+        NodeBlock ParseBlockUntil(ReadStop stop)
+        {
+            var stmts = new List<INode>(8);
+            while (true)
+            {
+                var t = Peek().type;
+                if (stop.Contains(t)) break;
+                stmts.AddRange(ParseStatements());
+                if (t == ETokenType.EOF) break;
+            }
+            return new NodeBlock(stmts);
+        }
+
+        readonly struct ReadStop
+        {
+            private readonly ETokenType a, b, c, d;
+            private readonly int count;
+            public ReadStop(ETokenType a) { this.a = a; b = c = d = 0; count = 1; }
+            public ReadStop(ETokenType a, ETokenType b) { this.a = a; this.b = b; c = d = 0; count = 2; }
+            public ReadStop(ETokenType a, ETokenType b, ETokenType c) { this.a = a; this.b = b; this.c = c; d = 0; count = 3; }
+            public ReadStop(ETokenType a, ETokenType b, ETokenType c, ETokenType d) { this.a = a; this.b = b; this.c = c; this.d = d; count = 4; }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool Contains(ETokenType t)
+            {
+                if (t == a) return true;
+                if (count > 1 && t == b) return true;
+                if (count > 2 && t == c) return true;
+                if (count > 3 && t == d) return true;
+                return false;
+            }
+        }
+
+        List<INode> ParseStatements()
+        {
+            List<INode> statements = new List<INode>();
+
+            Token token;
+            while ((token = Peek()).type != ETokenType.EOF)
+            {
+                switch (token.type)
+                {
+                    case ETokenType.Error:
+                        throw new Exception();
+
+                    case ETokenType.LineBreak:
+                        Consume();
+                        break;
+
+                    case ETokenType.If:
+                        statements.Add(ParseIfElseStatement());
+                        break;
+
+                    case ETokenType.ElseIf:
+                    case ETokenType.Else:
+                    case ETokenType.EndIf:
+                    case ETokenType.EndFor:
+                        return statements;
+
+                    case ETokenType.IdentifierLiteral:
+                        statements.Add(ParseDeclaration());
+                        MaybeEOX();
+                        break;
+
+                    default:
+                        throw new Exception();
+                }
+            }
+            return statements;
+        }
 
         Token Consume()
         {
@@ -262,7 +381,7 @@ namespace TriUgla.Parsing
         bool IsEOX(Token token)
         {
             ETokenType type = token.type;
-            if (type != ETokenType.EOF && type != ETokenType.LineBreak && type != ETokenType.Colon && type != ETokenType.SemiColon)
+            if (type != ETokenType.EOF && type != ETokenType.LineBreak && type != ETokenType.SemiColon)
             {
                 return false;
             }
@@ -283,19 +402,6 @@ namespace TriUgla.Parsing
         {
             if (IsEOX(Peek()))
             {
-                Consume();
-            }
-        }
-
-        void Skip()
-        {
-            while (true)
-            {
-                var token = Peek().type;
-                if (token != ETokenType.LineBreak || token != ETokenType.Comment)
-                {
-                    break;
-                }
                 Consume();
             }
         }

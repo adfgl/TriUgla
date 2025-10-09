@@ -5,7 +5,7 @@ namespace TriUgla.Parsing.Nodes
 {
     public class NodeDeclarationOrAssignment : INode
     {
-        public NodeDeclarationOrAssignment(Token identifier, INode expression)
+        public NodeDeclarationOrAssignment(Token identifier, INode? expression)
         {
             Identifier = identifier;
             Expression = expression;

@@ -1,19 +1,20 @@
 ﻿using System.Runtime.CompilerServices;
-using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 using Range = TriUgla.Parsing.Compiling.Range;
 
-namespace TriUgla.Parsing
+namespace TriUgla.Parsing.Compiling
 {
     public class Evaluator : INodeVisitor
     {
         Stack _stack = new Stack();
 
+        public Stack Stack => _stack;
+
         public Value Visit(NodeNumericLiteral n)
         {
-            if (Double.TryParse(n.Token.value, out double d))
+            if (double.TryParse(n.Token.value, out double d))
             {
                 return new Value(d);
             }
@@ -152,7 +153,16 @@ namespace TriUgla.Parsing
         public Value Visit(NodeDeclarationOrAssignment n)
         {
             Value value = n.Expression is not null ? n.Expression.Accept(this) : Value.Nothing;
-            Variable variable = _stack.Current.Declare(n.Identifier, value);
+            Variable variable = _stack.Current.GetOrDeclare(n.Identifier);
+
+            if (variable.Value.type == EDataType.None || variable.Value.type == value.type)
+            {
+                variable.Value = value;
+            }
+            else
+            {
+                throw new Exception();
+            }
             return variable.Value;
         }
 
@@ -189,12 +199,50 @@ namespace TriUgla.Parsing
 
         public Value Visit(NodeFor n)
         {
-            throw new NotImplementedException();
+            Value id = n.Identifier.Accept(this);
+            Value range = n.Range.Accept(this);
+
+            Value inter = Value.Nothing;
+            foreach (double item in range.AsRange())
+            {
+                inter = n.Block.Accept(this);
+            }
+            return inter;
         }
 
         public Value Visit(NodeFun n)
         {
-            throw new NotImplementedException();
+            string function = n.Name.value;
+
+            Value[] args = new Value[n.Args.Count];
+            for (int i = 0; i < args.Length; i++)
+            {
+                args[i] = n.Args[i].Accept(this);
+            }
+
+            switch (function)
+            {
+                case "Print":
+                    if (args.Length == 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    else
+                    {
+                        Console.WriteLine(args[0].AsString());
+                    }
+                    return Value.Nothing;
+
+                default:
+                    throw new Exception($"Unknown function.");
+            }
+
+            throw new Exception();
+        }
+
+        public Value Visit(NodeProgram n)
+        {
+            return n.Block.Accept(this);
         }
     }
 }

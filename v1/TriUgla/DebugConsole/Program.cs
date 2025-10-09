@@ -1,5 +1,6 @@
 ﻿using TriUgla;
 using TriUgla.Parsing;
+using TriUgla.Parsing.Scanning;
 
 namespace DebugConsole
 {
@@ -8,15 +9,18 @@ namespace DebugConsole
         static void Main(string[] args)
         {
             string txt = File.ReadAllText(@"text.txt");
+
+
+
             Console.WriteLine(txt);
-
-            //Console.WriteLine();
-
+            Console.WriteLine();
             //new Scanner(txt).ReadAll();
-
             //Console.WriteLine();
 
-            //Console.WriteLine(Executor.Run(txt)); ;
+            Executor executor = new Executor();
+
+            Console.WriteLine("-----");
+            Console.WriteLine(executor.Execute(txt)); ;
 
         }
 

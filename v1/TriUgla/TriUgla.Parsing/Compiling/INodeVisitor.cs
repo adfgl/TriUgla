@@ -1,8 +1,7 @@
-﻿using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Nodes;
+﻿using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 
-namespace TriUgla.Parsing
+namespace TriUgla.Parsing.Compiling
 {
     public interface INodeVisitor
     {
@@ -19,5 +18,6 @@ namespace TriUgla.Parsing
         Value Visit(NodeDeclarationOrAssignment n);
         Value Visit(NodeFor n);
         Value Visit(NodeFun n);
+        Value Visit(NodeProgram n);
     }
 }

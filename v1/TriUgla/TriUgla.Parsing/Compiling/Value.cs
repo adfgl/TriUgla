@@ -65,6 +65,8 @@ namespace TriUgla.Parsing.Compiling
                 return obj.ToString();
             }
 
+            if (type == EDataType.None) return "";
+
             throw new InvalidCastException();
         }
 

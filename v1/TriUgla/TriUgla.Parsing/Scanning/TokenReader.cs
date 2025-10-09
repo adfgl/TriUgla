@@ -30,7 +30,6 @@ namespace TriUgla.Parsing.Scanning
             return ReadOperatorOrPunct();
         }
 
-        // ----- helpers -----
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private char Peek(int k = 0) => (_pos + k) < _src.Length ? _src[_pos + k] : EOF;
 
@@ -91,6 +90,11 @@ namespace TriUgla.Parsing.Scanning
             while (IsIdentPart(Peek())) Advance();
             int len = _pos - start;
             string text = _src.Substring(start, len);
+
+            if (Keywords.Source.TryGetValue(text, out ETokenType keyword))
+            {
+                return new Token(keyword, line, col, string.Empty);
+            }
             return new Token(ETokenType.IdentifierLiteral, line, col, text);
         }
 
