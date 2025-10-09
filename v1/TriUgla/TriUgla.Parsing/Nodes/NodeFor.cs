@@ -10,7 +10,7 @@ namespace TriUgla.Parsing.Nodes
 {
     public class NodeFor : INode
     {
-        public NodeFor(Token token, NodeIdentifierLiteral id, INode range, NodeBlock block)
+        public NodeFor(Token token, INode id, INode range, NodeBlock block)
         {
             Token = token;
             Identifier = id;
@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes
         }
 
         public Token Token { get; }
-        public NodeIdentifierLiteral Identifier { get; }
+        public INode Identifier { get; }
         public INode Range { get; }
         public NodeBlock Block { get; }
 

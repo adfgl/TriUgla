@@ -155,7 +155,7 @@ namespace TriUgla.Parsing.Compiling
             TuValue value = n.Expression is not null ? n.Expression.Accept(this) : TuValue.Nothing;
             Variable variable = _stack.Current.GetOrDeclare(n.Token);
 
-            if (variable.Value.type == value.type)
+            if (variable.Value.type == EDataType.Nothing || variable.Value.type == value.type)
             {
                 variable.Value = value;
             }
@@ -200,15 +200,14 @@ namespace TriUgla.Parsing.Compiling
         public TuValue Visit(NodeFor n)
         {
             Variable i = _stack.Current.GetOrDeclare(n.Identifier.Token);
-            TuValue range = n.Range.Accept(this);
 
-            TuValue inter = TuValue.Nothing;
-            foreach (double item in range.AsRange())
+            TuValue list = n.Range.Accept(this);
+            foreach (double item in (IEnumerable<double>)(list.type == EDataType.Range ? list.AsRange() : list.AsTuple()))
             {
                 i.Value = new TuValue(item);
-                inter = n.Block.Accept(this);
+                n.Block.Accept(this);
             }
-            return inter;
+            return i.Value;
         }
 
         public TuValue Visit(NodeFun n)
@@ -233,6 +232,15 @@ namespace TriUgla.Parsing.Compiling
                         Console.WriteLine(args[0].AsString());
                     }
                     return TuValue.Nothing;
+
+                case "Min":
+                    if (args.Length == 2)
+                    {
+                        var l = args[0];
+                        var r = args[1];
+                        return new TuValue(Math.Min(l.AsNumeric(), r.AsNumeric()));
+                    }
+                    break;
 
                 default:
                     throw new Exception($"Unknown function.");

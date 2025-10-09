@@ -13,6 +13,13 @@ namespace TriUgla.Parsing.Compiling
         readonly double numeric;
         readonly TuObject? obj = null;
 
+        TuValue(EDataType type, double numeric, TuObject? obj)
+        {
+            this.type = type;
+            this.numeric = numeric;
+            this.obj = obj;
+        }
+
         public TuValue(bool b)
         {
             type = EDataType.Numeric;
@@ -112,5 +119,16 @@ namespace TriUgla.Parsing.Compiling
             return AsString();
         }
 
+        public TuValue Copy()
+        {
+            if (type == EDataType.Numeric || obj is null)
+                return this;
+
+            // Deep copy the heap object
+            var cloned = obj.Clone();
+
+            // rebuild TuValue without reinterpreting types
+            return new TuValue(type, numeric, cloned);
+        }
     }
 }

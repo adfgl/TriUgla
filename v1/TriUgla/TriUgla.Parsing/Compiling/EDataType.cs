@@ -2,6 +2,7 @@
 {
     public enum EDataType : byte
     {
+        Nothing,
         Numeric,
         String,
         Range,
