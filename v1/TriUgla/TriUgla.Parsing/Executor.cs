@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Compiling.RuntimeObjects;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Scanning;
 

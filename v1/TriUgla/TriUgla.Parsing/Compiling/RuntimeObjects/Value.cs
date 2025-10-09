@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using TriUgla.Parsing.Compiling.RuntimeObjects;
 
 namespace TriUgla.Parsing.Compiling
 {

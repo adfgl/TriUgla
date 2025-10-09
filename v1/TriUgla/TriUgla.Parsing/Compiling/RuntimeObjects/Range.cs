@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Compiling.RuntimeObjects
 {
     public class Range : Object, IEnumerable<double>
     {
@@ -64,7 +64,7 @@ namespace TriUgla.Parsing.Compiling
 
         public override string ToString()
         {
-            return String.Join(", ", this) ;
+            return string.Join(", ", this) ;
         }
     }
 }

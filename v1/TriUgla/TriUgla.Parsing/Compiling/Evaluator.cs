@@ -3,7 +3,7 @@ using System.Threading;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
-using Range = TriUgla.Parsing.Compiling.Range;
+using Range = TriUgla.Parsing.Compiling.RuntimeObjects.Range;
 
 namespace TriUgla.Parsing.Compiling
 {
