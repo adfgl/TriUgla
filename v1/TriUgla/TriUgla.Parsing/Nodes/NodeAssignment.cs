@@ -8,12 +8,12 @@ namespace TriUgla.Parsing.Nodes
         public NodeAssignment(Token op, INode id, INode? expression)
         {
             Token = op;
-            Identifier = id;
+            Assignee = id;
             Expression = expression;
         }
 
         public Token Token { get; }
-        public INode Identifier { get; }
+        public INode Assignee { get; }
         public INode? Expression { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);

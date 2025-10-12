@@ -265,7 +265,7 @@ namespace TriUgla.Parsing.Compiling
         public TuValue Visit(NodeAssignment n)
         {
             // Current node shape: Identifier + Token(op) + Expression
-            Token id = n.Identifier.Token;
+            Token id = n.Assignee.Token;
 
             // Read current value (default 0 for numerics to help compound ops)
             Variable v = _stack.Current.GetOrDeclare(id);
@@ -279,7 +279,7 @@ namespace TriUgla.Parsing.Compiling
             switch (n.Token.type)
             {
                 case ETokenType.Equal:
-                    NodeValueAt? at = n.Identifier as NodeValueAt;
+                    NodeValueAt? at = n.Assignee as NodeValueAt;
                     if (at is not null)
                     {
                         int index = (int)at.Index.Accept(this).AsNumeric();
@@ -392,9 +392,48 @@ namespace TriUgla.Parsing.Compiling
                     return TuValue.Nothing;
 
                 case "Min":
-                    if (args.Length == 2)
-                        return new TuValue(Math.Min(args[0].AsNumeric(), args[1].AsNumeric()));
-                    throw new Exception("Min expects 2 arguments");
+                    double min = double.MaxValue;
+                    if (args.Length == 0) throw new Exception();
+
+                    foreach (TuValue item in args)
+                    {
+                        switch (item.type)
+                        {
+                            case EDataType.Numeric:
+                                min = Math.Min(min, item.AsNumeric());
+                                break;
+
+                            case EDataType.Tuple:
+                                min = Math.Min(min, item.AsTuple().Min());
+                                break;
+
+                            default:
+                                throw new Exception();
+                        }
+                    }
+                    return new TuValue(min);
+
+                case "Max":
+                    double max = double.MinValue;
+                    if (args.Length == 0) throw new Exception();
+
+                    foreach (TuValue item in args)
+                    {
+                        switch (item.type)
+                        {
+                            case EDataType.Numeric:
+                                max = Math.Max(max, item.AsNumeric());
+                                break;
+
+                            case EDataType.Tuple:
+                                max = Math.Max(max, item.AsTuple().Max());
+                                break;
+
+                            default:
+                                throw new Exception();
+                        }
+                    }
+                    return new TuValue(max);
 
                 default:
                     throw new Exception($"Unknown function '{function}'.");
