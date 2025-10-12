@@ -90,13 +90,11 @@ namespace TriUgla.Parsing.Compiling
             return new TuValue(cur); // postfix returns OLD value
         }
 
-        // -------------------- binary ops (+,*,==,&&,||,...) --------------------
-
         public TuValue Visit(NodeBinary n)
         {
             var op = n.Token.type;
 
-            // Short-circuit first to avoid evaluating RHS unnecessarily
+            // Short-circuit first
             if (op == ETokenType.Or)
             {
                 TuValue left = n.Left.Accept(this);
@@ -112,11 +110,11 @@ namespace TriUgla.Parsing.Compiling
                 return new TuValue(AsBool(right));
             }
 
-            // Otherwise evaluate both
+            // Evaluate both
             TuValue lval = n.Left.Accept(this);
             TuValue rval = n.Right.Accept(this);
 
-            // If both numeric → numeric ops & comparisons
+            // ---------------- NUMERIC ⊙ NUMERIC ----------------
             if (lval.type == EDataType.Numeric && rval.type == EDataType.Numeric)
             {
                 double l = lval.AsNumeric();
@@ -139,22 +137,101 @@ namespace TriUgla.Parsing.Compiling
                 }
             }
 
-            // String concatenation
+            // ---------------- STRING CONCAT ----------------
             if (op == ETokenType.Plus && (lval.type == EDataType.String || rval.type == EDataType.String))
-            {
                 return new TuValue(lval.AsString() + rval.AsString());
+
+            // ---------------- TUPLE MATH ----------------
+            bool lIsTuple = lval.type == EDataType.Tuple;
+            bool rIsTuple = rval.type == EDataType.Tuple;
+            bool lIsNum = lval.type == EDataType.Numeric;
+            bool rIsNum = rval.type == EDataType.Numeric;
+
+            if ((lIsTuple && rIsNum) || (lIsNum && rIsTuple))
+            {
+                // tuple ⊙ scalar (commutative where appropriate)
+                TuTuple t = (lIsTuple ? lval : rval).AsTuple()!;
+                double s = (lIsNum ? lval : rval).AsNumeric();
+
+                return op switch
+                {
+                    ETokenType.Plus => MapTupleScalar(t, s, (a, b) => a + b),
+                    ETokenType.Minus => lIsTuple
+                                         ? MapTupleScalar(t, s, (a, b) => a - b)   // tuple - scalar
+                                         : MapTupleScalar(t, s, (a, b) => b - a),  // scalar - tuple
+                    ETokenType.Star => MapTupleScalar(t, s, (a, b) => a * b),
+                    ETokenType.Slash => lIsTuple
+                                         ? MapTupleScalar(t, s, (a, b) => a / b)   // tuple / scalar
+                                         : MapTupleScalar(t, s, (a, b) => b / a),  // scalar / tuple
+                    ETokenType.Modulo => lIsTuple
+                                         ? MapTupleScalar(t, s, (a, b) => a % b)
+                                         : MapTupleScalar(t, s, (a, b) => b % a),
+                    ETokenType.Power => lIsTuple
+                                         ? MapTupleScalar(t, s, (a, b) => Math.Pow(a, b))   // tuple ^ scalar
+                                         : MapTupleScalar(t, s, (a, b) => Math.Pow(b, a)),  // scalar ^ tuple
+                    _ => throw new Exception("Unsupported tuple-scalar operator")
+                };
             }
 
-            // Equality across non-numeric: compare string reps (simple & predictable)
-            if (op == ETokenType.EqualEqual)
-                return new TuValue(lval.AsString() == rval.AsString());
-            if (op == ETokenType.NotEqual)
-                return new TuValue(lval.AsString() != rval.AsString());
+            if (lIsTuple && rIsTuple)
+            {
+                TuTuple lt = lval.AsTuple()!;
+                TuTuple rt = rval.AsTuple()!;
+                if (lt.Values.Count != rt.Values.Count)
+                    throw new Exception("Tuple sizes must match for element-wise operation");
+
+                return op switch
+                {
+                    ETokenType.Plus => MapTupleTuple(lt, rt, (a, b) => a + b),
+                    ETokenType.Minus => MapTupleTuple(lt, rt, (a, b) => a - b),
+                    ETokenType.Star => MapTupleTuple(lt, rt, (a, b) => a * b),
+                    ETokenType.Slash => MapTupleTuple(lt, rt, (a, b) => a / b),
+                    ETokenType.Modulo => MapTupleTuple(lt, rt, (a, b) => a % b),
+                    ETokenType.Power => MapTupleTuple(lt, rt, (a, b) => Math.Pow(a, b)),
+
+                    // Equality for tuples: same length & all elements equal
+                    ETokenType.EqualEqual => new TuValue(TupleEquals(lt, rt)),
+                    ETokenType.NotEqual => new TuValue(!TupleEquals(lt, rt)),
+
+                    _ => throw new Exception("Unsupported tuple-tuple operator")
+                };
+            }
+
+            if (op == ETokenType.EqualEqual) return new TuValue(lval.AsString() == rval.AsString());
+            if (op == ETokenType.NotEqual) return new TuValue(lval.AsString() != rval.AsString());
 
             throw new Exception("Unsupported binary operation");
         }
 
-        // -------------------- grouping / block --------------------
+        // ===== helpers =====
+
+        private static TuValue MapTupleScalar(TuTuple t, double s, Func<double, double, double> f)
+        {
+            var src = t.Values;
+            var dst = new double[src.Count];
+            for (int i = 0; i < dst.Length; i++) dst[i] = f(src[i], s);
+            return new TuValue(new TuTuple(dst));
+        }
+
+        private static TuValue MapTupleTuple(TuTuple a, TuTuple b, Func<double, double, double> f)
+        {
+            var av = a.Values;
+            var bv = b.Values;
+            if (av.Count != bv.Count) throw new Exception("Tuple sizes must match");
+            var dst = new double[av.Count];
+            for (int i = 0; i < av.Count; i++) dst[i] = f(av[i], bv[i]);
+            return new TuValue(new TuTuple(dst));
+        }
+
+        private static bool TupleEquals(TuTuple a, TuTuple b)
+        {
+            var av = a.Values;
+            var bv = b.Values;
+            if (av.Count != bv.Count) return false;
+            for (int i = 0; i < av.Count; i++)
+                if (av[i] != bv[i]) return false;
+            return true;
+        }
 
         public TuValue Visit(NodeGroup n) => n.Expression.Accept(this);
 
@@ -165,8 +242,6 @@ namespace TriUgla.Parsing.Compiling
                 value = exp.Accept(this);
             return value;
         }
-
-        // -------------------- if / else if / else --------------------
 
         public TuValue Visit(NodeIfElse n)
         {
@@ -242,8 +317,6 @@ namespace TriUgla.Parsing.Compiling
 
             return v.Value;
         }
-
-        // -------------------- ranges / tuples / misc --------------------
 
         public TuValue Visit(NodeRangeLiteral n)
         {
@@ -324,9 +397,20 @@ namespace TriUgla.Parsing.Compiling
             foreach (INode item in n.Args)
             {
                 TuValue v = item.Accept(this);
-                if (v.type != EDataType.Numeric)
-                    throw new Exception("Tuple elements must be numeric");
-                values.Add(v.AsNumeric());
+                switch (v.type)
+                {
+                    case EDataType.Numeric:
+                        values.Add(v.AsNumeric());
+                        break;
+                    case EDataType.Range:
+                        values.AddRange(v.AsTuple()!);
+                        break;
+                    case EDataType.Tuple:
+                        values.AddRange(v.AsTuple()!);
+                        break;
+                    default:
+                        throw new Exception("Tuple elements must be numeric");
+                }
             }
             return new TuValue(new TuTuple(values));
         }
@@ -362,12 +446,8 @@ namespace TriUgla.Parsing.Compiling
             return new TuValue(tpl.Values[i]);
         }
 
-        // -------------------- helpers --------------------
-
         static bool AsBool(TuValue v)
         {
-            // Use your internal rules; defaults:
-            // numeric: != 0; string: non-empty; tuple/range: non-empty if you like
             return v.AsBoolean();
         }
     }
