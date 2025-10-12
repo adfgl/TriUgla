@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TriUgla.Parsing.Compiling;
@@ -23,7 +24,27 @@ namespace TriUgla.Parsing
 
         INode ParseExpression()
         {
-            return ParseLogicalOrExpression();
+            return ParseAssignmentExpression();
+        }
+
+        // Lowest precedence, right-associative
+        INode ParseAssignmentExpression()
+        {
+            INode left = ParseLogicalOrExpression();
+
+            Token t = Peek();
+            if (t.type == ETokenType.Equal
+                || t.type == ETokenType.PlusEqual
+                || t.type == ETokenType.MinusEqual
+                || t.type == ETokenType.StarEqual
+                || t.type == ETokenType.SlashEqual)
+            {
+                Token op = Consume(); // +=, -=, *=, ...
+                INode right = ParseAssignmentExpression(); // right-assoc
+                return new NodeAssignment(op, left, right);
+            }
+
+            return left;
         }
 
         INode ParseLogicalOrExpression()
@@ -136,103 +157,71 @@ namespace TriUgla.Parsing
                     break;
                 }
                 Consume();
-                INode right = ParseExponentiationExpression();
+                INode right = ParseExponentiationExpression(); // right-assoc
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseUnaryExpression()
+        INode ParseUnaryExpression() // Unary (prefix ++/-- live here)
         {
-            Token token = Peek();
+            Token t = Peek();
 
-            if (token.type == ETokenType.Plus)
+            if (t.type == ETokenType.PlusPlus  // ++x
+                || t.type == ETokenType.MinusMinus // --x
+                || t.type == ETokenType.Plus   // +x
+                || t.type == ETokenType.Minus  // -x
+                || t.type == ETokenType.Not)   // !x
             {
-                Consume();
-                return ParsePrimaryExpression();
+                Token op = Consume();
+                INode rhs = ParseUnaryExpression();
+                return new NodePrefixUnary(op, rhs);
             }
 
-            if (token.type == ETokenType.Minus || token.type == ETokenType.Not)
-            {
-                Consume();
-                return new NodeUnary(token, ParseUnaryExpression());
-            }
-            return ParsePrimaryExpression();
+            return ParsePostfixExpression();
         }
 
-        INode ParseRangeOrTuple()
-        {
-            Token tkOpen = Peek();
-            Consume(ETokenType.OpenCurly);
+    
+        INode ParsePostfixExpression() // Postfix (calls, indexing, postfix ++/--)
+        { 
+            INode expr = ParseSimplePrimaryExpression();
 
-            // {} -> empty tuple/list
-            if (Peek().type == ETokenType.CloseCurly)
-            {
-                Consume(ETokenType.CloseCurly);
-                return new NodeTupleLiteral(tkOpen, new List<INode>(0));
-            }
-
-            var items = new List<INode>(4);
-
-            // Parse first element
-            items.Add(ParseExpression());
-
-            // Decide how to continue based on NEXT token
-            var t = Peek().type;
-
-            if (t == ETokenType.CloseCurly)
-            {
-                // {x}
-                Consume(ETokenType.CloseCurly);
-                return new NodeTupleLiteral(tkOpen, items);
-            }
-
-            // Detect separator
-            ETokenType sep;
-            if (t == ETokenType.Comma || t == ETokenType.Colon)
-            {
-                sep = t;
-                Consume();
-            }
-            else
-            {
-                throw new Exception("Expected ',' or ':' or '}' after first element.");
-            }
-
-            // Parse remainder with consistent separator
             while (true)
             {
-                // allow trailing comma for tuples: {a,b,}
-                if (sep == ETokenType.Comma && Peek().type == ETokenType.CloseCurly)
-                    break;
+                var t = Peek().type;
 
-                var next = Peek().type;
-                if (sep == ETokenType.Comma && next == ETokenType.Colon)
-                    throw new Exception("Mixed separators: expected ',' consistently.");
-                if (sep == ETokenType.Colon && next == ETokenType.Comma)
-                    throw new Exception("Mixed separators: expected ':' consistently.");
+                if (t == ETokenType.OpenParen)
+                {
+                    var args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
 
-                items.Add(ParseExpression());
+                    if (expr is NodeIdentifierLiteral idLit)
+                    {
+                        expr = new NodeFun(expr.Token, args);
+                    }
+                    continue;
+                }
 
-                // more?
-                if (!TryConsume(sep, out _))
-                    break;
+                if (t == ETokenType.OpenSquare)
+                {
+                    Token tkn = Consume(ETokenType.OpenSquare);
+                    INode index = ParseExpression();
+                    Consume(ETokenType.CloseSquare);
+                    expr = new NodeValueAt(tkn, expr, index);
+                    continue;
+                }
+
+                if (t == ETokenType.PlusPlus || 
+                    t == ETokenType.MinusMinus)
+                {
+                    Token op = Consume(); // x++ or x--
+                    expr = new NodePostfixUnary(op, expr);
+                    continue;
+                }
+
+                break;
             }
 
-            Consume(ETokenType.CloseCurly);
-
-            // Build node
-            if (sep == ETokenType.Colon)
-            {
-                if (items.Count == 2)
-                    return new NodeRangeLiteral(tkOpen, items[0], items[1], null);
-                if (items.Count == 3)
-                    return new NodeRangeLiteral(tkOpen, items[0], items[2], items[1]); 
-                throw new Exception("Range requires {start:end} or {start:step:end}.");
-            }
-
-            // Comma-separated tuple/list
-            return new NodeTupleLiteral(tkOpen, items);
+            return expr;
         }
 
         INode ParseSimplePrimaryExpression()
@@ -240,19 +229,23 @@ namespace TriUgla.Parsing
             Token token = Peek();
             switch (token.type)
             {
-                case ETokenType.IdentifierLiteral:
-                    Token id = Consume();
+                case ETokenType.Hash:
+                    {
+                        Token hash = Consume();
+                        if (Peek().type == ETokenType.IdentifierLiteral
+                            || Peek().type == ETokenType.OpenParen
+                            || Peek().type == ETokenType.OpenCurly
+                            || Peek().type == ETokenType.StringLiteral
+                            || Peek().type == ETokenType.NumericLiteral)
+                        {
+                            INode exp = ParsePostfixExpression(); // allow # on any primary/postfix chain
+                            return new NodeLengthOf(hash, exp);
+                        }
+                        break;
+                    }
 
-                    if (TryConsume(ETokenType.OpenSquare, out _))
-                    {
-                        Consume(ETokenType.CloseSquare);
-                        id = new Token(id.type, id.line, id.column, "[]" + id.value);
-                    }
-                    else if (Peek().type == ETokenType.OpenParen)
-                    {
-                        return ParseFunctionCall(id);
-                    }
-                    return new NodeIdentifierLiteral(id);
+                case ETokenType.IdentifierLiteral:
+                    return new NodeIdentifierLiteral(Consume());
 
                 case ETokenType.NumericLiteral:
                     return new NodeNumericLiteral(Consume());
@@ -264,13 +257,80 @@ namespace TriUgla.Parsing
                     return ParseRangeOrTuple();
 
                 case ETokenType.OpenParen:
-                    Token tkOpenParen = Consume(ETokenType.OpenParen);
-                    INode expr = ParseExpression();
-                    Consume(ETokenType.CloseParen);
-                    return new NodeGroup(tkOpenParen, expr);
+                    {
+                        Token tkOpenParen = Consume(ETokenType.OpenParen);
+                        INode expr = ParseExpression();
+                        Consume(ETokenType.CloseParen);
+                        return new NodeGroup(tkOpenParen, expr);
+                    }
             }
 
-            throw new Exception();
+            throw new Exception("Unexpected token in primary: " + token.type);
+        }
+
+        INode ParseRangeOrTuple()
+        {
+            Token tkOpen = Peek();
+            Consume(ETokenType.OpenCurly);
+
+            if (Peek().type == ETokenType.CloseCurly)
+            {
+                Consume(ETokenType.CloseCurly);
+                return new NodeTupleLiteral(tkOpen, new List<INode>(0));
+            }
+
+            var items = new List<INode>(4);
+
+            items.Add(ParseExpression());
+
+            var t = Peek().type;
+
+            if (t == ETokenType.CloseCurly)
+            {
+                Consume(ETokenType.CloseCurly);
+                return new NodeTupleLiteral(tkOpen, items);
+            }
+
+            ETokenType sep;
+            if (t == ETokenType.Comma || t == ETokenType.Colon)
+            {
+                sep = t;
+                Consume();
+            }
+            else
+            {
+                throw new Exception("Expected ',' or ':' or '}' after first element.");
+            }
+
+            while (true)
+            {
+                if (sep == ETokenType.Comma && Peek().type == ETokenType.CloseCurly)
+                    break;
+
+                var next = Peek().type;
+                if (sep == ETokenType.Comma && next == ETokenType.Colon)
+                    throw new Exception("Mixed separators: expected ',' consistently.");
+                if (sep == ETokenType.Colon && next == ETokenType.Comma)
+                    throw new Exception("Mixed separators: expected ':' consistently.");
+
+                items.Add(ParseExpression());
+
+                if (!TryConsume(sep, out _))
+                    break;
+            }
+
+            Consume(ETokenType.CloseCurly);
+
+            if (sep == ETokenType.Colon)
+            {
+                if (items.Count == 2)
+                    return new NodeRangeLiteral(tkOpen, items[0], items[1], null);
+                if (items.Count == 3)
+                    return new NodeRangeLiteral(tkOpen, items[0], items[2], items[1]);
+                throw new Exception("Range requires {start:end} or {start:step:end}.");
+            }
+
+            return new NodeTupleLiteral(tkOpen, items);
         }
 
         List<INode> ParseArguments(ETokenType open = ETokenType.OpenParen, ETokenType close = ETokenType.CloseParen, ETokenType separator = ETokenType.Comma)
@@ -283,48 +343,11 @@ namespace TriUgla.Parsing
                 {
                     args.Add(ParseExpression());
                     if (!TryConsume(separator, out _)) break;
-                    if (Peek().type == close) break; 
+                    if (Peek().type == close) break;
                 }
             }
             Consume(close);
             return args;
-        }
-
-        INode ParseTuple(Token collee)
-        {
-            var args = ParseArguments(ETokenType.OpenCurly, ETokenType.CloseCurly, ETokenType.Comma);
-            return new NodeTupleLiteral(collee, args);
-        }
-
-        INode ParseFunctionCall(Token callee)
-        {
-            var args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
-            return new NodeFun(callee, args); 
-        }
-
-        INode ParsePrimaryExpression()
-        {
-            INode expr = ParseSimplePrimaryExpression();
-            return expr;
-        }
-
-        INode ParseDeclarationOrExprStatement()
-        {
-            INode node = ParseSimplePrimaryExpression();
-            NodeIdentifierLiteral? id = node as NodeIdentifierLiteral;
-            if (id is null)
-            {
-                throw new Exception();
-            }
-
-            Consume(ETokenType.Equal);
-
-            if (TryConsume(ETokenType.Equal, out _))
-            {
-                INode exp = ParseExpression();
-                return new NodeDeclarationOrAssignment(id.Token, exp);
-            }
-            return id;
         }
 
         INode ParseFor()
@@ -442,23 +465,13 @@ namespace TriUgla.Parsing
                         Consume();
                         return statements;
 
-                    case ETokenType.IdentifierLiteral:
-                        ETokenType next = Peek(1).type;
-                        if (next == ETokenType.OpenParen)
-                        {
-                            Consume(ETokenType.IdentifierLiteral);
-                            INode fun = ParseFunctionCall(token);
-                            statements.Add(fun);
-                        }
-                        else
-                        {
-                            statements.Add(ParseDeclarationOrExprStatement());
-                        }
-                        MaybeEOX();
-                        break;
-
                     default:
-                        throw new Exception();
+                        {
+                            INode expr = ParseExpression();
+                            statements.Add(expr);
+                            MaybeEOX();
+                            break;
+                        }
                 }
             }
             return statements;
@@ -523,4 +536,5 @@ namespace TriUgla.Parsing
             }
         }
     }
+
 }

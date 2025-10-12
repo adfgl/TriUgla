@@ -6,10 +6,10 @@ namespace TriUgla.Parsing.Compiling
     {
         public TuTuple(IEnumerable<double> values)
         {
-            Values = values.ToArray();
+            Values = values.ToList();
         }
 
-        public double[] Values { get; set; }
+        public List<double> Values { get; set; }
 
         public override string ToString()
         {

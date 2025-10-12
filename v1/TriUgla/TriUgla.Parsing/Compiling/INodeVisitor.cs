@@ -9,14 +9,17 @@ namespace TriUgla.Parsing.Compiling
         TuValue Visit(NodeIdentifierLiteral n);
         TuValue Visit(NodeRangeLiteral n);
 
-        TuValue Visit(NodeUnary n);
+        TuValue Visit(NodePrefixUnary n);
+        TuValue Visit(NodePostfixUnary n);
         TuValue Visit(NodeBinary n);
         TuValue Visit(NodeGroup n);
         TuValue Visit(NodeBlock n);
         TuValue Visit(NodeIfElse n);
-        TuValue Visit(NodeDeclarationOrAssignment n);
+        TuValue Visit(NodeAssignment n);
         TuValue Visit(NodeFor n);
         TuValue Visit(NodeFun n);
         TuValue Visit(NodeTupleLiteral n);
+        TuValue Visit(NodeLengthOf n);
+        TuValue Visit(NodeValueAt n);
     }
 }

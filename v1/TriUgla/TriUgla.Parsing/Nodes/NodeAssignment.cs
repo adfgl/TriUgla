@@ -3,16 +3,18 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeUnary : INode
+    public class NodeAssignment : INode
     {
-        public NodeUnary(Token op, INode exp)
+        public NodeAssignment(Token op, INode id, INode? expression)
         {
             Token = op;
-            Expression = exp;
+            Identifier = id;
+            Expression = expression;
         }
-        
+
         public Token Token { get; }
-        public INode Expression { get; }
+        public INode Identifier { get; }
+        public INode? Expression { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
     }

@@ -14,7 +14,8 @@ namespace TriUgla.Parsing
             Parser parser = new Parser(scanner);
 
             var program = parser.Parse();
-            return program.Accept(_evaluator);
+            var result = program.Accept(_evaluator);
+            return result;
         }
     }
 }

@@ -150,6 +150,14 @@ namespace TriUgla.Parsing.Scanning
 
             if (b != EOF)
             {
+                if (a == '+' && b == '+') { Advance(); Advance(); return new Token(ETokenType.PlusPlus, line, col, ""); }
+                if (a == '+' && b == '=') { Advance(); Advance(); return new Token(ETokenType.PlusEqual, line, col, ""); }
+                if (a == '-' && b == '=') { Advance(); Advance(); return new Token(ETokenType.MinusEqual, line, col, ""); }
+                if (a == '-' && b == '-') { Advance(); Advance(); return new Token(ETokenType.Minus, line, col, ""); }
+                if (a == '*' && b == '=') { Advance(); Advance(); return new Token(ETokenType.StarEqual, line, col, ""); }
+                if (a == '/' && b == '=') { Advance(); Advance(); return new Token(ETokenType.SlashEqual, line, col, ""); }
+                if (a == '%' && b == '=') { Advance(); Advance(); return new Token(ETokenType.ModuloEqual, line, col, ""); }
+
                 if (a == '!' && b == '=') { Advance(); Advance(); return new Token(ETokenType.NotEqual, line, col, ""); }
                 if (a == '=' && b == '=') { Advance(); Advance(); return new Token(ETokenType.EqualEqual, line, col, ""); }
                 if (a == '>' && b == '=') { Advance(); Advance(); return new Token(ETokenType.GreaterOrEqual, line, col, ""); }

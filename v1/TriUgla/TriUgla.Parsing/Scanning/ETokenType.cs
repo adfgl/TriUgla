@@ -12,6 +12,8 @@ namespace TriUgla.Parsing.Scanning
         NumericLiteral, StringLiteral, IdentifierLiteral,
 
         Minus, Plus, Star, Slash, Modulo, Power,
+        MinusEqual, PlusEqual, StarEqual, SlashEqual, ModuloEqual,
+        PlusPlus, MinusMinus,
 
         OpenParen, CloseParen,
         OpenCurly, CloseCurly,

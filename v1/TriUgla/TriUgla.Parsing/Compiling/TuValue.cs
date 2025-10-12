@@ -77,6 +77,9 @@ namespace TriUgla.Parsing.Compiling
                 if (obj is null) return "";
                 return obj.ToString();
             }
+
+            if (type == EDataType.Nothing) return String.Empty;
+
             throw new InvalidCastException();
         }
 
@@ -124,10 +127,7 @@ namespace TriUgla.Parsing.Compiling
             if (type == EDataType.Numeric || obj is null)
                 return this;
 
-            // Deep copy the heap object
             var cloned = obj.Clone();
-
-            // rebuild TuValue without reinterpreting types
             return new TuValue(type, numeric, cloned);
         }
     }
