@@ -279,7 +279,17 @@ namespace TriUgla.Parsing.Compiling
             switch (n.Token.type)
             {
                 case ETokenType.Equal:
-                    v.Value = rhs.Copy();
+                    NodeValueAt? at = n.Identifier as NodeValueAt;
+                    if (at is not null)
+                    {
+                        int index = (int)at.Index.Accept(this).AsNumeric();
+                        TuTuple? tpl = at.Tuple.Accept(this).AsTuple();
+                        tpl.Values[index] = rhs.AsNumeric();
+                    }
+                    else
+                    {
+                        v.Value = rhs.Copy();
+                    }
                     break;
 
                 case ETokenType.PlusEqual:
