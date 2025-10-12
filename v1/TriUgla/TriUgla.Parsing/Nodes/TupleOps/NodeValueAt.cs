@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.TupleOps
 {
     public class NodeValueAt : INode
     {

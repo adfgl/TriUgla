@@ -1,7 +1,7 @@
 ﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.FlowControl
 {
     public class NodeBlock : INode
     {

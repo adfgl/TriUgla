@@ -1,11 +1,11 @@
 ﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeRangeLiteral : INode
+    public class NodeRange : INode
     {
-        public NodeRangeLiteral(Token token, INode from, INode to, INode? by)
+        public NodeRange(Token token, INode from, INode to, INode? by)
         {
             Token = token;  
             From = from;

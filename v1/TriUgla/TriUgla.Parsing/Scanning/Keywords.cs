@@ -8,6 +8,7 @@
         {
             { "Point", ETokenType.Point },
             { "Line", ETokenType.Line },
+
             { "If", ETokenType.If },
             { "Else", ETokenType.Else },
             { "ElseIf", ETokenType.ElseIf },

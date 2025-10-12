@@ -1,22 +1,20 @@
 ﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeIdentifierLiteral : INode
+    public class NodeTuple : INode
     {
-        public NodeIdentifierLiteral(Token token)
+        public NodeTuple(Token token, IEnumerable<INode> args)
         {
             Token = token;
+            Args = args.ToArray();
         }
 
         public Token Token { get; }
+        public IReadOnlyList<INode> Args { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
 
-        public override string ToString()
-        {
-            return $"'{Token.value}'";
-        }
     }
 }

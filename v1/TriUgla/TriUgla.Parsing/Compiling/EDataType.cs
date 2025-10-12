@@ -6,6 +6,7 @@
         Numeric,
         String,
         Range,
-        Tuple
+        Tuple,
+        Point,
     }
 }

@@ -56,6 +56,21 @@ namespace TriUgla.Parsing.Compiling
             obj = tuple;
         }
 
+        public TuValue(TuPoint point)
+        {
+            type = EDataType.Point;
+            obj = point;
+        }
+
+        public TuPoint? AsPoint()
+        {
+            if (type == EDataType.Point)
+            {
+                return obj as TuPoint;
+            }
+            throw new InvalidCastException();
+        }
+
         public double AsNumeric()
         {
             if (type == EDataType.Numeric)
@@ -72,7 +87,10 @@ namespace TriUgla.Parsing.Compiling
                 return numeric.ToString(CultureInfo.InvariantCulture);
             }
 
-            if (type == EDataType.String || type == EDataType.Range || type == EDataType.Tuple)
+            if (type == EDataType.String || 
+                type == EDataType.Range || 
+                type == EDataType.Tuple || 
+                type == EDataType.Point)
             {
                 if (obj is null) return "";
                 return obj.ToString();

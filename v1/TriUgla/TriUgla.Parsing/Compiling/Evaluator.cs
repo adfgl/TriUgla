@@ -1,6 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading;
 using TriUgla.Parsing.Nodes;
+using TriUgla.Parsing.Nodes.FlowControl;
+using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.TupleOps;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Compiling
@@ -13,28 +16,87 @@ namespace TriUgla.Parsing.Compiling
 
         // -------------------- literals / identifiers --------------------
 
-        public TuValue Visit(NodeNumericLiteral n)
+        public TuValue Visit(NodeNumeric n)
         {
             if (double.TryParse(n.Token.value, out double d))
                 return new TuValue(d);
             throw new Exception("Invalid numeric literal");
         }
 
-        public TuValue Visit(NodeStringLiteral n)
+        public TuValue Visit(NodeString n)
         {
             return new TuValue(n.Token.value);
         }
 
-        public static bool ValidIdentifier(string id) => true;
-
-        public TuValue Visit(NodeIdentifierLiteral n)
+        public static bool ValidIdentifier(string id, out string reason)
         {
-            if (!ValidIdentifier(n.Token.value))
-                throw new Exception($"Invalid id '{n.Token.value}'");
+            if (string.IsNullOrEmpty(id))
+            {
+                reason = "identifier must contain at least one character";
+                return false;
+            }
 
-            Variable? v = _stack.Current.Get(n.Token);
+            // verbatim?
+            bool verbatim = id[0] == '@';
+            int i = verbatim ? 1 : 0;
+
+            if (i >= id.Length)
+            {
+                reason = "verbatim identifier '@' must be followed by a name";
+                return false;
+            }
+
+            // first char after optional '@'
+            char c0 = id[i];
+            if (!(char.IsLetter(c0) || c0 == '_'))
+            {
+                reason = "identifier must start with a letter or underscore";
+                return false;
+            }
+
+            // remaining chars
+            for (int j = i + 1; j < id.Length; j++)
+            {
+                char cj = id[j];
+                if (!(char.IsLetterOrDigit(cj) || cj == '_'))
+                {
+                    reason = $"invalid character '{cj}' in identifier";
+                    return false;
+                }
+            }
+
+            // keywords (unless verbatim)
+            if (!verbatim && Keywords.Source.ContainsKey(id))
+            {
+                reason = "identifier is a reserved C# keyword; use @keyword to escape";
+                return false;
+            }
+
+            reason = "";
+            return true;
+
+        }
+
+        public TuValue Visit(NodeIdentifier n)
+        {
+            string id;
+            if (n.Id is not null)
+            {
+                int index = (int)n.Id.Accept(this).AsNumeric();
+                id = $"{n.Token.type}({index})";
+            }
+            else
+            {
+                id = n.Token.value;
+                if (!ValidIdentifier(id, out string reason))
+                    throw new Exception($"Invalid id '{id}'. Reason: {reason}");
+            }
+
+            Token token = new Token(ETokenType.Point, n.Token.line, n.Token.column, id);
+
+            Variable? v = _stack.Current.Get(token);
             if (v is null)
-                throw new Exception($"Undefined variable '{n.Token.value}'");
+                throw new Exception($"Undefined variable '{token.value}'");
             return v.Value;
         }
 
@@ -47,7 +109,7 @@ namespace TriUgla.Parsing.Compiling
             // ++x / --x must mutate an lvalue (for now: identifier only)
             if (op == ETokenType.PlusPlus || op == ETokenType.MinusMinus)
             {
-                if (n.Expression is not NodeIdentifierLiteral id)
+                if (n.Expression is not NodeIdentifier id)
                     throw new Exception("Prefix ++/-- requires an identifier");
 
                 Variable v = _stack.Current.GetOrDeclare(id.Token);
@@ -77,7 +139,7 @@ namespace TriUgla.Parsing.Compiling
             if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)
                 throw new Exception("Unsupported postfix op");
 
-            if (n.Expression is not NodeIdentifierLiteral id)
+            if (n.Expression is not NodeIdentifier id)
                 throw new Exception("Postfix ++/-- requires an identifier");
 
             Variable v = _stack.Current.GetOrDeclare(id.Token);
@@ -203,8 +265,6 @@ namespace TriUgla.Parsing.Compiling
             throw new Exception("Unsupported binary operation");
         }
 
-        // ===== helpers =====
-
         private static TuValue MapTupleScalar(TuTuple t, double s, Func<double, double, double> f)
         {
             var src = t.Values;
@@ -328,7 +388,7 @@ namespace TriUgla.Parsing.Compiling
             return v.Value;
         }
 
-        public TuValue Visit(NodeRangeLiteral n)
+        public TuValue Visit(NodeRange n)
         {
             TuValue from = n.From.Accept(this);
             if (from.type != EDataType.Numeric) throw new Exception("Range 'from' must be numeric");
@@ -376,7 +436,7 @@ namespace TriUgla.Parsing.Compiling
             throw new Exception("For-loop expects range or tuple");
         }
 
-        public TuValue Visit(NodeFun n)
+        public TuValue Visit(NodeFunctionCall n)
         {
             string function = n.Token.value;
 
@@ -440,7 +500,7 @@ namespace TriUgla.Parsing.Compiling
             }
         }
 
-        public TuValue Visit(NodeTupleLiteral n)
+        public TuValue Visit(NodeTuple n)
         {
             List<double> values = new List<double>(n.Args.Count);
             foreach (INode item in n.Args)
