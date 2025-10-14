@@ -1,1 +1,5 @@
-Print(Pi)
+Macro "Hello"
+  Print("Hello world")
+EndMacro
+
+Call "Hello"

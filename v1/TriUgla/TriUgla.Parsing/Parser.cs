@@ -420,6 +420,8 @@ namespace TriUgla.Parsing
             {
                 elseBlock = ParseBlockUntil(new ReadStop(ETokenType.EndIf, ETokenType.EOF));
             }
+
+            Consume(ETokenType.EndIf);
             return new NodeIfElse(tkIf, condition, ifBlock, elifs, elseBlock);
         }
 
@@ -430,9 +432,10 @@ namespace TriUgla.Parsing
             while (true)
             {
                 var t = Peek().type;
-                if (stop.Contains(t)) break;
+                if (t == ETokenType.EOF || stop.Contains(t))
+                    break;
+
                 stmts.AddRange(ParseStatements());
-                if (t == ETokenType.EOF) break;
             }
             return new NodeBlock(new Token(), stmts);
         }
@@ -455,6 +458,26 @@ namespace TriUgla.Parsing
                 if (count > 3 && t == d) return true;
                 return false;
             }
+        }
+
+        INode ParseMacro()
+        {
+            Token tkMacro = Consume(); 
+            INode nameExpr = ParseExpression();
+
+            var block = ParseBlockUntil(new ReadStop(ETokenType.EndMacro, ETokenType.EOF));
+
+            Consume(ETokenType.EndMacro);
+
+            return new NodeMacro(tkMacro, nameExpr, block);
+        }
+
+        INode ParseMacroCall()
+        {
+            Token tkCall = Consume(ETokenType.Call);
+            INode nameExpr = ParseExpression();
+            MaybeEOX();
+            return new NodeMacroCall(tkCall, nameExpr);
         }
 
         List<INode> ParseStatements()
@@ -487,8 +510,16 @@ namespace TriUgla.Parsing
                     case ETokenType.Else:
                     case ETokenType.EndIf:
                     case ETokenType.EndFor:
-                        Consume();
+                    case ETokenType.EndMacro:
                         return statements;
+
+                    case ETokenType.Macro:
+                        statements.Add(ParseMacro());
+                        break;
+
+                    case ETokenType.Call:
+                        statements.Add(ParseMacroCall());
+                        break;
 
                     default:
                         {

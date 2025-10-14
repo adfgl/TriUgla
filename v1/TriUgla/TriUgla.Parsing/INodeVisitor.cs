@@ -1,9 +1,10 @@
-﻿using TriUgla.Parsing.Nodes;
+﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.FlowControl;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Nodes.TupleOps;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing
 {
     public interface INodeVisitor
     {
@@ -27,5 +28,8 @@ namespace TriUgla.Parsing.Compiling
         TuValue Visit(NodeLengthOf n);
         TuValue Visit(NodeValueAt n);
         TuValue Visit(NodeTernary n);
+
+        TuValue Visit(NodeMacro n);
+        TuValue Visit(NodeMacroCall n);
     }
 }

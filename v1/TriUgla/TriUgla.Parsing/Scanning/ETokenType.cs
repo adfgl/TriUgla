@@ -37,6 +37,6 @@ namespace TriUgla.Parsing.Scanning
 
         For, In, EndFor,
 
-        Macro, Return, EndMacro
+        Macro, EndMacro, Call,
     }
 }

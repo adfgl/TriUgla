@@ -1,12 +1,13 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading;
+using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.FlowControl;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Nodes.TupleOps;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing
 {
     public class Evaluator : INodeVisitor
     {
@@ -212,7 +213,7 @@ namespace TriUgla.Parsing.Compiling
             bool lIsNum = lval.type == EDataType.Numeric;
             bool rIsNum = rval.type == EDataType.Numeric;
 
-            if ((lIsTuple && rIsNum) || (lIsNum && rIsTuple))
+            if (lIsTuple && rIsNum || lIsNum && rIsTuple)
             {
                 // tuple ⊙ scalar (commutative where appropriate)
                 TuTuple t = (lIsTuple ? lval : rval).AsTuple()!;
@@ -566,6 +567,27 @@ namespace TriUgla.Parsing.Compiling
             }
             return result;
         }
-    }
 
+        Dictionary<string, NodeBlock> _macros = new();
+
+        public TuValue Visit(NodeMacro n)
+        {
+            TuValue nameValue = n.Name.Accept(this);
+            string name = nameValue.AsString();
+            _macros[name] = n.Body;
+            return TuValue.Nothing;
+        }
+
+        public TuValue Visit(NodeMacroCall n)
+        {
+            TuValue nameValue = n.Name.Accept(this);
+            string name = nameValue.AsString();
+
+            if (!_macros.TryGetValue(name, out var body))
+                throw new Exception($"Call: macro '{name}' not defined.");
+
+            body.Accept(this);
+            return TuValue.Nothing;
+        }
+    }
 }

@@ -19,8 +19,8 @@
             { "EndFor", ETokenType.EndFor },
 
             { "Macro", ETokenType.Macro },
-            { "Return", ETokenType.Return },
             { "EndMacro", ETokenType.EndMacro },
+            { "Call", ETokenType.Call },
 
             { "and", ETokenType.And },
             { "or", ETokenType.Or },
