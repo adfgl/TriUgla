@@ -3,7 +3,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeTuple : NodeBase
+    public class NodeTuple : NodeLiteralBase
     {
 
         public NodeTuple(Token open, IEnumerable<NodeBase> args, Token close) : base(open)

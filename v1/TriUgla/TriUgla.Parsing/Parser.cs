@@ -398,11 +398,7 @@ namespace TriUgla.Parsing
 
             if (sep == ETokenType.Colon)
             {
-                if (items.Count == 2)
-                    return new NodeRange(tkOpen, items[0], items[1], null, tkClose);
-                if (items.Count == 3)
-                    return new NodeRange(tkOpen, items[0], items[1], items[2], tkClose);
-                throw new Exception("Range requires {start:end} or {start:step:end}.");
+                return new NodeRange(tkOpen, items, tkClose);
             }
 
             return new NodeTuple(tkOpen, items, tkClose);

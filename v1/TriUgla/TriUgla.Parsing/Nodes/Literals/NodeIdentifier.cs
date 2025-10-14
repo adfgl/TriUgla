@@ -1,9 +1,10 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeIdentifier : NodeBase
+    public class NodeIdentifier : NodeLiteralBase
     {
         public NodeIdentifier(Token token) : base(token)
         {
@@ -17,7 +18,9 @@ namespace TriUgla.Parsing.Nodes.Literals
         {
             if (!ValidIdentifier(Name, out string reason))
             {
-                throw new Exception(reason);
+                throw new CompiletimeException(
+                      $"Invalid identifier name '{Name}': {reason}.",
+                      Token);
             }
 
             Variable? v;
@@ -32,7 +35,9 @@ namespace TriUgla.Parsing.Nodes.Literals
 
             if (v is null)
             {
-                throw new Exception($"Undefined variable '{Name}'");
+                throw new CompiletimeException(
+                      $"Undefined variable '{Name}'.",
+                      Token);
             }
             return v.Value;
         }
