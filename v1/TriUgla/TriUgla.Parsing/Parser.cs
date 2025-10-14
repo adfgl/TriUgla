@@ -31,15 +31,14 @@ namespace TriUgla.Parsing
             return new ProgramNode(new Token(), ParseStatements());
         }
 
-        INode ParseExpression()
+        NodeBase ParseExpression()
         {
             return ParseAssignmentExpression();
         }
 
-        // Lowest precedence, right-associative
-        INode ParseAssignmentExpression()
+        NodeBase ParseAssignmentExpression()
         {
-            INode left = ParseConditionalExpression();
+            NodeBase left = ParseConditionalExpression();
 
             Token t = Peek();
             if (t.type == ETokenType.Equal
@@ -49,56 +48,54 @@ namespace TriUgla.Parsing
                 || t.type == ETokenType.SlashEqual)
             {
                 Token op = Consume();                     // =, +=, -=, *=, /=
-                INode right = ParseAssignmentExpression(); // right-assoc
-                return new Nodes.NodeAssignment(op, left, right);
+                NodeBase right = ParseAssignmentExpression(); // right-assoc
+                return new NodeAssignment(left, t, right);
             }
 
             return left;
         }
 
-        INode ParseConditionalExpression()
+        NodeBase ParseConditionalExpression()
         {
-            INode condition = ParseLogicalOrExpression();
-
+            NodeBase condition = ParseLogicalOrExpression();
             if (Peek().type == ETokenType.Question)
             {
                 Token q = Consume(); // '?'
-                INode thenExpr = ParseAssignmentExpression();
+                NodeBase thenExpr = ParseAssignmentExpression();
                 Token c = Consume(ETokenType.Colon); // ':'
-                INode elseExpr = ParseConditionalExpression();
-                return new NodeTernary(q, condition, thenExpr, elseExpr);
+                NodeBase elseExpr = ParseConditionalExpression();
+                return new NodeTernary(condition, q, thenExpr, c, elseExpr);
             }
-
             return condition;
         }
 
-        INode ParseLogicalOrExpression()
+        NodeBase ParseLogicalOrExpression()
         {
-            INode left = ParseLogicalAndExpression();
+            NodeBase left = ParseLogicalAndExpression();
             while (Peek().type == ETokenType.Or)
             {
                 Token token = Consume();
-                INode right = ParseLogicalAndExpression();
+                NodeBase right = ParseLogicalAndExpression();
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseLogicalAndExpression()
+        NodeBase ParseLogicalAndExpression()
         {
-            INode left = ParseEqualityExpression();
+            NodeBase left = ParseEqualityExpression();
             while (Peek().type == ETokenType.And)
             {
                 Token token = Consume();
-                INode right = ParseEqualityExpression();
+                NodeBase right = ParseEqualityExpression();
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseEqualityExpression()
+        NodeBase ParseEqualityExpression()
         {
-            INode left = ParseRelationalExpression();
+            NodeBase left = ParseRelationalExpression();
             while (true)
             {
                 Token token = Peek();
@@ -108,15 +105,15 @@ namespace TriUgla.Parsing
                     break;
                 }
                 Consume();
-                INode right = ParseRelationalExpression();
+                NodeBase right = ParseRelationalExpression();
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseRelationalExpression()
+        NodeBase ParseRelationalExpression()
         {
-            INode left = ParseAdditiveExpression();
+            NodeBase left = ParseAdditiveExpression();
             while (true)
             {
                 Token token = Peek();
@@ -128,15 +125,15 @@ namespace TriUgla.Parsing
                     break;
                 }
                 Consume();
-                INode right = ParseAdditiveExpression();
+                NodeBase right = ParseAdditiveExpression();
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseAdditiveExpression()
+        NodeBase ParseAdditiveExpression()
         {
-            INode left = ParseMultiplicativeExpression();
+            NodeBase left = ParseMultiplicativeExpression();
             while (true)
             {
                 Token token = Peek();
@@ -146,15 +143,15 @@ namespace TriUgla.Parsing
                     break;
                 }
                 Consume();
-                INode right = ParseMultiplicativeExpression();
+                NodeBase right = ParseMultiplicativeExpression();
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseMultiplicativeExpression()
+        NodeBase ParseMultiplicativeExpression()
         {
-            INode left = ParseExponentiationExpression();
+            NodeBase left = ParseExponentiationExpression();
             while (true)
             {
                 Token token = Peek();
@@ -165,15 +162,15 @@ namespace TriUgla.Parsing
                     break;
                 }
                 Consume();
-                INode right = ParseExponentiationExpression();
+                NodeBase right = ParseExponentiationExpression();
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseExponentiationExpression()
+        NodeBase ParseExponentiationExpression()
         {
-            INode left = ParseUnaryExpression();
+            NodeBase left = ParseUnaryExpression();
             while (true)
             {
                 Token token = Peek();
@@ -182,13 +179,13 @@ namespace TriUgla.Parsing
                     break;
                 }
                 Consume();
-                INode right = ParseExponentiationExpression(); // right-assoc
+                NodeBase right = ParseExponentiationExpression(); // right-assoc
                 left = new NodeBinary(left, token, right);
             }
             return left;
         }
 
-        INode ParseUnaryExpression() // Unary (prefix ++/-- live here)
+        NodeBase ParseUnaryExpression() // Unary (prefix ++/-- live here)
         {
             Token t = Peek();
 
@@ -199,16 +196,16 @@ namespace TriUgla.Parsing
                 || t.type == ETokenType.Not)   // !x
             {
                 Token op = Consume();
-                INode rhs = ParseUnaryExpression();
+                NodeBase rhs = ParseUnaryExpression();
                 return new NodePrefixUnary(op, rhs);
             }
 
             return ParsePostfixExpression();
         }
 
-        INode ParsePostfixExpression()
+        NodeBase ParsePostfixExpression()
         {
-            INode expr = ParseSimplePrimaryExpression();
+            NodeBase expr = ParseSimplePrimaryExpression();
 
             while (true)
             {
@@ -216,15 +213,20 @@ namespace TriUgla.Parsing
 
                 if (t == ETokenType.OpenParen)
                 {
-                    var args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
-                    expr = new NodeFunctionCall(expr.Token, expr, args);
+                    if (expr is not NodeIdentifier id)
+                    {
+                        throw new Exception();
+                    }
+
+                    List<NodeBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
+                    expr = new NodeFunctionCall(expr.Token, id, args);
                     continue;
                 }
 
                 if (t == ETokenType.OpenSquare)
                 {
                     Token tkn = Consume(ETokenType.OpenSquare);
-                    INode index = ParseExpression();
+                    NodeBase index = ParseExpression();
                     Consume(ETokenType.CloseSquare);
                     expr = new NodeValueAt(tkn, expr, index);
                     continue;
@@ -243,7 +245,7 @@ namespace TriUgla.Parsing
             return expr;
         }
 
-        INode ParseSimplePrimaryExpression()
+        NodeBase ParseSimplePrimaryExpression()
         {
             Token token = Peek();
             switch (token.type)
@@ -257,7 +259,7 @@ namespace TriUgla.Parsing
                             || Peek().type == ETokenType.StringLiteral
                             || Peek().type == ETokenType.NumericLiteral)
                         {
-                            INode exp = ParsePostfixExpression(); // allow # on any primary/postfix chain
+                            NodeBase exp = ParsePostfixExpression(); // allow # on any primary/postfix chain
                             return new NodeLengthOf(hash, exp);
                         }
                         break;
@@ -271,7 +273,7 @@ namespace TriUgla.Parsing
                     Token pointTkn = Consume();
 
                     Consume(ETokenType.OpenParen);
-                    INode pointNode = ParseExpression();
+                    NodeBase pointNode = ParseExpression();
                     Consume(ETokenType.CloseParen);
                     return new Nodes.Literals.NodeIdentifier(pointTkn, pointNode);
 
@@ -287,18 +289,15 @@ namespace TriUgla.Parsing
                 case ETokenType.OpenParen:
                     {
                         Token tkOpenParen = Consume(ETokenType.OpenParen);
-                        INode expr = ParseExpression();
-                        Consume(ETokenType.CloseParen);
-                        return new NodeGroup(tkOpenParen, expr);
+                        NodeBase expr = ParseExpression();
+                        return new NodeGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
                     }
             }
 
             throw new Exception("Unexpected token in primary: " + token.type);
         }
 
-
-
-        INode ParseRangeOrTuple()
+        NodeBase ParseRangeOrTuple()
         {
             Token tkOpen = Peek();
             Consume(ETokenType.OpenCurly);
@@ -306,10 +305,10 @@ namespace TriUgla.Parsing
             if (Peek().type == ETokenType.CloseCurly)
             {
                 Consume(ETokenType.CloseCurly);
-                return new NodeTuple(tkOpen, new List<INode>(0));
+                return new NodeTuple(tkOpen, new List<NodeBase>(0));
             }
 
-            var items = new List<INode>(4);
+            var items = new List<NodeBase>(4);
 
             items.Add(ParseExpression());
 
@@ -349,24 +348,24 @@ namespace TriUgla.Parsing
                     break;
             }
 
-            Consume(ETokenType.CloseCurly);
+            Token tkClose = Consume(ETokenType.CloseCurly);
 
             if (sep == ETokenType.Colon)
             {
                 if (items.Count == 2)
-                    return new NodeRange(tkOpen, items[0], items[1], null);
+                    return new NodeRange(tkOpen, items[0], items[1], null, tkClose);
                 if (items.Count == 3)
-                    return new NodeRange(tkOpen, items[0], items[2], items[1]);
+                    return new NodeRange(tkOpen, items[0], items[1], items[2], tkClose);
                 throw new Exception("Range requires {start:end} or {start:step:end}.");
             }
 
             return new NodeTuple(tkOpen, items);
         }
 
-        List<INode> ParseArguments(ETokenType open = ETokenType.OpenParen, ETokenType close = ETokenType.CloseParen, ETokenType separator = ETokenType.Comma)
+        List<NodeBase> ParseArguments(ETokenType open = ETokenType.OpenParen, ETokenType close = ETokenType.CloseParen, ETokenType separator = ETokenType.Comma)
         {
             Consume(open);
-            List<INode> args = new List<INode>(4);
+            List<NodeBase> args = new List<NodeBase>(4);
             if (Peek().type != close)
             {
                 while (true)
@@ -380,39 +379,43 @@ namespace TriUgla.Parsing
             return args;
         }
 
-        INode ParseFor()
+        NodeBase ParseFor()
         {
             ReadStop stop = new ReadStop(ETokenType.EndFor, ETokenType.EOF);
 
             Token tkFor = Consume(ETokenType.For);
-            INode var = ParseExpression();
+            NodeBase var = ParseExpression();
+            if (var is not NodeIdentifier id)
+            {
+                throw new Exception();
+            }
 
             Consume(ETokenType.In);
-            INode rng = ParseExpression();
+            NodeBase rng = ParseExpression();
 
             NodeBlock forBlock = ParseBlockUntil(stop);
 
-            Consume(ETokenType.EndFor);
-            return new NodeFor(tkFor, var, rng, forBlock);
+            return new NodeFor(tkFor, id, rng, forBlock, Consume(ETokenType.EndFor));
         }
 
-        INode ParseIfElse()
+        NodeBase ParseIfElse()
         {
             ReadStop stop = new ReadStop(ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF);
 
-            var tkIf = Consume(ETokenType.If);
+            List<(NodeBase Cond, NodeBlock Block)> elifs = new List<(NodeBase Cond, NodeBlock Block)>();
 
+            Token tkIf = Consume(ETokenType.If);
             Consume(ETokenType.OpenParen);
-            INode condition = ParseExpression();
+            NodeBase condition = ParseExpression();
             Consume(ETokenType.CloseParen);
-
             NodeBlock ifBlock = ParseBlockUntil(stop);
 
-            List<(INode Cond, NodeBlock Block)> elifs = new List<(INode Cond, NodeBlock Block)>();
+            elifs.Add((condition, ifBlock));
+
             while (TryConsume(ETokenType.ElseIf, out _))
             {
                 Consume(ETokenType.OpenParen);
-                INode elifCond = ParseExpression();
+                NodeBase elifCond = ParseExpression();
                 Consume(ETokenType.CloseParen);
 
                 NodeBlock elifBlock = ParseBlockUntil(stop);
@@ -425,13 +428,12 @@ namespace TriUgla.Parsing
                 elseBlock = ParseBlockUntil(new ReadStop(ETokenType.EndIf, ETokenType.EOF));
             }
 
-            Consume(ETokenType.EndIf);
-            return new NodeIfElse(tkIf, condition, ifBlock, elifs, elseBlock);
+            return new NodeIfElse(tkIf, elifs, elseBlock, Consume(ETokenType.EndIf));
         }
 
         NodeBlock ParseBlockUntil(ReadStop stop)
         {
-            var stmts = new List<INode>(8);
+            var stmts = new List<NodeBase>(8);
 
             while (true)
             {
@@ -464,29 +466,25 @@ namespace TriUgla.Parsing
             }
         }
 
-        INode ParseMacro()
+        NodeBase ParseMacro()
         {
-            Token tkMacro = Consume(); 
-            INode nameExpr = ParseExpression();
-
-            var block = ParseBlockUntil(new ReadStop(ETokenType.EndMacro, ETokenType.EOF));
-
-            Token tkEndMacro = Consume(ETokenType.EndMacro);
-            MaybeEOX();
-            return new NodeMacro(tkMacro, nameExpr, block, tkEndMacro);
+            Token tkMacro = Consume();
+            NodeBase nameExpr = ParseExpression();
+            NodeBlock block = ParseBlockUntil(new ReadStop(ETokenType.EndMacro, ETokenType.EOF));
+            return new NodeMacro(tkMacro, nameExpr, block, Consume(ETokenType.EndMacro));
         }
 
-        INode ParseMacroCall()
+        NodeBase ParseMacroCall()
         {
             Token tkCall = Consume(ETokenType.Call);
-            INode nameExpr = ParseExpression();
+            NodeBase nameExpr = ParseExpression();
             MaybeEOX();
             return new NodeMacroCall(tkCall, nameExpr);
         }
 
-        List<INode> ParseStatements()
+        List<NodeBase> ParseStatements()
         {
-            List<INode> statements = new List<INode>();
+            List<NodeBase> statements = new List<NodeBase>();
 
             Token token;
             while ((token = Peek()).type != ETokenType.EOF)
@@ -527,7 +525,7 @@ namespace TriUgla.Parsing
 
                     default:
                         {
-                            INode expr = ParseExpression();
+                            NodeBase expr = ParseExpression();
                             statements.Add(expr);
                             MaybeEOX();
                             break;

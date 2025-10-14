@@ -38,7 +38,7 @@ namespace TriUgla.Parsing.Compiling
 
         public Scope OpenScope()
         {
-            Scope scope = new Scope(Current);
+            Scope scope = new Scope(_scopes.Count == 0 ? null : _scopes.Peek());
             _scopes.Push(scope);
             return scope;
         }
