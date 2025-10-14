@@ -10,12 +10,10 @@ namespace DebugConsole
         {
             string txt = File.ReadAllText(@"text.txt");
 
-
-
             Console.WriteLine(txt);
             Console.WriteLine();
-            new Scanner(txt).ReadAll();
-            Console.WriteLine();
+            //new Scanner(txt).ReadAll();
+            //Console.WriteLine();
 
             Executor executor = new Executor();
 

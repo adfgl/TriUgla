@@ -32,7 +32,7 @@ namespace TriUgla.Parsing.Nodes
                     throw new Exception("Type mismatch");
                 }
                 tpl.Values[i] = value.AsNumeric();
-                return value;
+                return TuValue.Nothing;
             }
             
             if (Assignee is NodeIdentifier id)
@@ -52,7 +52,7 @@ namespace TriUgla.Parsing.Nodes
                 if (Operation == ETokenType.Equal)
                 {
                     variable.Value = value;
-                    return value;
+                    return TuValue.Nothing;
                 }
 
                 if (value.type == EDataType.Tuple)
@@ -68,7 +68,7 @@ namespace TriUgla.Parsing.Nodes
                         values.AddRange(value.AsTuple()!);
 
                         variable.Value = new TuValue(new TuTuple(values));
-                        return variable.Value;
+                        return TuValue.Nothing;
                     }
                     throw new Exception();
                 }
@@ -94,7 +94,7 @@ namespace TriUgla.Parsing.Nodes
                     };
 
                     variable.Value = new TuValue(n);
-                    return variable.Value;
+                    return TuValue.Nothing;
                 }
 
             }
