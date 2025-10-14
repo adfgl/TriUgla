@@ -9,6 +9,15 @@ namespace TriUgla.Parsing.Compiling
             Values = values.ToList();
         }
 
+        public TuTuple(IEnumerable<double> values, Func<double, double> fun)
+        {
+            Values = new List<double>();
+            foreach (var value in values)
+            {
+                Values.Add(fun(value));
+            }
+        }
+
         public List<double> Values { get; set; }
 
         public override string ToString()

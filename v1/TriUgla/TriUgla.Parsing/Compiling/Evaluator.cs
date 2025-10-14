@@ -438,6 +438,8 @@ namespace TriUgla.Parsing.Compiling
             throw new Exception("For-loop expects range or tuple");
         }
 
+    
+
         public TuValue Visit(NodeFunctionCall n)
         {
             string function = n.Token.value;
@@ -446,60 +448,35 @@ namespace TriUgla.Parsing.Compiling
             for (int i = 0; i < args.Length; i++)
                 args[i] = n.Args[i].Accept(this);
 
-            switch (function)
+            return function switch
             {
-                case "Print":
-                    if (args.Length == 0) Console.WriteLine();
-                    else Console.WriteLine(args[0].AsString());
-                    return TuValue.Nothing;
-
-                case "Min":
-                    double min = double.MaxValue;
-                    if (args.Length == 0) throw new Exception();
-
-                    foreach (TuValue item in args)
-                    {
-                        switch (item.type)
-                        {
-                            case EDataType.Numeric:
-                                min = Math.Min(min, item.AsNumeric());
-                                break;
-
-                            case EDataType.Tuple:
-                                min = Math.Min(min, item.AsTuple().Min());
-                                break;
-
-                            default:
-                                throw new Exception();
-                        }
-                    }
-                    return new TuValue(min);
-
-                case "Max":
-                    double max = double.MinValue;
-                    if (args.Length == 0) throw new Exception();
-
-                    foreach (TuValue item in args)
-                    {
-                        switch (item.type)
-                        {
-                            case EDataType.Numeric:
-                                max = Math.Max(max, item.AsNumeric());
-                                break;
-
-                            case EDataType.Tuple:
-                                max = Math.Max(max, item.AsTuple().Max());
-                                break;
-
-                            default:
-                                throw new Exception();
-                        }
-                    }
-                    return new TuValue(max);
-
-                default:
-                    throw new Exception($"Unknown function '{function}'.");
-            }
+                "Acos" => NativeFunctions.Acos(args),
+                "Asin" => NativeFunctions.Asin(args),
+                "Atan" => NativeFunctions.Atan(args),
+                "Atan2" => NativeFunctions.Atan2(args),
+                "Ceil" => NativeFunctions.Ceil(args),
+                "Cos" => NativeFunctions.Cos(args),
+                "Cosh" => NativeFunctions.Cosh(args),
+                "Exp" => NativeFunctions.Exp(args),
+                "Fabs" => NativeFunctions.Fabs(args),
+                "Fmod" => NativeFunctions.Fmod(args),
+                "Floor" => NativeFunctions.Floor(args),
+                "Hypot" => NativeFunctions.Hypot(args),
+                "Log" => NativeFunctions.Log(args),
+                "Log10" => NativeFunctions.Log10(args),
+                "Max" => NativeFunctions.Max(args),
+                "Min" => NativeFunctions.Min(args),
+                "Modulo" => NativeFunctions.Modulo(args),
+                "Rand" => NativeFunctions.Rand(args),
+                "Round" => NativeFunctions.Round(args),
+                "Sqrt" => NativeFunctions.Sqrt(args),
+                "Sin" => NativeFunctions.Sin(args),
+                "Sinh" => NativeFunctions.Sinh(args),
+                "Tan" => NativeFunctions.Tan(args),
+                "Tanh" => NativeFunctions.Tanh(args),
+                "Print" => NativeFunctions.Print(args),
+                _ => throw new Exception($"Unknown function '{function}'."),
+            };
         }
 
         public TuValue Visit(NodeTuple n)
