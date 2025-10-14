@@ -20,26 +20,42 @@ namespace TriUgla.Parsing.Nodes.Literals
         public override TuValue Evaluate(TuStack stack)
         {
             if (Args.Count != 2 && Args.Count != 3)
+            {
                 throw new CompiletimeException(
-                    $"Range expects 2 or 3 arguments: Range(from, to[, by]). Got {Args.Count}.",
+                    $"Range expects 2 or 3 arguments: Range(from, to, by). Got {Args.Count}.",
                     Token);
+            }
 
-            TuValue fromV = Args[0].Evaluate(stack);
-            TuValue toV = Args[1].Evaluate(stack);
-            TuValue byV = Args.Count == 3 ? Args[2].Evaluate(stack) : new TuValue(1);
+            TuValue[] values = new TuValue[3];
+            for (int i = 0; i < values.Length; i++)
+            {
+                NodeBase arg = Args[i];
+                TuValue v = arg.Evaluate(stack);
 
-            if (fromV.type != EDataType.Numeric)
-                throw new RuntimeException("Range 'from' must be numeric.", Args[0].Token);
+                string argStr = i switch
+                {
+                    0 => "from",
+                    1 => "to",
+                    _ => "by"
+                };
 
-            if (toV.type != EDataType.Numeric)
-                throw new RuntimeException("Range 'to' must be numeric.", Args[1].Token);
+                if (v.type != EDataType.Numeric)
+                {
+                    string msg = $"Range '{argStr}' must be numeric.";
+                    if (arg is NodeLiteralBase)
+                    {
+                        throw new CompiletimeException(msg, arg.Token);
+                    }
+                    else
+                    {
+                        throw new RuntimeException(msg, arg.Token);
+                    }
+                }
+            }
 
-            if (byV.type != EDataType.Numeric)
-                throw new RuntimeException("Range 'by' must be numeric.", Args.Count == 3 ? Args[2].Token : Token);
-
-            double f = fromV.AsNumeric();
-            double t = toV.AsNumeric();
-            double b = byV.AsNumeric();
+            double f = values[0].AsNumeric();
+            double t = values[1].AsNumeric();
+            double b = values[2].AsNumeric();
             if (b == 0)
             {
                 throw new RuntimeException("Range step 'by' cannot be zero.", Args.Count == 3 ? Args[2].Token : Token);
