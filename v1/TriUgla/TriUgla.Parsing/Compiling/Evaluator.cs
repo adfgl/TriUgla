@@ -561,6 +561,22 @@ namespace TriUgla.Parsing.Compiling
         {
             return v.AsBoolean();
         }
+
+        public TuValue Visit(NodeTernary n)
+        {
+            TuValue result;
+
+            TuValue ifValue = n.IfExp.Accept(this);
+            if (ifValue.AsBoolean())
+            {
+                result = n.ThenExp.Accept(this);
+            }
+            else
+            {
+                result = n.ElseExp.Accept(this);    
+            }
+            return result;
+        }
     }
 
 }

@@ -17,6 +17,11 @@
             { "In", ETokenType.In },
             { "EndFor", ETokenType.EndFor },
 
+            { "and", ETokenType.And },
+            { "or", ETokenType.Or },
+            { "not", ETokenType.Not },
+            { "is", ETokenType.EqualEqual }
+
         };
     }
 }

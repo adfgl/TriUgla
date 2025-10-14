@@ -188,7 +188,6 @@ namespace TriUgla.Parsing.Scanning
             ETokenType type;
             if (b != EOF)
             {
-
                 string two = $"{a}{b}";
                 type = two switch
                 {

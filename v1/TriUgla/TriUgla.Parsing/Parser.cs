@@ -33,7 +33,7 @@ namespace TriUgla.Parsing
         // Lowest precedence, right-associative
         INode ParseAssignmentExpression()
         {
-            INode left = ParseLogicalOrExpression();
+            INode left = ParseConditionalExpression();
 
             Token t = Peek();
             if (t.type == ETokenType.Equal
@@ -42,12 +42,29 @@ namespace TriUgla.Parsing
                 || t.type == ETokenType.StarEqual
                 || t.type == ETokenType.SlashEqual)
             {
-                Token op = Consume(); // +=, -=, *=, ...
+                Token op = Consume();                     // =, +=, -=, *=, /=
                 INode right = ParseAssignmentExpression(); // right-assoc
                 return new NodeAssignment(op, left, right);
             }
 
             return left;
+        }
+
+        // Precedence: just above assignment; right-associative
+        INode ParseConditionalExpression()
+        {
+            INode condition = ParseLogicalOrExpression();
+
+            if (Peek().type == ETokenType.Question)
+            {
+                Token q = Consume(); // '?'
+                INode thenExpr = ParseAssignmentExpression();
+                Token c = Consume(ETokenType.Colon); // ':'
+                INode elseExpr = ParseConditionalExpression();
+                return new NodeTernary(q, condition, thenExpr, elseExpr);
+            }
+
+            return condition;
         }
 
         INode ParseLogicalOrExpression()

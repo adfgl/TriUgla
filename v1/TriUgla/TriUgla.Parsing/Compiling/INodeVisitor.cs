@@ -24,5 +24,6 @@ namespace TriUgla.Parsing.Compiling
         TuValue Visit(NodeTuple n);
         TuValue Visit(NodeLengthOf n);
         TuValue Visit(NodeValueAt n);
+        TuValue Visit(NodeTernary n);
     }
 }
