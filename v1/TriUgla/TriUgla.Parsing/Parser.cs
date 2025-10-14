@@ -50,7 +50,6 @@ namespace TriUgla.Parsing
             return left;
         }
 
-        // Precedence: just above assignment; right-associative
         INode ParseConditionalExpression()
         {
             INode condition = ParseLogicalOrExpression();
@@ -212,9 +211,7 @@ namespace TriUgla.Parsing
                 if (t == ETokenType.OpenParen)
                 {
                     var args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
-                    // Build a NodeFunctionCall with the function token first, per your convention
-                    var id = (NodeIdentifier)expr;
-                    expr = new NodeFunctionCall(id.Token, args);
+                    expr = new NodeFunctionCall(expr.Token, expr, args);
                     continue;
                 }
 
@@ -389,6 +386,7 @@ namespace TriUgla.Parsing
 
             NodeBlock forBlock = ParseBlockUntil(stop);
 
+            Consume(ETokenType.EndFor);
             return new NodeFor(tkFor, var, rng, forBlock);
         }
 
@@ -467,9 +465,9 @@ namespace TriUgla.Parsing
 
             var block = ParseBlockUntil(new ReadStop(ETokenType.EndMacro, ETokenType.EOF));
 
-            Consume(ETokenType.EndMacro);
+            Token tkEndMacro = Consume(ETokenType.EndMacro);
 
-            return new NodeMacro(tkMacro, nameExpr, block);
+            return new NodeMacro(tkMacro, nameExpr, block, tkEndMacro);
         }
 
         INode ParseMacroCall()

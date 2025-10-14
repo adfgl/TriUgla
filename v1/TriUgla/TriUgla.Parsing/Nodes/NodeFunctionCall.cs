@@ -10,13 +10,15 @@ namespace TriUgla.Parsing.Nodes
 {
     public class NodeFunctionCall : INode
     {
-        public NodeFunctionCall(Token name, IEnumerable<INode> args)
+        public NodeFunctionCall(Token name, INode id, IEnumerable<INode> args)
         {
             Token = name;
+            Id = id;
             Args = args.ToArray();
         }
 
         public Token Token { get; }
+        public INode Id { get; }
         public IReadOnlyList<INode> Args { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);

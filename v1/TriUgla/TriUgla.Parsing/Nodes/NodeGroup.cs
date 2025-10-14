@@ -14,5 +14,10 @@ namespace TriUgla.Parsing.Nodes
         public INode Expression { get; }
 
         public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
+
+        public override string ToString()
+        {
+            return $"({Expression})";
+        }
     }
 }
