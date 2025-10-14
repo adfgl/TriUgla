@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
@@ -29,11 +24,17 @@ namespace TriUgla.Parsing.Nodes.TupleOps
 
             if (Tuple is NodeIdentifier id)
             {
-                throw new CompiletimeException($"Couldn't obtain number of elements. Variable '{id.Name}' is of type '{value.type}' but expected '{EDataType.Tuple}'.", Token);
+                throw new CompiletimeException(
+                      $"Cannot obtain number of elements: variable '{id.Name}' " +
+                      $"has type '{value.type}', but a tuple was expected.",
+                      Token);
             }
             else
             {
-                throw new RuntimeException($"Couldn't obtain number of elements. Expected '{EDataType.Tuple}' but got '{value.type}'.", Token);
+                throw new RuntimeException(
+                      $"Cannot obtain number of elements from expression of type '{value.type}'. " +
+                      $"Expected a tuple value ({{...}}).",
+                      Token);
             }
         }
     }

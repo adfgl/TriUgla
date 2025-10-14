@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.TupleOps
@@ -26,7 +28,16 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue tuple = TupleExp.Evaluate(stack);
             if (tuple.type != EDataType.Tuple)
             {
-                throw new Exception("Indexing requires a tuple");
+                if (TupleExp is Nodes.Literals.NodeIdentifier id)
+                {
+                    throw new CompiletimeException(
+                        $"Cannot index variable '{id.Name}': expected a tuple, but it is of type '{tuple.type}'.",
+                        Token);
+                }
+
+                throw new RuntimeException(
+                    $"Cannot index expression of type '{tuple.type}'. Only tuples ({{...}}) support indexing.",
+                    Token);
             }
 
             TuTuple tpl = tuple.AsTuple()!;
@@ -34,20 +45,27 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue index = IndexExp.Evaluate(stack);
             if (index.type != EDataType.Numeric)
             {
-                throw new Exception("Index must be numeric");
+                throw new RuntimeException(
+                       $"Tuple index must be numeric, but expression evaluated to '{index.type}'.",
+                       IndexExp.Token);
             }
 
-            if (index.AsNumeric() % 1 != 0)
+            double idxNum = index.AsNumeric();
+            if (idxNum % 1 != 0)
             {
-                throw new Exception("Index must be integer");
+                throw new RuntimeException(
+                    $"Tuple index must be an integer value, but got {idxNum}.",
+                    IndexExp.Token);
             }
                 
-            int i = (int)index.AsNumeric();
+            int i = (int)idxNum;
 
             List<double> t = tpl.Values;
             if (i < 0 || i >= t.Count)
             {
-                throw new Exception("Index out of range");
+                throw new RuntimeException(
+                    $"Tuple index {i} is out of range (valid range: 0–{t.Count - 1}).",
+                    IndexExp.Token);
             }
 
             Index = i;
