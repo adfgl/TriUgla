@@ -23,7 +23,6 @@ namespace TriUgla.Parsing.Nodes
                 return false;
             }
 
-            // verbatim?
             bool verbatim = id[0] == '@';
             int i = verbatim ? 1 : 0;
 

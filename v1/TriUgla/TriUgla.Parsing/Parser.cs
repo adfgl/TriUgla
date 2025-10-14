@@ -516,7 +516,7 @@ namespace TriUgla.Parsing
             Token token = Peek();
             if (token.type != type)
             {
-                throw new Exception($"Expected {type} but got {token.type}");
+                throw new CompiletimeException($"Unexpected token: Expected {type} but got {token.type} ({token.value}).", token);
             }
             return Consume();
         }

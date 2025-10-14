@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
@@ -21,7 +22,7 @@ namespace TriUgla.Parsing.Nodes.Literals
             {
                 return new TuValue(d);
             }
-            throw new Exception($"Invalid numeric literal '{value}'.");
+            throw new CompiletimeException($"Invalid numeric literal '{value}'.", Token);
         }
     }
 }

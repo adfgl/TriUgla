@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Exceptions;
+using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.TupleOps
@@ -28,7 +29,7 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue tuple = TupleExp.Evaluate(stack);
             if (tuple.type != EDataType.Tuple)
             {
-                if (TupleExp is Nodes.Literals.NodeIdentifier id)
+                if (TupleExp is NodeIdentifier id)
                 {
                     throw new CompiletimeException(
                         $"Cannot index variable '{id.Name}': expected a tuple, but it is of type '{tuple.type}'.",
@@ -45,9 +46,15 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue index = IndexExp.Evaluate(stack);
             if (index.type != EDataType.Numeric)
             {
-                throw new RuntimeException(
-                       $"Tuple index must be numeric, but expression evaluated to '{index.type}'.",
-                       IndexExp.Token);
+                string msg = $"Tuple index must be numeric, but expression evaluated to '{index.type}'.";
+                if (IndexExp is NodeLiteralBase)
+                {
+                    throw new CompiletimeException(msg, IndexExp.Token);
+                }
+                else
+                {
+                    throw new RuntimeException(msg, IndexExp.Token);
+                }
             }
 
             double idxNum = index.AsNumeric();
