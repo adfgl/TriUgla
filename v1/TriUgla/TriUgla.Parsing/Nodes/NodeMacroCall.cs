@@ -28,7 +28,7 @@ namespace TriUgla.Parsing.Nodes
             }
 
             string name = nameValue.AsString();
-            if (!stack.Macros.TryGetValue(name, out var body))
+            if (!stack.Current.Macros.TryGetValue(name, out var body))
             {
                 throw new Exception($"Call: macro '{name}' not defined.");
             }

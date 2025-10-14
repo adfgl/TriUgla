@@ -6,11 +6,8 @@ namespace TriUgla.Parsing.Compiling
     public class TuStack
     {
 
-        readonly Dictionary<string, NodeBlock> _macros = new();
         readonly Stack<Scope> _scopes = new Stack<Scope>();
-
         public IReadOnlyCollection<Scope> Scopes => _scopes;
-        public Dictionary<string, NodeBlock> Macros => _macros;
 
         public Scope Current
         {

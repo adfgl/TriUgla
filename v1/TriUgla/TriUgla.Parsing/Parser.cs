@@ -259,8 +259,7 @@ namespace TriUgla.Parsing
 
             while (true)
             {
-                var t = Peek().type;
-
+                ETokenType t = Peek().type;
                 if (t == ETokenType.OpenParen)
                 {
                     if (expr is not NodeIdentifier id)
@@ -276,6 +275,7 @@ namespace TriUgla.Parsing
                 if (t == ETokenType.OpenSquare)
                 {
                     Token tkn = Consume(ETokenType.OpenSquare);
+            
                     NodeBase index = ParseExpression();
                     Consume(ETokenType.CloseSquare);
                     expr = new NodeValueAt(tkn, expr, index);
@@ -309,23 +309,32 @@ namespace TriUgla.Parsing
                             || Peek().type == ETokenType.StringLiteral
                             || Peek().type == ETokenType.NumericLiteral)
                         {
-                            NodeBase exp = ParsePostfixExpression(); // allow # on any primary/postfix chain
+                            NodeBase exp = ParsePostfixExpression(); 
                             return new NodeLengthOf(hash, exp);
                         }
                         break;
                     }
 
                 case ETokenType.IdentifierLiteral:
-                    return new Nodes.Literals.NodeIdentifier(Consume(), null);
+                    Token id = Consume();
 
-                case ETokenType.Point:
-                case ETokenType.Line:
-                    Token pointTkn = Consume();
+                    if (Peek(0).type == ETokenType.OpenSquare &&
+                        Peek(1).type == ETokenType.CloseSquare)
+                    {
+                        Consume(ETokenType.OpenSquare);
+                        Consume(ETokenType.CloseSquare);
+                        return new NodeIdentifierTuple(id);
+                    }
+                    return new NodeIdentifier(id);
 
-                    Consume(ETokenType.OpenParen);
-                    NodeBase pointNode = ParseExpression();
-                    Consume(ETokenType.CloseParen);
-                    return new Nodes.Literals.NodeIdentifier(pointTkn, pointNode);
+                //case ETokenType.Point:
+                //case ETokenType.Line:
+                //    Token pointTkn = Consume();
+
+                //    Consume(ETokenType.OpenParen);
+                //    NodeBase pointNode = ParseExpression();
+                //    Consume(ETokenType.CloseParen);
+                //    return new NodeIdentifier(pointTkn, pointNode);
 
                 case ETokenType.NumericLiteral:
                     return new NodeNumeric(Consume());
@@ -337,11 +346,9 @@ namespace TriUgla.Parsing
                     return ParseRangeOrTuple();
 
                 case ETokenType.OpenParen:
-                    {
-                        Token tkOpenParen = Consume(ETokenType.OpenParen);
-                        NodeBase expr = ParseExpression();
-                        return new NodeGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
-                    }
+                    Token tkOpenParen = Consume(ETokenType.OpenParen);
+                    NodeBase expr = ParseExpression();
+                    return new NodeGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
             }
 
             throw new Exception("Unexpected token in primary: " + token.type);

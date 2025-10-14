@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes.TupleOps
         public NodeBase TupleExp { get; }
         public NodeBase IndexExp { get; }
         public int Index { get; private set; }
-        public TuTuple Tuple { get; private set; }
+        public TuTuple? Tuple { get; private set; }
 
         public override TuValue Evaluate(TuStack stack)
         {
@@ -29,28 +29,29 @@ namespace TriUgla.Parsing.Nodes.TupleOps
                 throw new Exception("Indexing requires a tuple");
             }
 
+            TuTuple tpl = tuple.AsTuple()!;
+
             TuValue index = IndexExp.Evaluate(stack);
             if (index.type != EDataType.Numeric)
             {
                 throw new Exception("Index must be numeric");
             }
 
-            if (index.AsNumeric() % 1 == 0)
+            if (index.AsNumeric() % 1 != 0)
             {
                 throw new Exception("Index must be integer");
             }
                 
             int i = (int)index.AsNumeric();
-            List<double> t = tuple.AsTuple()!.Values;
 
+            List<double> t = tpl.Values;
             if (i < 0 || i >= t.Count)
             {
                 throw new Exception("Index out of range");
             }
 
             Index = i;
-            Tuple = tuple.AsTuple()!;
-
+            Tuple = tpl;
             return new TuValue(t[i]);
         }
     }

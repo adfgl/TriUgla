@@ -20,11 +20,11 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuStack stack)
         {
-            if (Expression is NodeValueAt valueAt)
+            if (Assignee is NodeValueAt valueAt)
             {
                 TuValue curr = valueAt.Evaluate(stack);
                 int i = valueAt.Index;
-                TuTuple tpl = valueAt.Tuple;
+                TuTuple tpl = valueAt.Tuple!;
                 TuValue value = Expression.Evaluate(stack);
 
                 if (curr.type != value.type)
@@ -35,8 +35,9 @@ namespace TriUgla.Parsing.Nodes
                 return value;
             }
             
-            if (Expression is NodeIdentifier id)
+            if (Assignee is NodeIdentifier id)
             {
+                id.DeclareIfMissing = true;
                 TuValue curr = id.Evaluate(stack);
                 TuValue value = Expression.Evaluate(stack);
 

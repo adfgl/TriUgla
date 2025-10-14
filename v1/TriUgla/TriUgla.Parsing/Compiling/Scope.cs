@@ -1,9 +1,11 @@
-﻿using TriUgla.Parsing.Scanning;
+﻿using TriUgla.Parsing.Nodes.FlowControl;
+using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Compiling
 {
     public class Scope
     {
+        readonly Dictionary<string, NodeBlock> _macros = new Dictionary<string, NodeBlock>();
         readonly Dictionary<string, Variable> _variables = new Dictionary<string, Variable>();
 
         public Scope(Scope? parent = null)
@@ -13,6 +15,7 @@ namespace TriUgla.Parsing.Compiling
 
         public Scope? Parent { get; }
         public IReadOnlyDictionary<string, Variable> Variables => _variables;
+        public Dictionary<string, NodeBlock> Macros => _macros;
 
         public void Clear()
         {
@@ -64,9 +67,10 @@ namespace TriUgla.Parsing.Compiling
 
         public Variable GetOrDeclare(string name)
         {
-            if (Resolve(name, out Scope scope))
+            Variable? existing = Get(name);
+            if (existing is not null)
             {
-                return scope._variables[name];
+                return existing;
             }
             return Declare(name, TuValue.Nothing);
         }

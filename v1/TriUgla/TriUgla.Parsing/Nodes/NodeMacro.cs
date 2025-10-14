@@ -29,11 +29,11 @@ namespace TriUgla.Parsing.Nodes
             }
 
             string name = nameValue.AsString();
-            if (stack.Macros.ContainsKey(name))
+            if (stack.Current.Macros.ContainsKey(name))
             {
                 throw new Exception($"Macro '{name}' already exists.");
             }
-            stack.Macros[name] = Body;
+            stack.Current.Macros[name] = Body;
             return TuValue.Nothing;
         }
     }

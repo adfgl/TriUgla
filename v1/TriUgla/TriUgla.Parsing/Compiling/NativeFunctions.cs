@@ -55,7 +55,6 @@ namespace TriUgla.Parsing.Compiling
             return new TuValue(max);
         }
 
-        // ---------- Helpers ----------
         public static TuValue ApplyMathFunc(TuValue[] args, Func<double, double> func, string name)
         {
             if (args.Length != 1)
@@ -112,7 +111,6 @@ namespace TriUgla.Parsing.Compiling
             throw new Exception($"{name}(): unsupported argument types {a.type} and {b.type}.");
         }
 
-        // ---------- Unary math (elementwise over tuples) ----------
         public static TuValue Acos(TuValue[] args) => ApplyMathFunc(args, Math.Acos, nameof(Acos));
         public static TuValue Asin(TuValue[] args) => ApplyMathFunc(args, Math.Asin, nameof(Asin));
         public static TuValue Atan(TuValue[] args) => ApplyMathFunc(args, Math.Atan, nameof(Atan));
@@ -146,7 +144,6 @@ namespace TriUgla.Parsing.Compiling
 
                 double d = arg1.AsNumeric();
 
-                // must be integer and >= 0
                 if (d < 0 || d != Math.Floor(d))
                     throw new Exception("Round(): second argument must be a non-negative integer.");
 
