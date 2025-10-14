@@ -21,9 +21,6 @@ namespace TriUgla.Parsing.Nodes.TupleOps
         public INode Tuple { get; }
         public INode Index { get; }
 
-        public TuValue Accept(INodeVisitor visitor)
-        {
-            return visitor.Visit(this);
-        }
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
     }
 }

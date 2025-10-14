@@ -12,7 +12,7 @@ namespace TriUgla.Parsing.Nodes.Literals
 
         public Token Token { get; }
 
-        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {

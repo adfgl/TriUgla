@@ -13,7 +13,7 @@ namespace TriUgla.Parsing.Nodes
         public Token Token { get; }
         public INode Expression { get; }
 
-        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {

@@ -9,7 +9,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing
 {
-    public class Evaluator : INodeVisitor
+    public class Evaluator : INodeEvaluationVisitor
     {
         Stack _stack = new Stack();
 
@@ -78,7 +78,7 @@ namespace TriUgla.Parsing
 
         }
 
-        string GetId(NodeIdentifier n)
+        string GetId(Nodes.Literals.NodeIdentifier n)
         {
             string id;
             if (n.Id is not null)
@@ -95,7 +95,7 @@ namespace TriUgla.Parsing
             return id;
         }
 
-        public TuValue Visit(NodeIdentifier n)
+        public TuValue Visit(Nodes.Literals.NodeIdentifier n)
         {
             string id = GetId(n);
             Variable? v = _stack.Current.Get(id);
@@ -113,7 +113,7 @@ namespace TriUgla.Parsing
             // ++x / --x must mutate an lvalue (for now: identifier only)
             if (op == ETokenType.PlusPlus || op == ETokenType.MinusMinus)
             {
-                if (n.Expression is not NodeIdentifier id)
+                if (n.Expression is not Nodes.Literals.NodeIdentifier id)
                     throw new Exception("Prefix ++/-- requires an identifier");
 
                 Variable v = _stack.Current.GetOrDeclare(id.Token.value);
@@ -143,7 +143,7 @@ namespace TriUgla.Parsing
             if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)
                 throw new Exception("Unsupported postfix op");
 
-            if (n.Expression is not NodeIdentifier id)
+            if (n.Expression is not Nodes.Literals.NodeIdentifier id)
                 throw new Exception("Postfix ++/-- requires an identifier");
 
             Variable v = _stack.Current.GetOrDeclare(id.Token.value);
@@ -328,9 +328,9 @@ namespace TriUgla.Parsing
             return TuValue.Nothing;
         }
 
-        public TuValue Visit(NodeAssignment n)
+        public TuValue Visit(Nodes.NodeIdentifier n)
         {
-            string id = GetId((NodeIdentifier)n.Assignee);
+            string id = GetId((Nodes.Literals.NodeIdentifier)n.Assignee);
             Variable v = _stack.Current.GetOrDeclare(id);
             TuValue cur = v.Value;
 

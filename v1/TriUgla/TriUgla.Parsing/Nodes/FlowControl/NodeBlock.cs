@@ -13,7 +13,6 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         public Token Token { get; }
         public IReadOnlyList<INode> Nodes { get; }
 
-        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
-
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
     }
 }

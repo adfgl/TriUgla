@@ -22,9 +22,6 @@ namespace TriUgla.Parsing.Nodes
         public Token Macro { get; }
         public Token EndMacro { get; }
 
-        public TuValue Accept(INodeVisitor visitor)
-        {
-            return visitor.Visit(this);
-        }
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
     }
 }

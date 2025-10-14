@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeAssignment : INode
+    public class NodeIdentifier : INode
     {
-        public NodeAssignment(Token op, INode id, INode? expression)
+        public NodeIdentifier(Token op, INode id, INode? expression)
         {
             Token = op;
             Assignee = id;
@@ -16,6 +16,6 @@ namespace TriUgla.Parsing.Nodes
         public INode Assignee { get; }
         public INode? Expression { get; }
 
-        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
     }
 }

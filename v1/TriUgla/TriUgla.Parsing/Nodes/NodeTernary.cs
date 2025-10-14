@@ -23,9 +23,6 @@ namespace TriUgla.Parsing.Nodes
         public INode ThenExp { get; }
         public INode ElseExp { get; }
 
-        public TuValue Accept(INodeVisitor visitor)
-        {
-            return visitor.Visit(this);
-        }
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
     }
 }

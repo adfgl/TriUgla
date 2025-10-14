@@ -11,7 +11,13 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing
 {
-    public class Parser
+    public interface INodeWithParse<TSelf> : INode where TSelf : INode
+    {
+        static abstract bool CanStart(Parser p);
+        static abstract TSelf Parse(Parser p);
+    }
+
+    public class Parser 
     {
         readonly Scanner _scanner;
 
@@ -44,7 +50,7 @@ namespace TriUgla.Parsing
             {
                 Token op = Consume();                     // =, +=, -=, *=, /=
                 INode right = ParseAssignmentExpression(); // right-assoc
-                return new NodeAssignment(op, left, right);
+                return new Nodes.NodeIdentifier(op, left, right);
             }
 
             return left;
@@ -258,7 +264,7 @@ namespace TriUgla.Parsing
                     }
 
                 case ETokenType.IdentifierLiteral:
-                    return new NodeIdentifier(Consume(), null);
+                    return new Nodes.Literals.NodeIdentifier(Consume(), null);
 
                 case ETokenType.Point:
                 case ETokenType.Line:
@@ -267,7 +273,7 @@ namespace TriUgla.Parsing
                     Consume(ETokenType.OpenParen);
                     INode pointNode = ParseExpression();
                     Consume(ETokenType.CloseParen);
-                    return new NodeIdentifier(pointTkn, pointNode);
+                    return new Nodes.Literals.NodeIdentifier(pointTkn, pointNode);
 
                 case ETokenType.NumericLiteral:
                     return new NodeNumeric(Consume());
@@ -379,7 +385,7 @@ namespace TriUgla.Parsing
             ReadStop stop = new ReadStop(ETokenType.EndFor, ETokenType.EOF);
 
             Token tkFor = Consume(ETokenType.For);
-            INode var = new NodeIdentifier(Consume(ETokenType.IdentifierLiteral), null);
+            INode var = ParseExpression();
 
             Consume(ETokenType.In);
             INode rng = ParseExpression();
@@ -466,7 +472,7 @@ namespace TriUgla.Parsing
             var block = ParseBlockUntil(new ReadStop(ETokenType.EndMacro, ETokenType.EOF));
 
             Token tkEndMacro = Consume(ETokenType.EndMacro);
-
+            MaybeEOX();
             return new NodeMacro(tkMacro, nameExpr, block, tkEndMacro);
         }
 
@@ -588,6 +594,106 @@ namespace TriUgla.Parsing
             {
                 Consume();
             }
+        }
+
+        public TuValue Visit(ProgramNode n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeNumeric n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeString n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(Nodes.Literals.NodeIdentifier n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeRange n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodePrefixUnary n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodePostfixUnary n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeBinary n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeGroup n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeBlock n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeIfElse n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(Nodes.NodeIdentifier n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeFor n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeFunctionCall n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeTuple n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeLengthOf n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeValueAt n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeTernary n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeMacro n)
+        {
+            throw new NotImplementedException();
+        }
+
+        public TuValue Visit(NodeMacroCall n)
+        {
+            throw new NotImplementedException();
         }
     }
 

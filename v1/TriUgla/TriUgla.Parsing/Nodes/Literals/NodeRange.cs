@@ -19,10 +19,7 @@ namespace TriUgla.Parsing.Nodes.Literals
         public INode To { get; }
         public INode? By { get; }
 
-        public TuValue Accept(INodeVisitor visitor)
-        {
-            return visitor.Visit(this);
-        }
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
 
     }
 }

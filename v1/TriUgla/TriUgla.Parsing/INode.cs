@@ -6,6 +6,6 @@ namespace TriUgla.Parsing
     public interface INode
     {
         Token Token { get; }
-        TuValue Accept(INodeVisitor visitor);
+        TuValue Accept(INodeEvaluationVisitor visitor);
     }
 }

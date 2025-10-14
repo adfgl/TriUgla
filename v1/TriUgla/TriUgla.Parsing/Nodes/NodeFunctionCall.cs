@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Nodes
         public INode Id { get; }
         public IReadOnlyList<INode> Args { get; }
 
-        public TuValue Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {
