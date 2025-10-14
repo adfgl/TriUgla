@@ -3,6 +3,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes;
 using TriUgla.Parsing.Nodes.FlowControl;
 using TriUgla.Parsing.Nodes.Literals;
@@ -47,7 +48,7 @@ namespace TriUgla.Parsing
                         break;
 
                     case ETokenType.Error:
-                        throw new Exception(token.value);
+                        throw new CompiletimeException(token.value, token);
 
                     case ETokenType.If:
                         statements.Add(ParseIfElse());
@@ -99,7 +100,7 @@ namespace TriUgla.Parsing
             {
                 Token op = Consume();                     // =, +=, -=, *=, /=
                 NodeBase right = ParseAssignmentExpression(); // right-assoc
-                return new NodeAssignment(left, t, right);
+                return new NodeAssignment(left, op, right);
             }
 
             return left;

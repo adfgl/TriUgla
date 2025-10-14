@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
@@ -25,7 +26,15 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             {
                 return new TuValue(value.AsTuple()!.Values.Count);
             }
-            throw new Exception($"Can't obtain length of value '{Tuple}'.");
+
+            if (Tuple is NodeIdentifier id)
+            {
+                throw new CompiletimeException($"Couldn't obtain number of elements. Variable '{id.Name}' is of type '{value.type}' but expected '{EDataType.Tuple}'.", Token);
+            }
+            else
+            {
+                throw new RuntimeException($"Couldn't obtain number of elements. Expected '{EDataType.Tuple}' but got '{value.type}'.", Token);
+            }
         }
     }
 }
