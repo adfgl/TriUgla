@@ -5,12 +5,16 @@ namespace TriUgla.Parsing.Nodes.Literals
 {
     public class NodeTuple : NodeBase
     {
-        public NodeTuple(Token token, IEnumerable<NodeBase> args) : base(token)
+
+        public NodeTuple(Token open, IEnumerable<NodeBase> args, Token close) : base(open)
         {
             Args = args.ToArray();
+            Close = close;
         }
 
         public IReadOnlyList<NodeBase> Args { get; }
+        public Token Open => Token;
+        public Token Close { get; }
 
         public override TuValue Evaluate(TuStack stack)
         {

@@ -1,2 +1,5 @@
 a[] = { 1, 2, 3}
-Print(a[1])
+b = a
+
+Print(a)
+Print(b)

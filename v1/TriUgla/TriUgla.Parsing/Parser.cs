@@ -327,15 +327,6 @@ namespace TriUgla.Parsing
                     }
                     return new NodeIdentifier(id);
 
-                //case ETokenType.Point:
-                //case ETokenType.Line:
-                //    Token pointTkn = Consume();
-
-                //    Consume(ETokenType.OpenParen);
-                //    NodeBase pointNode = ParseExpression();
-                //    Consume(ETokenType.CloseParen);
-                //    return new NodeIdentifier(pointTkn, pointNode);
-
                 case ETokenType.NumericLiteral:
                     return new NodeNumeric(Consume());
 
@@ -361,20 +352,17 @@ namespace TriUgla.Parsing
 
             if (Peek().type == ETokenType.CloseCurly)
             {
-                Consume(ETokenType.CloseCurly);
-                return new NodeTuple(tkOpen, new List<NodeBase>(0));
+                return new NodeTuple(tkOpen, [], Consume(ETokenType.CloseCurly));
             }
 
             var items = new List<NodeBase>(4);
 
             items.Add(ParseExpression());
 
-            var t = Peek().type;
-
+            ETokenType t = Peek().type;
             if (t == ETokenType.CloseCurly)
             {
-                Consume(ETokenType.CloseCurly);
-                return new NodeTuple(tkOpen, items);
+                return new NodeTuple(tkOpen, items, Consume(ETokenType.CloseCurly));
             }
 
             ETokenType sep;
@@ -416,7 +404,7 @@ namespace TriUgla.Parsing
                 throw new Exception("Range requires {start:end} or {start:step:end}.");
             }
 
-            return new NodeTuple(tkOpen, items);
+            return new NodeTuple(tkOpen, items, tkClose);
         }
 
         List<NodeBase> ParseArguments(ETokenType open = ETokenType.OpenParen, ETokenType close = ETokenType.CloseParen, ETokenType separator = ETokenType.Comma)

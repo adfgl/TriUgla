@@ -26,7 +26,6 @@
             { "or", ETokenType.Or },
             { "not", ETokenType.Not },
             { "is", ETokenType.EqualEqual }
-
         };
     }
 }
