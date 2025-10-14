@@ -38,25 +38,24 @@ namespace TriUgla.Parsing.Compiling
             return false;
         }
 
-        public Variable Declare(Token identifer, TuValue value)
+        public Variable Declare(string name, TuValue value)
         {
-            if (Resolve(identifer.value, out _))
+            if (Resolve(name, out _))
             {
                 throw new Exception("Already declared");
             }
 
             Variable variable = new Variable()
             {
-                Identifier = identifer,
+                Identifier = name,
                 Value = value
             };
-            _variables.Add(identifer.value, variable);
+            _variables.Add(name, variable);
             return variable;
         }
 
-        public Variable? Get(Token token)
+        public Variable? Get(string name)
         {
-            string name = token.value;
             if (Resolve(name, out Scope scope))
             {
                 return scope._variables[name];
@@ -64,14 +63,13 @@ namespace TriUgla.Parsing.Compiling
             return null;
         }
 
-        public Variable GetOrDeclare(Token token)
+        public Variable GetOrDeclare(string name)
         {
-            string name = token.value;
             if (Resolve(name, out Scope scope))
             {
                 return scope._variables[name];
             }
-            return Declare(token, TuValue.Nothing);
+            return Declare(name, TuValue.Nothing);
         }
     }
 }

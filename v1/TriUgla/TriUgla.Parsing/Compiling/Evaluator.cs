@@ -77,7 +77,7 @@ namespace TriUgla.Parsing.Compiling
 
         }
 
-        public TuValue Visit(NodeIdentifier n)
+        string GetId(NodeIdentifier n)
         {
             string id;
             if (n.Id is not null)
@@ -91,12 +91,15 @@ namespace TriUgla.Parsing.Compiling
                 if (!ValidIdentifier(id, out string reason))
                     throw new Exception($"Invalid id '{id}'. Reason: {reason}");
             }
+            return id;
+        }
 
-            Token token = new Token(ETokenType.Point, n.Token.line, n.Token.column, id);
-
-            Variable? v = _stack.Current.Get(token);
+        public TuValue Visit(NodeIdentifier n)
+        {
+            string id = GetId(n);
+            Variable? v = _stack.Current.Get(id);
             if (v is null)
-                throw new Exception($"Undefined variable '{token.value}'");
+                throw new Exception($"Undefined variable '{id}'");
             return v.Value;
         }
 
@@ -112,7 +115,7 @@ namespace TriUgla.Parsing.Compiling
                 if (n.Expression is not NodeIdentifier id)
                     throw new Exception("Prefix ++/-- requires an identifier");
 
-                Variable v = _stack.Current.GetOrDeclare(id.Token);
+                Variable v = _stack.Current.GetOrDeclare(id.Token.value);
                 if (v.Value.type != EDataType.Numeric)
                     throw new Exception("Prefix ++/-- requires numeric variable");
 
@@ -142,7 +145,7 @@ namespace TriUgla.Parsing.Compiling
             if (n.Expression is not NodeIdentifier id)
                 throw new Exception("Postfix ++/-- requires an identifier");
 
-            Variable v = _stack.Current.GetOrDeclare(id.Token);
+            Variable v = _stack.Current.GetOrDeclare(id.Token.value);
             if (v.Value.type != EDataType.Numeric)
                 throw new Exception("Postfix ++/-- requires numeric variable");
 
@@ -299,7 +302,9 @@ namespace TriUgla.Parsing.Compiling
         {
             TuValue value = TuValue.Nothing;
             foreach (INode exp in n.Nodes)
+            {
                 value = exp.Accept(this);
+            }
             return value;
         }
 
@@ -324,10 +329,7 @@ namespace TriUgla.Parsing.Compiling
 
         public TuValue Visit(NodeAssignment n)
         {
-            // Current node shape: Identifier + Token(op) + Expression
-            Token id = n.Assignee.Token;
-
-            // Read current value (default 0 for numerics to help compound ops)
+            string id = GetId((NodeIdentifier)n.Assignee);
             Variable v = _stack.Current.GetOrDeclare(id);
             TuValue cur = v.Value;
 
@@ -411,7 +413,7 @@ namespace TriUgla.Parsing.Compiling
 
         public TuValue Visit(NodeFor n)
         {
-            Variable i = _stack.Current.GetOrDeclare(n.Identifier.Token);
+            Variable i = _stack.Current.GetOrDeclare(n.Identifier.Token.value);
 
             TuValue list = n.Range.Accept(this);
             if (list.type == EDataType.Range)
