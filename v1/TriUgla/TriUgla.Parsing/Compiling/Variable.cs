@@ -4,7 +4,14 @@ namespace TriUgla.Parsing.Compiling
 {
     public class Variable
     {
-        public string Identifier { get; set; } = String.Empty;
+        public Variable(string id)
+        {
+            Identifier = id;
+        }
+
+        public int Line { get; set; }
+        public int Column { get; set; }
+        public string Identifier { get; } 
         public TuValue Value { get; set; }
 
         public override string ToString()

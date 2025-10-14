@@ -456,7 +456,7 @@ namespace TriUgla.Parsing
                         break;
 
                     case ETokenType.Error:
-                        throw new Exception();
+                        throw new Exception(token.value);
 
                     case ETokenType.If:
                         statements.Add(ParseIfElse());

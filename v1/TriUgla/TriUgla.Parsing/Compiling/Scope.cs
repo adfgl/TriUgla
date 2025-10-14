@@ -45,9 +45,8 @@ namespace TriUgla.Parsing.Compiling
                 throw new Exception("Already declared");
             }
 
-            Variable variable = new Variable()
+            Variable variable = new Variable(name)
             {
-                Identifier = name,
                 Value = value
             };
             _variables.Add(name, variable);

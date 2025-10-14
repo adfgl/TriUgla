@@ -7,6 +7,12 @@
         public readonly int column;
         public readonly string value;
 
+        public Token(ETokenType type, int line, int column) 
+            : this(type, line, column, String.Empty)
+        {
+            
+        }
+
         public Token(ETokenType type, int line, int column, string value)
         {
             this.type = type;

@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Data.Common;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace TriUgla.Parsing.Scanning
@@ -19,10 +20,11 @@ namespace TriUgla.Parsing.Scanning
         {
             SkipSpace();
             char ch = Peek();
-            if (ch == EOF) return new Token(ETokenType.EOF, _line, _col, "");
+            if (ch == EOF) return new Token(ETokenType.EOF, _line, _col);
 
             if (ch == '\n') return ReadNewline();
             if (ch == '/' && Peek(1) == '/') return ReadLineComment();
+            if (ch == '/' && Peek(1) == '*') return ReadMultiLineComment();
             if (IsDigit(ch) || (ch == '.' && IsDigit(Peek(1)))) return ReadNumber();
             if (IsIdentStart(ch)) return ReadIdentifier();
             if (ch == '"') return ReadString();
@@ -31,26 +33,34 @@ namespace TriUgla.Parsing.Scanning
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private char Peek(int k = 0) => (_pos + k) < _src.Length ? _src[_pos + k] : EOF;
+        char Peek(int k = 0) => (_pos + k) < _src.Length ? _src[_pos + k] : EOF;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private char Advance()
+        char Advance()
         {
             char c = _src[_pos++];
-            if (c != '\n') _col++;
+            if (c != '\n')
+            {
+                _col++;
+            }
+            else
+            {
+                _col = 0;
+                _line++;
+            }
             return c;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsDigit(char c) => (uint)(c - '0') <= 9u;
+        static bool IsDigit(char c) => (uint)(c - '0') <= 9u;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsIdentStart(char c) => char.IsLetter(c) || c == '_';
+        static bool IsIdentStart(char c) => char.IsLetter(c) || c == '_';
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsIdentPart(char c) => char.IsLetterOrDigit(c) || c == '_';
+        static bool IsIdentPart(char c) => char.IsLetterOrDigit(c) || c == '_';
 
-        private void SkipSpace()
+        void SkipSpace()
         {
             while (true)
             {
@@ -60,17 +70,44 @@ namespace TriUgla.Parsing.Scanning
             }
         }
 
-        private Token ReadNewline()
+        Token ReadNewline()
         {
             int line = _line, col = _col;
-            Advance(); _line++; _col = 0;
-            return new Token(ETokenType.LineBreak, line, col, "");
+            Advance();
+            return new Token(ETokenType.LineBreak, line, col);
         }
 
-        private Token ReadLineComment()
+        Token ReadMultiLineComment()
         {
             int line = _line, col = _col;
-            Advance(); Advance(); // //
+            Advance(); Advance(); // '/*'
+
+            int start = _pos;
+            while (true)
+            {
+                char c = Peek();
+                if (c == EOF)
+                {
+                    return new Token(ETokenType.Error, line, col, "Unterminated multi-line commnet.");
+                }
+
+                if (c == '*' && Peek(1) == '/')
+                {
+                    Advance();
+                    Advance();
+                    break;
+                }
+                Advance();
+            }
+            int len = _pos - start + 2;
+            string text = _src.Substring(start, len - 2); // keep just the comment text (no //)
+            return new Token(ETokenType.Comment, line, col, text);
+        }
+
+        Token ReadLineComment()
+        {
+            int line = _line, col = _col;
+            Advance(); Advance(); // '//'
             int start = _pos;
             while (true)
             {
@@ -83,7 +120,7 @@ namespace TriUgla.Parsing.Scanning
             return new Token(ETokenType.Comment, line, col, text);
         }
 
-        private Token ReadIdentifier()
+        Token ReadIdentifier()
         {
             int line = _line, col = _col, start = _pos;
             Advance();
@@ -98,7 +135,7 @@ namespace TriUgla.Parsing.Scanning
             return new Token(ETokenType.IdentifierLiteral, line, col, text);
         }
 
-        private Token ReadNumber()
+        Token ReadNumber()
         {
             int line = _line, col = _col, start = _pos;
 
@@ -119,7 +156,7 @@ namespace TriUgla.Parsing.Scanning
             return new Token(ETokenType.NumericLiteral, line, col, lexeme);
         }
 
-        private Token ReadString()
+        Token ReadString()
         {
             int line = _line, col = _col, start = _pos; // start at opening quote
             Advance(); // consume opening "
@@ -143,55 +180,71 @@ namespace TriUgla.Parsing.Scanning
             return new Token(ETokenType.StringLiteral, line, col, lexeme);
         }
 
-        private Token ReadOperatorOrPunct()
+        Token ReadOperatorOrPunct()
         {
             int line = _line, col = _col;
             char a = Peek(), b = Peek(1);
 
+            ETokenType type;
             if (b != EOF)
             {
-                if (a == '+' && b == '+') { Advance(); Advance(); return new Token(ETokenType.PlusPlus, line, col, ""); }
-                if (a == '+' && b == '=') { Advance(); Advance(); return new Token(ETokenType.PlusEqual, line, col, ""); }
-                if (a == '-' && b == '=') { Advance(); Advance(); return new Token(ETokenType.MinusEqual, line, col, ""); }
-                if (a == '-' && b == '-') { Advance(); Advance(); return new Token(ETokenType.Minus, line, col, ""); }
-                if (a == '*' && b == '=') { Advance(); Advance(); return new Token(ETokenType.StarEqual, line, col, ""); }
-                if (a == '/' && b == '=') { Advance(); Advance(); return new Token(ETokenType.SlashEqual, line, col, ""); }
-                if (a == '%' && b == '=') { Advance(); Advance(); return new Token(ETokenType.ModuloEqual, line, col, ""); }
 
-                if (a == '!' && b == '=') { Advance(); Advance(); return new Token(ETokenType.NotEqual, line, col, ""); }
-                if (a == '=' && b == '=') { Advance(); Advance(); return new Token(ETokenType.EqualEqual, line, col, ""); }
-                if (a == '>' && b == '=') { Advance(); Advance(); return new Token(ETokenType.GreaterOrEqual, line, col, ""); }
-                if (a == '<' && b == '=') { Advance(); Advance(); return new Token(ETokenType.LessOrEqual, line, col, ""); }
-                if (a == '&' && b == '&') { Advance(); Advance(); return new Token(ETokenType.And, line, col, ""); }
-                if (a == '|' && b == '|') { Advance(); Advance(); return new Token(ETokenType.Or, line, col, ""); }
+                string two = $"{a}{b}";
+                type = two switch
+                {
+                    "++" => ETokenType.PlusPlus,
+                    "+=" => ETokenType.PlusEqual,
+                    "-=" => ETokenType.MinusEqual,
+                    "--" => ETokenType.MinusMinus,
+                    "*=" => ETokenType.StarEqual,
+                    "/=" => ETokenType.SlashEqual,
+                    "%=" => ETokenType.ModuloEqual,
+                    "!=" => ETokenType.NotEqual,
+                    "==" => ETokenType.EqualEqual,
+                    ">=" => ETokenType.GreaterOrEqual,
+                    "<=" => ETokenType.LessOrEqual,
+                    "&&" => ETokenType.And,
+                    "||" => ETokenType.Or,
+                    _ => ETokenType.Undefined,
+                };
+                if (type != ETokenType.Undefined)
+                {
+                    Advance(); Advance();
+                    return new Token(type, line, col);
+                }
             }
 
             Advance();
-            return a switch
+
+            type = a switch
             {
-                '#' => new Token(ETokenType.Hash, line, col, ""),
-                '=' => new Token(ETokenType.Equal, line, col, ""),
-                '*' => new Token(ETokenType.Star, line, col, ""),
-                '+' => new Token(ETokenType.Plus, line, col, ""),
-                '-' => new Token(ETokenType.Minus, line, col, ""),
-                '/' => new Token(ETokenType.Slash, line, col, ""),
-                '%' => new Token(ETokenType.Modulo, line, col, ""),
-                '^' => new Token(ETokenType.Power, line, col, ""),
-                '!' => new Token(ETokenType.Not, line, col, ""),
-                '>' => new Token(ETokenType.Greater, line, col, ""),
-                '<' => new Token(ETokenType.Less, line, col, ""),
-                ':' => new Token(ETokenType.Colon, line, col, ""),
-                ';' => new Token(ETokenType.SemiColon, line, col, ""),
-                '.' => new Token(ETokenType.Dot, line, col, ""),
-                ',' => new Token(ETokenType.Comma, line, col, ""),
-                '(' => new Token(ETokenType.OpenParen, line, col, ""),
-                ')' => new Token(ETokenType.CloseParen, line, col, ""),
-                '[' => new Token(ETokenType.OpenSquare, line, col, ""),
-                ']' => new Token(ETokenType.CloseSquare, line, col, ""),
-                '{' => new Token(ETokenType.OpenCurly, line, col, ""),
-                '}' => new Token(ETokenType.CloseCurly, line, col, ""),
-                _ => new Token(ETokenType.Error, line, col, $"Unexpected '{a}'")
+                '?' => ETokenType.Question,
+                '#' => ETokenType.Hash,
+                '=' => ETokenType.Equal,
+                '*' => ETokenType.Star,
+                '+' => ETokenType.Plus,
+                '-' => ETokenType.Minus,
+                '/' => ETokenType.Slash,
+                '%' => ETokenType.Modulo,
+                '^' => ETokenType.Power,
+                '!' => ETokenType.Not,
+                '>' => ETokenType.Greater,
+                '<' => ETokenType.Less, 
+                ':' => ETokenType.Colon, 
+                ';' => ETokenType.SemiColon, 
+                '.' => ETokenType.Dot, 
+                ',' => ETokenType.Comma, 
+                '(' => ETokenType.OpenParen,
+                ')' => ETokenType.CloseParen,
+                '[' => ETokenType.OpenSquare,
+                ']' => ETokenType.CloseSquare,
+                '{' => ETokenType.OpenCurly,
+                '}' => ETokenType.CloseCurly,
+                _ => ETokenType.Error
             };
+
+            Advance();
+            return new Token(type, line, col, type == ETokenType.Error ? $"Unexpected '{a}'." : String.Empty);
         }
     }
 

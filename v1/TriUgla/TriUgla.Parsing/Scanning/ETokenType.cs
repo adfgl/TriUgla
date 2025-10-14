@@ -25,7 +25,7 @@ namespace TriUgla.Parsing.Scanning
 
         Point, Line,
 
-        And, Or, Not,
+        And, Or, Not, Question,
         EqualEqual, NotEqual,
 
         Less, LessOrEqual,
