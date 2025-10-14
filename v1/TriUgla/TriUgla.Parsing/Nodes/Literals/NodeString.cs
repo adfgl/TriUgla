@@ -3,20 +3,20 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeString : INode
+    public class NodeString : NodeBase
     {
-        public NodeString(Token token)
+        public NodeString(Token token) : base(token)
         {
-            Token = token;
         }
-
-        public Token Token { get; }
-
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
 
         public override string ToString()
         {
             return Token.value;
+        }
+
+        public override TuValue Evaluate(TuStack stack)
+        {
+            return new TuValue(Token.value);
         }
     }
 }

@@ -3,16 +3,22 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
 {
-    public class NodeBlock : INode
+    public class NodeBlock : NodeBase
     {
-        public NodeBlock(Token token, IEnumerable<INode> statements)
+        public NodeBlock(Token token, IEnumerable<NodeBase> statements) : base(token)
         {
-            Nodes = statements.ToArray();
+            Statements = statements.ToArray();
         }
 
-        public Token Token { get; }
-        public IReadOnlyList<INode> Nodes { get; }
+        public IReadOnlyList<NodeBase> Statements { get; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public override TuValue Evaluate(TuStack stack)
+        {
+            foreach (NodeBase node in Statements)
+            {
+                node.Evaluate(stack);
+            }
+            return TuValue.Nothing;
+        }
     }
 }

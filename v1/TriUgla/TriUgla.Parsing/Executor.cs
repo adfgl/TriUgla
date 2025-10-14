@@ -6,15 +6,15 @@ namespace TriUgla.Parsing
 {
     public class Executor
     {
-        Evaluator _evaluator = new Evaluator();
 
         public TuValue Execute(string code)
         {
             Scanner scanner = new Scanner(code);
             Parser parser = new Parser(scanner);
+            TuStack stack = new TuStack();
 
             var program = parser.Parse();
-            var result = program.Accept(_evaluator);
+            TuValue result = program.Evaluate(stack);
             return result;
         }
     }

@@ -3,30 +3,36 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
 {
-    public class NodeIfElse : INode
+    public class NodeIfElse : NodeBase
     {
-        static (INode elif, NodeBlock elifBlock)[] s_empty = [];
-
-        public NodeIfElse(Token token, INode @if, NodeBlock ifBlock, IEnumerable<(INode elif, NodeBlock elifBlock)>? elifs = null, NodeBlock? elseBlock = null)
+        public NodeIfElse(Token start, IEnumerable<(NodeBase condition, NodeBlock block)> ifBlocks, NodeBlock? elseBlock, Token end) : base(start)
         {
-            Token = token;
-            If = @if;
-            IfBlock = ifBlock;
-            ElseIfs = elifs is null ? s_empty : elifs.ToArray();
-            ElseBlock = elseBlock;
+            IfElifBlocks = ifBlocks.ToArray();
+            End = end;
         }
 
-        public NodeIfElse(Token token, INode @if, NodeBlock ifBlock, NodeBlock? elseBlock = null) : this(token, @if, ifBlock, null, elseBlock)
-        {
-            
-        }
-
-        public Token Token { get; }
-        public INode If { get; }
-        public NodeBlock IfBlock { get; }
-        public IReadOnlyList<(INode elif, NodeBlock elifBlock)> ElseIfs { get; }
+        public IReadOnlyList<(NodeBase condition, NodeBlock block)> IfElifBlocks { get; }
         public NodeBlock? ElseBlock { get; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public Token Start => Token;
+        public Token End { get; }
+
+        public override TuValue Evaluate(TuStack stack)
+        {
+            foreach ((NodeBase condition, NodeBlock block) in IfElifBlocks)
+            {
+                if (condition.Evaluate(stack).AsBoolean())
+                {
+                    block.Evaluate(stack);
+                    return TuValue.Nothing;
+                }
+            }
+
+            if (ElseBlock is not null)
+            {
+                ElseBlock.Evaluate(stack);
+            }
+            return TuValue.Nothing;
+        }
     }
 }

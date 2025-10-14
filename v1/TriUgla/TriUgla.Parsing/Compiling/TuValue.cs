@@ -132,6 +132,17 @@ namespace TriUgla.Parsing.Compiling
             {
                 return obj as TuTuple;
             }
+
+            if (type == EDataType.Numeric)
+            {
+                return new TuTuple([numeric]);
+            }
+
+            if (type == EDataType.Range)
+            {
+                return new TuTuple(obj as TuRange);
+            }
+
             throw new InvalidCastException();
         }
 

@@ -11,8 +11,8 @@ namespace TriUgla.Parsing.Compiling
 
         public int Line { get; set; }
         public int Column { get; set; }
-        public string Identifier { get; } 
-        public TuValue Value { get; set; }
+        public string Identifier { get; }
+        public TuValue Value { get; set; } = TuValue.Nothing;
 
         public override string ToString()
         {

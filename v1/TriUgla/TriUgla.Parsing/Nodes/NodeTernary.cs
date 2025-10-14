@@ -1,28 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeTernary : INode
+    public class NodeTernary : NodeBase
     {
-        public NodeTernary(Token token, INode ifExp, INode thenExp, INode elseExp)
+        public NodeTernary(NodeBase ifExp, Token question, NodeBase thenExp, Token colon, NodeBase elseExp) : base(question)
         {
-            Token = token;
             IfExp = ifExp;
             ThenExp = thenExp;
+            Colon = colon;
             ElseExp = elseExp;
         }
 
-        public Token Token { get; }
-        public INode IfExp { get; }
-        public INode ThenExp { get; }
-        public INode ElseExp { get; }
+        public NodeBase IfExp { get; }
+        public Token Question => Token;
+        public NodeBase ThenExp { get; }
+        public Token Colon { get; }
+        public NodeBase ElseExp { get; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public override TuValue Evaluate(TuStack stack)
+        {
+            TuValue result;
+
+            TuValue ifValue = IfExp.Evaluate(stack);
+            if (ifValue.AsBoolean())
+            {
+                result = ThenExp.Evaluate(stack);
+            }
+            else
+            {
+                result = ElseExp.Evaluate(stack);
+            }
+            return result;
+        }
     }
 }

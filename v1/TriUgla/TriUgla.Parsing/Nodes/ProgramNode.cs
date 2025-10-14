@@ -1,25 +1,33 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Nodes.FlowControl;
+﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class ProgramNode : INode
+    public class ProgramNode : NodeBase
     {
-        public ProgramNode(Token token, IEnumerable<INode> statements)
+        public ProgramNode(Token token, IEnumerable<NodeBase> statements) : base(token)
         {
-            Token = token;
-            Statement = statements.ToList();
+            Statements = statements.ToList();
         }
 
-        public Token Token { get; }
-        public IReadOnlyList<INode> Statement { get; }
+        public IReadOnlyList<NodeBase> Statements { get; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public override TuValue Evaluate(TuStack stack)
+        {
+            stack.OpenScope();
+
+            stack.Global.Declare("Pi", new TuValue(3.1415926535897932));
+
+            TuValue result = TuValue.Nothing;
+            foreach (NodeBase item in Statements)
+            {
+                TuValue value = item.Evaluate(stack);
+                if (value.type != EDataType.Nothing)
+                {
+                    result = value;
+                }
+            }
+            return result;
+        }
     }
 }

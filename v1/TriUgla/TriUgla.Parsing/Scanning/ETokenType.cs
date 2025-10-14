@@ -11,8 +11,8 @@ namespace TriUgla.Parsing.Scanning
         Undefined, Error, Comment, MultiLineComment, LineBreak, EOF,
         NumericLiteral, StringLiteral, IdentifierLiteral,
 
-        Minus, Plus, Star, Slash, Modulo, Power,
-        MinusEqual, PlusEqual, StarEqual, SlashEqual, ModuloEqual,
+        Minus, Plus, Star, Slash, Modulo, Power, 
+        MinusEqual, PlusEqual, StarEqual, SlashEqual, ModuloEqual, PowerEqual,
         PlusPlus, MinusMinus,
 
         OpenParen, CloseParen,

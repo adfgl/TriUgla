@@ -209,7 +209,7 @@ namespace TriUgla.Parsing.Scanning
                 if (type != ETokenType.Undefined)
                 {
                     Advance(); Advance();
-                    return new Token(type, line, col);
+                    return new Token(type, line, col, two);
                 }
             }
 
@@ -241,7 +241,7 @@ namespace TriUgla.Parsing.Scanning
             };
 
             Advance();
-            return new Token(type, line, col, type == ETokenType.Error ? $"Unexpected '{a}'." : String.Empty);
+            return new Token(type, line, col, type == ETokenType.Error ? $"Unexpected '{a}'." : $"{a}");
         }
     }
 

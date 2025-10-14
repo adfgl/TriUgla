@@ -8,19 +8,50 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.TupleOps
 {
-    public class NodeValueAt : INode
+    public class NodeValueAt : NodeBase
     {
-        public NodeValueAt(Token token, INode tuple, INode index)
+        public NodeValueAt(Token token, NodeBase tuple, NodeBase index) : base(token)
         {
-            Token = token;
-            Tuple = tuple;
-            Index = index;
+            TupleExp = tuple;
+            IndexExp = index;
         }
 
-        public Token Token { get; }
-        public INode Tuple { get; }
-        public INode Index { get; }
+        public NodeBase TupleExp { get; }
+        public NodeBase IndexExp { get; }
+        public int Index { get; private set; }
+        public TuTuple Tuple { get; private set; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public override TuValue Evaluate(TuStack stack)
+        {
+            TuValue tuple = TupleExp.Evaluate(stack);
+            if (tuple.type != EDataType.Tuple)
+            {
+                throw new Exception("Indexing requires a tuple");
+            }
+
+            TuValue index = IndexExp.Evaluate(stack);
+            if (index.type != EDataType.Numeric)
+            {
+                throw new Exception("Index must be numeric");
+            }
+
+            if (index.AsNumeric() % 1 == 0)
+            {
+                throw new Exception("Index must be integer");
+            }
+                
+            int i = (int)index.AsNumeric();
+            List<double> t = tuple.AsTuple()!.Values;
+
+            if (i < 0 || i >= t.Count)
+            {
+                throw new Exception("Index out of range");
+            }
+
+            Index = i;
+            Tuple = tuple.AsTuple()!;
+
+            return new TuValue(t[i]);
+        }
     }
 }

@@ -11,7 +11,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing
 {
-    public interface INodeWithParse<TSelf> : INode where TSelf : INode
+    public interface INodeWithParse<TSelf>
     {
         static abstract bool CanStart(Parser p);
         static abstract TSelf Parse(Parser p);
@@ -50,7 +50,7 @@ namespace TriUgla.Parsing
             {
                 Token op = Consume();                     // =, +=, -=, *=, /=
                 INode right = ParseAssignmentExpression(); // right-assoc
-                return new Nodes.NodeIdentifier(op, left, right);
+                return new Nodes.NodeAssignment(op, left, right);
             }
 
             return left;
@@ -651,7 +651,7 @@ namespace TriUgla.Parsing
             throw new NotImplementedException();
         }
 
-        public TuValue Visit(Nodes.NodeIdentifier n)
+        public TuValue Visit(Nodes.NodeAssignment n)
         {
             throw new NotImplementedException();
         }

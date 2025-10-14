@@ -1,28 +1,53 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
 {
-    public class NodeFor : INode
+    public class NodeFor : NodeBase
     {
-        public NodeFor(Token token, INode id, INode range, NodeBlock block)
+        public NodeFor(Token start, NodeIdentifier id, NodeBase range, NodeBlock block, Token end) : base(start)
         {
-            Token = token;
-            Identifier = id;
+            Counter = id;
             Range = range;
             Block = block;
+            End = end;
         }
 
-        public Token Token { get; }
-        public INode Identifier { get; }
-        public INode Range { get; }
+        public Token Start => Token;
+        public Token End { get; }
+
+        public NodeIdentifier Counter { get; }
+        public NodeBase Range { get; }
         public NodeBlock Block { get; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public override TuValue Evaluate(TuStack stack)
+        {
+            Variable i = stack.Current.GetOrDeclare(Counter.Name);
+
+            TuValue list = Range.Evaluate(stack);
+
+            switch (list.type)
+            {
+                case EDataType.Range:
+                    foreach (double item in list.AsRange()!)
+                    {
+                        i.Value = new TuValue(item);
+                        Block.Evaluate(stack);
+                    }
+                    break;
+                case EDataType.Tuple:
+                    foreach (double item in list.AsTuple()!)
+                    {
+                        i.Value = new TuValue(item);
+                        Block.Evaluate(stack);
+                    }
+                    break;
+                default:
+                    throw new Exception($"For-loop expects {EDataType.Range} or {EDataType.Tuple} but got {list.type}.");
+            }
+
+            return i.Value;
+        }
     }
 }

@@ -1,24 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodePostfixUnary : INode
+    public class NodePostfixUnary : NodeBase
     {
-        public NodePostfixUnary(Token op, INode exp)
+        public NodePostfixUnary(Token op, NodeBase exp) : base(op)
         {
-            Token = op;
             Expression = exp;
         }
 
-        public Token Token { get; }
-        public INode Expression { get; }
+        public Token Operation => Token;
+        public NodeBase Expression { get; }
 
-        public TuValue Accept(INodeEvaluationVisitor visitor) => visitor.Visit(this);
+        public override TuValue Evaluate(TuStack stack)
+        {
+            ETokenType op = Operation.type;
+            if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)
+            {
+                throw new Exception($"Unsupported postfix op '{Operation.value}'.");
+            }
+
+            if (Expression is not NodeIdentifier id)
+            {
+                throw new Exception($"Postfix {Operation.value} requires an identifier");
+            }
+
+            TuValue value = id.Evaluate(stack);
+            if (value.type != EDataType.Numeric)
+            {
+                throw new Exception($"Postfix {Operation.value} requires numeric variable");
+            }
+
+            Variable v = stack.Current.Get(id.Name)!;
+            double cur = v.Value.AsNumeric();
+            double next = op == ETokenType.PlusPlus ? cur + 1 : cur - 1;
+
+            v.Value = new TuValue(next);
+            return new TuValue(cur);
+
+        }
     }
 }
