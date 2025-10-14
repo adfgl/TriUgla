@@ -13,9 +13,14 @@
             { "Else", ETokenType.Else },
             { "ElseIf", ETokenType.ElseIf },
             { "EndIf", ETokenType.EndIf },
+
             { "For", ETokenType.For },
             { "In", ETokenType.In },
             { "EndFor", ETokenType.EndFor },
+
+            { "Macro", ETokenType.Macro },
+            { "Return", ETokenType.Return },
+            { "EndMacro", ETokenType.EndMacro },
 
             { "and", ETokenType.And },
             { "or", ETokenType.Or },

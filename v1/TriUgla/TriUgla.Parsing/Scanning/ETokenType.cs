@@ -36,5 +36,7 @@ namespace TriUgla.Parsing.Scanning
         If, Else, ElseIf, EndIf,
 
         For, In, EndFor,
+
+        Macro, Return, EndMacro
     }
 }

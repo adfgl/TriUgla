@@ -20,9 +20,9 @@ namespace TriUgla.Parsing
             _scanner = scanner;
         }
 
-        public NodeBlock Parse()
+        public ProgramNode Parse()
         {
-            return new NodeBlock(new Token(), ParseStatements());
+            return new ProgramNode(new Token(), ParseStatements());
         }
 
         INode ParseExpression()

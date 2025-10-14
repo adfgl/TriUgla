@@ -7,6 +7,8 @@ namespace TriUgla.Parsing.Compiling
 {
     public interface INodeVisitor
     {
+        TuValue Visit(ProgramNode n);
+
         TuValue Visit(NodeNumeric n);
         TuValue Visit(NodeString n);
         TuValue Visit(NodeIdentifier n);

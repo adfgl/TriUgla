@@ -169,7 +169,6 @@ namespace TriUgla.Parsing.Compiling
         }
 
 
-        // ---------- Binary math ----------
         public static TuValue Atan2(TuValue[] args)
             => ApplyMathFunc2(args, (y, x) => Math.Atan2(y, x), nameof(Atan2));
 

@@ -213,8 +213,6 @@ namespace TriUgla.Parsing.Scanning
                 }
             }
 
-            Advance();
-
             type = a switch
             {
                 '?' => ETokenType.Question,

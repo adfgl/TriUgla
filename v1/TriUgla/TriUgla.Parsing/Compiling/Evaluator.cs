@@ -554,6 +554,18 @@ namespace TriUgla.Parsing.Compiling
             }
             return result;
         }
+
+        public TuValue Visit(ProgramNode n)
+        {
+            _stack.Current.Declare("Pi", new TuValue(3.1415926535897932));
+
+            TuValue result = TuValue.Nothing;
+            foreach (INode item in n.Statement)
+            {
+                result = item.Accept(this);
+            }
+            return result;
+        }
     }
 
 }
