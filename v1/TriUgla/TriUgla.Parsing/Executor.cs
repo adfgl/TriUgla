@@ -6,7 +6,6 @@ namespace TriUgla.Parsing
 {
     public class Executor
     {
-
         public TuValue Execute(string code)
         {
             Scanner scanner = new Scanner(code);

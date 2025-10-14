@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes
 
         public override string ToString()
         {
-            return $"{Left} {Token.type} {Right}";
+            return $"{Left} {Token.value} {Right}";
         }
 
         public override TuValue Evaluate(TuStack stack)

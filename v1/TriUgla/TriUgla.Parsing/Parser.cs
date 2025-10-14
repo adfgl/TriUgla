@@ -31,6 +31,56 @@ namespace TriUgla.Parsing
             return new ProgramNode(new Token(), ParseStatements());
         }
 
+        List<NodeBase> ParseStatements()
+        {
+            List<NodeBase> statements = new List<NodeBase>();
+
+            Token token;
+            while ((token = Peek()).type != ETokenType.EOF)
+            {
+                switch (token.type)
+                {
+                    case ETokenType.Comment:
+                    case ETokenType.MultiLineComment:
+                    case ETokenType.LineBreak:
+                        Consume();
+                        break;
+
+                    case ETokenType.Error:
+                        throw new Exception(token.value);
+
+                    case ETokenType.If:
+                        statements.Add(ParseIfElse());
+                        break;
+
+                    case ETokenType.For:
+                        statements.Add(ParseFor());
+                        break;
+
+                    case ETokenType.ElseIf:
+                    case ETokenType.Else:
+                    case ETokenType.EndIf:
+                    case ETokenType.EndFor:
+                    case ETokenType.EndMacro:
+                        return statements;
+
+                    case ETokenType.Macro:
+                        statements.Add(ParseMacro());
+                        break;
+
+                    case ETokenType.Call:
+                        statements.Add(ParseMacroCall());
+                        break;
+
+                    default:
+                        statements.Add(ParseExpression());
+                        MaybeEOX();
+                        break;
+                }
+            }
+            return statements;
+        }
+
         NodeBase ParseExpression()
         {
             return ParseAssignmentExpression();
@@ -381,8 +431,6 @@ namespace TriUgla.Parsing
 
         NodeBase ParseFor()
         {
-            ReadStop stop = new ReadStop(ETokenType.EndFor, ETokenType.EOF);
-
             Token tkFor = Consume(ETokenType.For);
             NodeBase var = ParseExpression();
             if (var is not NodeIdentifier id)
@@ -393,14 +441,14 @@ namespace TriUgla.Parsing
             Consume(ETokenType.In);
             NodeBase rng = ParseExpression();
 
-            NodeBlock forBlock = ParseBlockUntil(stop);
+            NodeBlock forBlock = ParseBlockUntil(new Token(), [ETokenType.EndFor, ETokenType.EOF]);
 
             return new NodeFor(tkFor, id, rng, forBlock, Consume(ETokenType.EndFor));
         }
 
         NodeBase ParseIfElse()
         {
-            ReadStop stop = new ReadStop(ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF);
+            HashSet<ETokenType> stop = [ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF];
 
             List<(NodeBase Cond, NodeBlock Block)> elifs = new List<(NodeBase Cond, NodeBlock Block)>();
 
@@ -408,33 +456,32 @@ namespace TriUgla.Parsing
             Consume(ETokenType.OpenParen);
             NodeBase condition = ParseExpression();
             Consume(ETokenType.CloseParen);
-            NodeBlock ifBlock = ParseBlockUntil(stop);
+            NodeBlock ifBlock = ParseBlockUntil(tkIf, stop);
 
             elifs.Add((condition, ifBlock));
 
-            while (TryConsume(ETokenType.ElseIf, out _))
+            while (TryConsume(ETokenType.ElseIf, out var tkElseIf))
             {
                 Consume(ETokenType.OpenParen);
                 NodeBase elifCond = ParseExpression();
                 Consume(ETokenType.CloseParen);
 
-                NodeBlock elifBlock = ParseBlockUntil(stop);
+                NodeBlock elifBlock = ParseBlockUntil(tkElseIf, stop);
                 elifs.Add((elifCond, elifBlock));
             }
 
             NodeBlock? elseBlock = null;
-            if (TryConsume(ETokenType.Else, out _))
+            if (TryConsume(ETokenType.Else, out var tkElse))
             {
-                elseBlock = ParseBlockUntil(new ReadStop(ETokenType.EndIf, ETokenType.EOF));
+                elseBlock = ParseBlockUntil(tkElse, [ETokenType.EndIf, ETokenType.EOF]);
             }
 
             return new NodeIfElse(tkIf, elifs, elseBlock, Consume(ETokenType.EndIf));
         }
 
-        NodeBlock ParseBlockUntil(ReadStop stop)
+        NodeBlock ParseBlockUntil(Token token, HashSet<ETokenType> stop)
         {
-            var stmts = new List<NodeBase>(8);
-
+            List<NodeBase> stmts = new List<NodeBase>(8);
             while (true)
             {
                 var t = Peek().type;
@@ -443,34 +490,14 @@ namespace TriUgla.Parsing
 
                 stmts.AddRange(ParseStatements());
             }
-            return new NodeBlock(new Token(), stmts);
-        }
-
-        readonly struct ReadStop
-        {
-            private readonly ETokenType a, b, c, d;
-            private readonly int count;
-            public ReadStop(ETokenType a) { this.a = a; b = c = d = 0; count = 1; }
-            public ReadStop(ETokenType a, ETokenType b) { this.a = a; this.b = b; c = d = 0; count = 2; }
-            public ReadStop(ETokenType a, ETokenType b, ETokenType c) { this.a = a; this.b = b; this.c = c; d = 0; count = 3; }
-            public ReadStop(ETokenType a, ETokenType b, ETokenType c, ETokenType d) { this.a = a; this.b = b; this.c = c; this.d = d; count = 4; }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool Contains(ETokenType t)
-            {
-                if (t == a) return true;
-                if (count > 1 && t == b) return true;
-                if (count > 2 && t == c) return true;
-                if (count > 3 && t == d) return true;
-                return false;
-            }
+            return new NodeBlock(token, stmts);
         }
 
         NodeBase ParseMacro()
         {
             Token tkMacro = Consume();
             NodeBase nameExpr = ParseExpression();
-            NodeBlock block = ParseBlockUntil(new ReadStop(ETokenType.EndMacro, ETokenType.EOF));
+            NodeBlock block = ParseBlockUntil(tkMacro, [ETokenType.EndMacro, ETokenType.EOF]);
             return new NodeMacro(tkMacro, nameExpr, block, Consume(ETokenType.EndMacro));
         }
 
@@ -480,59 +507,6 @@ namespace TriUgla.Parsing
             NodeBase nameExpr = ParseExpression();
             MaybeEOX();
             return new NodeMacroCall(tkCall, nameExpr);
-        }
-
-        List<NodeBase> ParseStatements()
-        {
-            List<NodeBase> statements = new List<NodeBase>();
-
-            Token token;
-            while ((token = Peek()).type != ETokenType.EOF)
-            {
-                switch (token.type)
-                {
-                    case ETokenType.Comment:
-                    case ETokenType.MultiLineComment:
-                    case ETokenType.LineBreak:
-                        Consume();
-                        break;
-
-                    case ETokenType.Error:
-                        throw new Exception(token.value);
-
-                    case ETokenType.If:
-                        statements.Add(ParseIfElse());
-                        break;
-
-                    case ETokenType.For:
-                        statements.Add(ParseFor());
-                        break;
-
-                    case ETokenType.ElseIf:
-                    case ETokenType.Else:
-                    case ETokenType.EndIf:
-                    case ETokenType.EndFor:
-                    case ETokenType.EndMacro:
-                        return statements;
-
-                    case ETokenType.Macro:
-                        statements.Add(ParseMacro());
-                        break;
-
-                    case ETokenType.Call:
-                        statements.Add(ParseMacroCall());
-                        break;
-
-                    default:
-                        {
-                            NodeBase expr = ParseExpression();
-                            statements.Add(expr);
-                            MaybeEOX();
-                            break;
-                        }
-                }
-            }
-            return statements;
         }
 
         Token Consume()
@@ -593,106 +567,5 @@ namespace TriUgla.Parsing
                 Consume();
             }
         }
-
-        public TuValue Visit(ProgramNode n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeNumeric n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeString n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(Nodes.Literals.NodeIdentifier n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeRange n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodePrefixUnary n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodePostfixUnary n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeBinary n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeGroup n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeBlock n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeIfElse n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(Nodes.NodeAssignment n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeFor n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeFunctionCall n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeTuple n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeLengthOf n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeValueAt n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeTernary n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeMacro n)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TuValue Visit(NodeMacroCall n)
-        {
-            throw new NotImplementedException();
-        }
     }
-
 }

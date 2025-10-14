@@ -7,7 +7,7 @@ namespace TriUgla.Parsing.Compiling
     [DebuggerDisplay("{ToString()}")]
     public readonly struct TuValue 
     {
-        public static readonly TuValue Nothing = new TuValue();
+        public static readonly TuValue Nothing = new TuValue(EDataType.Nothing, double.NaN, null);
 
         public readonly EDataType type;
         readonly double numeric;
