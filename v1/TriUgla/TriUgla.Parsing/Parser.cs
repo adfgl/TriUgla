@@ -26,6 +26,21 @@ namespace TriUgla.Parsing
             return new ProgramExprNode(new Token(), ParseStatements());
         }
 
+        NodeStmtPrint ParsePrint()
+        {
+            Token print = Consume(ETokenType.Print);
+            Consume(ETokenType.OpenParen);
+
+            NodeBase? expr = null;
+            if (!TryConsume(ETokenType.CloseParen, out _))
+            {
+                expr = ParseExpression();
+                Consume(ETokenType.CloseParen);
+            }
+            MaybeEOX();
+            return new NodeStmtPrint(print, expr);
+        }
+
         List<NodeBase> ParseStatements()
         {
             List<NodeBase> statements = new List<NodeBase>();
@@ -39,6 +54,10 @@ namespace TriUgla.Parsing
                     case ETokenType.MultiLineComment:
                     case ETokenType.LineBreak:
                         Consume();
+                        break;
+
+                    case ETokenType.Print:
+                        statements.Add(ParsePrint());
                         break;
 
                     case ETokenType.Error:

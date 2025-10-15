@@ -89,7 +89,6 @@ namespace TriUgla.Parsing.Compiling
             Register(new NativeTan());
             Register(new NativeTanh());
 
-            // I/O
             Register(new NativePrint());
         }
     }
@@ -679,7 +678,7 @@ namespace TriUgla.Parsing.Compiling
     {
         public NativeTanh()
         {
-            Name = "Tan";
+            Name = "Tanh";
             Description = "Hyperbolic tangent of expression.";
             Input = [
                 new ArgSpec("x", EArgKind.Numeric)];
@@ -698,8 +697,8 @@ namespace TriUgla.Parsing.Compiling
     {
         public NativePrint()
         {
-            Name = "Tan";
-            Description = "Hyperbolic tangent of expression.";
+            Name = "Print";
+            Description = "";
             Input = [
                 new ArgSpec("x", EArgKind.Any, true)];
             Output = new ArgSpec("result", EArgKind.Numeric);
@@ -708,7 +707,7 @@ namespace TriUgla.Parsing.Compiling
         public override TuValue Execute(TuValue[] args)
         {
             string r = String.Empty;
-            if (args.Length == 0)
+            if (args.Length != 0)
             {
                 r = args[0].AsString();
             }

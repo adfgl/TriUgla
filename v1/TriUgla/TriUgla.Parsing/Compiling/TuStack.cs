@@ -36,6 +36,7 @@ namespace TriUgla.Parsing.Compiling
         public void Print(Token token, string message)
         {
             _printed.Add(new PrintMsg(token, message));
+            Console.WriteLine(message);
         }
 
         public Scope Current

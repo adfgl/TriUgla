@@ -6,6 +6,8 @@
 
         static readonly Dictionary<string, ETokenType> _keywords = new Dictionary<string, ETokenType>()
         {
+            { "Print", ETokenType.Print },
+
             { "Point", ETokenType.Point },
             { "Line", ETokenType.Line },
 
