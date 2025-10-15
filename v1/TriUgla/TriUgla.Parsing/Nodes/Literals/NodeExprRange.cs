@@ -76,7 +76,8 @@ namespace TriUgla.Parsing.Nodes.Literals
                     $"Range step {b} does not progress from {f} to {t}. Use a negative step.",
                     Args.Count == 3 ? Args[2].Token : Token);
             }
-            return new TuValue(new TuRange(f, t, b));
+            Value = new TuValue(new TuRange(f, t, b));
+            return Value;
         }
 
         public override string ToString()

@@ -77,7 +77,8 @@ namespace TriUgla.Parsing.Nodes.TupleOps
 
             Index = i;
             Tuple = tpl;
-            return new TuValue(t[i]);
+            Value = new TuValue(t[i]);
+            return Value;
         }
     }
 }

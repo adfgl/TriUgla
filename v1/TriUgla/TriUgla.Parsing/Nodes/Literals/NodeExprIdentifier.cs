@@ -37,7 +37,9 @@ namespace TriUgla.Parsing.Nodes.Literals
             {
                 throw new CompileTimeException($"Undefined variable '{Name}'.", Token);
             }
-            return v.Value;
+
+            Value = v.Value;
+            return Value;
         }
     }
 }

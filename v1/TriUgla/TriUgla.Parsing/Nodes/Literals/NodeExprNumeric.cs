@@ -10,6 +10,8 @@ namespace TriUgla.Parsing.Nodes.Literals
         {
         }
 
+
+
         public override string ToString()
         {
             return Token.value;
@@ -20,7 +22,8 @@ namespace TriUgla.Parsing.Nodes.Literals
             string value = Token.value;
             if (double.TryParse(value, out double d))
             {
-                return new TuValue(d);
+                Value = new TuValue(d);
+                return Value;
             }
             throw new CompileTimeException($"Invalid numeric literal '{value}'.", Token);
         }

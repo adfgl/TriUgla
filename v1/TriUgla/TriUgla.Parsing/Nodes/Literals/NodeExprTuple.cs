@@ -43,7 +43,8 @@ namespace TriUgla.Parsing.Nodes.Literals
                             item.Token);
                 }
             }
-            return new TuValue(new TuTuple(values));
+            Value = new TuValue(new TuTuple(values));
+            return Value;
         }
     }
 }

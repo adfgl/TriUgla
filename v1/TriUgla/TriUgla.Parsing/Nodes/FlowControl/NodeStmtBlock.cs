@@ -11,6 +11,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         }
 
         public IReadOnlyList<NodeBase> Statements { get; }
+        public TuValue Value { get; private set; }
 
         public override TuValue Evaluate(TuStack stack)
         {

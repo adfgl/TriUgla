@@ -19,7 +19,8 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue value = Tuple.Evaluate(stack);
             if (value.type == EDataType.Tuple)
             {
-                return new TuValue(value.AsTuple()!.Values.Count);
+                Value = new TuValue(value.AsTuple()!.Values.Count);
+                return value;
             }
 
             if (Tuple is NodeExprIdentifier id)

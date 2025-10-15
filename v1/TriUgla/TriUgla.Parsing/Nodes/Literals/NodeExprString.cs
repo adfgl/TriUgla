@@ -16,7 +16,8 @@ namespace TriUgla.Parsing.Nodes.Literals
 
         public override TuValue Evaluate(TuStack stack)
         {
-            return new TuValue(Token.value);
+            Value = new TuValue(Token.value);
+            return Value;
         }
     }
 }

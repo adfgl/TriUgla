@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
@@ -12,6 +13,7 @@ namespace TriUgla.Parsing.Nodes
         }
 
         public Token Token { get; }
+        public TuValue Value { get; protected set; } = TuValue.Nothing;
 
         public abstract TuValue Evaluate(TuStack stack);
 
@@ -26,6 +28,25 @@ namespace TriUgla.Parsing.Nodes
                 3 => n + "rd",
                 _ => n + "th"
             };
+        }
+
+        public static void CheckDivisionByZero(NodeBase node)
+        {
+            if (node.Value.type != EDataType.Numeric)
+            {
+                throw new Exception("Node must be evaluated to numeric at this point.");
+            }
+
+            if (node.Value.AsNumeric() != 0) return;
+
+            if (node is NodeExprLiteralBase)
+            {
+                throw CompileTimeException.DivisionByZero(node.Token);
+            }
+            else
+            {
+                throw RunTimeException.DivisionByZero(node.Token);
+            }
         }
 
         public static bool ValidIdentifier(string id, out string reason)
@@ -73,8 +94,6 @@ namespace TriUgla.Parsing.Nodes
 
             reason = "";
             return true;
-
         }
-
     }
 }
