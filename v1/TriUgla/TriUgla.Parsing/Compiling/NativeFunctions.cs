@@ -1,15 +1,112 @@
-﻿using System.Xml.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Xml.Linq;
 using TriUgla.Parsing.Nodes;
 
 namespace TriUgla.Parsing.Compiling
 {
+    public class NativeFunctions
+    {
+        private readonly Dictionary<string, NativeFunction> _map;
+
+        public IReadOnlyDictionary<string, NativeFunction> All => _map;
+
+        public NativeFunctions(bool includeStandard = true)
+        {
+            _map = new Dictionary<string, NativeFunction>(StringComparer.OrdinalIgnoreCase);
+            if (includeStandard)
+                RegisterDefaults();
+        }
+
+        public void Register(NativeFunction fn)
+        {
+            if (_map.ContainsKey(fn.Name))
+                throw new InvalidOperationException($"Duplicate native name '{fn.Name}'.");
+            _map[fn.Name] = fn;
+        }
+
+        public bool TryCall(string name, TuValue[] args, out TuValue result, out string msg)
+        {
+            result = TuValue.Nothing;
+            msg = string.Empty;
+
+            if (!_map.TryGetValue(name, out var fn))
+            {
+                msg = $"Unknown native function '{name}'.";
+                return false;
+            }
+
+            return fn.TryExecute(args, out result, out msg);
+        }
+
+        public bool Has(string name) => _map.ContainsKey(name);
+
+        public bool TryGet(string name, out NativeFunction fn) => _map.TryGetValue(name, out fn!);
+
+        public List<string> GetHelpLines()
+        {
+            var lines = new List<string>();
+            foreach (var fn in _map.Values.OrderBy(f => f.Name))
+            {
+                string sig = string.Join(", ", fn.Input.Select(x => x.ToString()));
+                lines.Add($"{fn.Name}({sig}) → {fn.Output}");
+                if (!string.IsNullOrWhiteSpace(fn.Description))
+                    lines.Add("    " + fn.Description);
+            }
+            return lines;
+        }
+
+        public string GetHelpText()
+        {
+            return string.Join(Environment.NewLine, GetHelpLines());
+        }
+
+        private void RegisterDefaults()
+        {
+            // Math
+            Register(new NativeAbs());
+            Register(new NativeAcos());
+            Register(new NativeAsin());
+            Register(new NativeAtan());
+            Register(new NativeAtan2());
+            Register(new NativeCeil());
+            Register(new NativeCos());
+            Register(new NativeCosh());
+            Register(new NativeExp());
+            Register(new NativeFmod());
+            Register(new NativeFloor());
+            Register(new NativeHypot());
+            Register(new NativeLog());
+            Register(new NativeLog10());
+            Register(new NativeMax());
+            Register(new NativeMin());
+            Register(new NativeRand());
+            Register(new NativeRound());
+            Register(new NativeSin());
+            Register(new NativeSinh());
+            Register(new NativeSqrt());
+            Register(new NativeStep());
+            Register(new NativeTan());
+            Register(new NativeTanh());
+
+            // I/O
+            Register(new NativePrint());
+        }
+    }
+
+
+    [Flags]
     public enum EArgKind
     {
-        Any,
-        Numeric,
-        String,
-        Tuple,
-        Range,
+        Any = 0,   
+        Numeric = 1 << 0,
+        String = 1 << 1,
+        Tuple = 1 << 2,
+        Range = 1 << 3,
+
+        // convenience combos
+        Scalar = Numeric | String,
+        Iterable = Tuple | Range
     }
 
     public class ArgSpec
@@ -19,7 +116,11 @@ namespace TriUgla.Parsing.Compiling
         public bool Optional { get; }
         public TuValue? DefaultValue { get; }
 
-        public ArgSpec(string name, EArgKind kind = EArgKind.Any, bool optional = false, TuValue? defaultValue = null)
+        public ArgSpec(
+            string name,
+            EArgKind kind = EArgKind.Any,
+            bool optional = false,
+            TuValue? defaultValue = null)
         {
             Name = name;
             Kind = kind;
@@ -29,25 +130,49 @@ namespace TriUgla.Parsing.Compiling
 
         public bool Matches(TuValue value)
         {
-            if (Kind == EArgKind.Any) return true;
-            return Kind switch
+            if (Kind == EArgKind.Any)
+                return true;
+
+            EArgKind actual = value.type switch
             {
-                EArgKind.Numeric => value.type == EDataType.Numeric,
-                EArgKind.String => value.type == EDataType.String,
-                EArgKind.Tuple => value.type == EDataType.Tuple,
-                EArgKind.Range => value.type == EDataType.Range,
-                _ => false
+                EDataType.Numeric => EArgKind.Numeric,
+                EDataType.String => EArgKind.String,
+                EDataType.Tuple => EArgKind.Tuple,
+                EDataType.Range => EArgKind.Range,
+                _ => EArgKind.Any
             };
+            return (Kind & actual) != 0;
+        }
+
+        public override string ToString()
+        {
+            string flags = Kind == EArgKind.Any ? "Any" : Kind.ToString();
+            return Optional
+                ? $"{Name}?:{flags}"
+                : $"{Name}:{flags}";
         }
     }
 
-    public class NativeFunction
+    public abstract class NativeFunction
     {
         public string Name { get; set; } = String.Empty;
         public string Description { get; set; } = String.Empty;
 
         public ArgSpec[] Input { get; set; } = Array.Empty<ArgSpec>();
         public ArgSpec? Output { get; set; }
+
+        public abstract TuValue Execute(TuValue[] args);
+
+        public bool TryExecute(TuValue[] args, out TuValue result, out string msg)
+        {
+            result = TuValue.Nothing;
+            if (CanRun(args, out msg))
+            {
+                result = Execute(args);
+                return true;
+            }
+            return false;
+        }
 
         public bool CanRun(TuValue[] args, out string reason)
         {
@@ -88,282 +213,510 @@ namespace TriUgla.Parsing.Compiling
             }
             return true;
         }
+
+
     }
 
-    public static class NativeFunctions
+    public sealed class NativeAcos : NativeFunction
     {
-        public static TuValue Print(TuValue[] args)
+        public NativeAcos()
         {
-            if (args.Length == 0) Console.WriteLine();
-            else Console.WriteLine(args[0].AsString());
-            return TuValue.Nothing;
+            Name = "Acos";
+            Description = "Arc cosine (inverse cosine) of an expression in [-1,1]. Returns a value in [0,Pi].";
+            Input = [new ArgSpec("x", EArgKind.Numeric)]; 
+            Output = new ArgSpec("result", EArgKind.Numeric);
         }
 
-        public static TuValue Min(TuValue[] args)
+        public override TuValue Execute(TuValue[] args)
         {
-            if (args.Length == 0) throw new Exception("Min() needs at least one argument.");
-            double min = double.PositiveInfinity;
-
-            foreach (TuValue item in args)
-            {
-                switch (item.type)
-                {
-                    case EDataType.Numeric:
-                        min = Math.Min(min, item.AsNumeric());
-                        break;
-                    case EDataType.Tuple:
-                        min = Math.Min(min, item.AsTuple().Min());
-                        break;
-                    default:
-                        throw new Exception("Min(): unsupported argument type " + item.type);
-                }
-            }
-            return new TuValue(min);
-        }
-
-        public static TuValue Max(TuValue[] args)
-        {
-            if (args.Length == 0) throw new Exception("Max() needs at least one argument.");
-            double max = double.NegativeInfinity;
-
-            foreach (TuValue item in args)
-            {
-                switch (item.type)
-                {
-                    case EDataType.Numeric:
-                        max = Math.Max(max, item.AsNumeric());
-                        break;
-                    case EDataType.Tuple:
-                        max = Math.Max(max, item.AsTuple().Max());
-                        break;
-                    default:
-                        throw new Exception("Max(): unsupported argument type " + item.type);
-                }
-            }
-            return new TuValue(max);
-        }
-
-        public static TuValue ApplyMathFunc(TuValue[] args, Func<double, double> func, string name)
-        {
-            if (args.Length != 1)
-                throw new Exception($"{name}() expects exactly one argument.");
-
-            TuValue value = args[0];
-            switch (value.type)
-            {
-                case EDataType.Numeric:
-                    return new TuValue(func(value.AsNumeric()));
-                case EDataType.Tuple:
-                    return new TuValue(new TuTuple(value.AsTuple(), func)); // elementwise
-                default:
-                    throw new Exception($"Unexpected data type '{value.type}' in {name}().");
-            }
-        }
-
-        private static TuValue ApplyMathFunc2(
-            TuValue[] args,
-            Func<double, double, double> func,
-            string name)
-        {
-            if (args.Length != 2)
-                throw new Exception($"{name}() expects exactly two arguments.");
-
-            TuValue a = args[0];
-            TuValue b = args[1];
-
-            // number ∘ number
-            if (a.type == EDataType.Numeric && b.type == EDataType.Numeric)
-                return new TuValue(func(a.AsNumeric(), b.AsNumeric()));
-
-            // tuple ∘ number  (broadcast scalar)
-            if (a.type == EDataType.Tuple && b.type == EDataType.Numeric)
-            {
-                double sb = b.AsNumeric();
-                return new TuValue(new TuTuple(a.AsTuple(), x => func(x, sb)));
-            }
-
-            // number ∘ tuple  (broadcast scalar)
-            if (a.type == EDataType.Numeric && b.type == EDataType.Tuple)
-            {
-                double sa = a.AsNumeric();
-                return new TuValue(new TuTuple(b.AsTuple(), x => func(sa, x)));
-            }
-
-            // tuple ∘ tuple  (elementwise) — requires a binary-map ctor or Zip on TuTuple
-            if (a.type == EDataType.Tuple && b.type == EDataType.Tuple)
-            {
-                throw new NotSupportedException(
-                    $"{name}(): tuple ∘ tuple not implemented; add a binary TuTuple-map overload.");
-            }
-
-            throw new Exception($"{name}(): unsupported argument types {a.type} and {b.type}.");
-        }
-
-        public static TuValue Acos(TuValue[] args) => ApplyMathFunc(args, Math.Acos, nameof(Acos));
-        public static TuValue Asin(TuValue[] args) => ApplyMathFunc(args, Math.Asin, nameof(Asin));
-        public static TuValue Atan(TuValue[] args) => ApplyMathFunc(args, Math.Atan, nameof(Atan));
-        public static TuValue Sin(TuValue[] args) => ApplyMathFunc(args, Math.Sin, nameof(Sin));
-        public static TuValue Sinh(TuValue[] args) => ApplyMathFunc(args, Math.Sinh, nameof(Sinh));
-        public static TuValue Cosh(TuValue[] args) => ApplyMathFunc(args, Math.Cosh, nameof(Cosh));
-        public static TuValue Tanh(TuValue[] args) => ApplyMathFunc(args, Math.Tanh, nameof(Tanh));
-        public static TuValue Cos(TuValue[] args) => ApplyMathFunc(args, Math.Cos, nameof(Cos));
-        public static TuValue Tan(TuValue[] args) => ApplyMathFunc(args, Math.Tan, nameof(Tan));
-        public static TuValue Exp(TuValue[] args) => ApplyMathFunc(args, Math.Exp, nameof(Exp));
-        public static TuValue Log(TuValue[] args) => ApplyMathFunc(args, Math.Log, nameof(Log));
-        public static TuValue Log10(TuValue[] args) => ApplyMathFunc(args, Math.Log10, nameof(Log10));
-        public static TuValue Sqrt(TuValue[] args) => ApplyMathFunc(args, Math.Sqrt, nameof(Sqrt));
-        public static TuValue Fabs(TuValue[] args) => ApplyMathFunc(args, Math.Abs, nameof(Fabs));
-        public static TuValue Ceil(TuValue[] args) => ApplyMathFunc(args, Math.Ceiling, nameof(Ceil));
-        public static TuValue Floor(TuValue[] args) => ApplyMathFunc(args, Math.Floor, nameof(Floor));
-
-        public static TuValue Round(TuValue[] args)
-        {
-            if (args.Length == 0)
-                throw new Exception("Round() expects at least one argument.");
-
-            TuValue value = args[0];
-
-            int digits = 0;
-            if (args.Length >= 2)
-            {
-                TuValue arg1 = args[1];
-                if (arg1.type != EDataType.Numeric)
-                    throw new Exception("Round(): second argument must be numeric.");
-
-                double d = arg1.AsNumeric();
-
-                if (d < 0 || d != Math.Floor(d))
-                    throw new Exception("Round(): second argument must be a non-negative integer.");
-
-                digits = (int)d;
-            }
-
-            Func<double, double> func = x => Math.Round(x, digits, MidpointRounding.AwayFromZero);
-
-            switch (value.type)
-            {
-                case EDataType.Numeric:
-                    return new TuValue(func(value.AsNumeric()));
-
-                case EDataType.Tuple:
-                    return new TuValue(new TuTuple(value.AsTuple(), func));
-
-                default:
-                    throw new Exception($"Unexpected data type '{value.type}' in Round().");
-            }
-        }
-
-
-        public static TuValue Atan2(TuValue[] args)
-            => ApplyMathFunc2(args, (y, x) => Math.Atan2(y, x), nameof(Atan2));
-
-        public static TuValue Hypot(TuValue[] args)
-        {
-            if (args.Length != 2)
-                throw new Exception("Hypot() expects exactly two arguments.");
-
-            TuValue a = args[0];
-            TuValue b = args[1];
-
-            // both numeric
-            if (a.type == EDataType.Numeric && b.type == EDataType.Numeric)
-            {
-                double x = a.AsNumeric();
-                double y = b.AsNumeric();
-
-                double ax = Math.Abs(x);
-                double ay = Math.Abs(y);
-                double m = Math.Max(ax, ay);
-                if (m == 0) return new TuValue(0.0);
-                ax /= m;
-                ay /= m;
-                return new TuValue(m * Math.Sqrt(ax * ax + ay * ay));
-            }
-
-            // tuple ∘ scalar
-            if (a.type == EDataType.Tuple && b.type == EDataType.Numeric)
-            {
-                double sb = b.AsNumeric();
-                return new TuValue(new TuTuple(a.AsTuple(), x =>
-                {
-                    double ax = Math.Abs(x);
-                    double ay = Math.Abs(sb);
-                    double m = Math.Max(ax, ay);
-                    if (m == 0) return 0.0;
-                    ax /= m;
-                    ay /= m;
-                    return m * Math.Sqrt(ax * ax + ay * ay);
-                }));
-            }
-
-            // scalar ∘ tuple
-            if (a.type == EDataType.Numeric && b.type == EDataType.Tuple)
-            {
-                double sa = a.AsNumeric();
-                return new TuValue(new TuTuple(b.AsTuple(), y =>
-                {
-                    double ax = Math.Abs(sa);
-                    double ay = Math.Abs(y);
-                    double m = Math.Max(ax, ay);
-                    if (m == 0) return 0.0;
-                    ax /= m;
-                    ay /= m;
-                    return m * Math.Sqrt(ax * ax + ay * ay);
-                }));
-            }
-
-            // tuple ∘ tuple (elementwise) — implement later if you have a binary map
-            if (a.type == EDataType.Tuple && b.type == EDataType.Tuple)
-            {
-                throw new NotSupportedException("Hypot(tuple, tuple) not supported yet; add a binary-map TuTuple overload.");
-            }
-
-            throw new Exception($"Hypot(): unsupported argument types {a.type} and {b.type}.");
-        }
-
-
-        public static TuValue Fmod(TuValue[] args)
-            => ApplyMathFunc2(args,
-                (a, b) =>
-                {
-                    if (b == 0) return double.NaN;
-                    // C's fmod: a - b * trunc(a/b)  (keeps sign of a)
-                    return a - b * Math.Truncate(a / b);
-                },
-                nameof(Fmod));
-
-        public static TuValue Modulo(TuValue[] args) => Fmod(args);
-
-        public static TuValue Rand(TuValue[] args)
-        {
-            if (args.Length != 1) throw new Exception("Rand() expects exactly one argument.");
-            TuValue a = args[0];
-
-            switch (a.type)
-            {
-                case EDataType.Numeric:
-                    {
-                        double bound = a.AsNumeric();
-                        if (double.IsNaN(bound) || double.IsInfinity(bound)) return new TuValue(double.NaN);
-                        if (bound < 0) // keep semantics simple: negative bound -> uniform in [bound, 0]
-                            return new TuValue(bound + Random.Shared.NextDouble() * (-bound));
-                        return new TuValue(Random.Shared.NextDouble() * bound);
-                    }
-
-                case EDataType.Tuple:
-                    return new TuValue(new TuTuple(
-                        a.AsTuple(),
-                        bound =>
-                        {
-                            if (double.IsNaN(bound) || double.IsInfinity(bound)) return double.NaN;
-                            if (bound < 0) return bound + Random.Shared.NextDouble() * (-bound);
-                            return Random.Shared.NextDouble() * bound;
-                        }));
-
-                default:
-                    throw new Exception("Rand(): unsupported argument type " + a.type);
-            }
+            double x = args[0].AsNumeric();
+            double r = Math.Acos(x);
+            return new TuValue(r);
         }
     }
+
+    public sealed class NativeAsin : NativeFunction
+    {
+        public NativeAsin()
+        {
+            Name = "Asin";
+            Description = "Arc sine (inverse sine) of an expression in [-1,1]. Returns a value in [-Pi/2,Pi/2].";
+            Input = [new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Asin(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeAtan : NativeFunction
+    {
+        public NativeAtan()
+        {
+            Name = "Atan";
+            Description = "Arc tangent (inverse tangent) of expression. Returns a value in [-Pi/2,Pi/2].";
+            Input = [new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Atan(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeAtan2 : NativeFunction
+    {
+        public NativeAtan2()
+        {
+            Name = "Atan2";
+            Description = "Arc tangent (inverse tangent) of the first expression divided by the second. Returns a value in [-Pi,Pi].";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric),
+                new ArgSpec("y", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double y = args[1].AsNumeric();
+            double r = Math.Atan2(x, y);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeCeil : NativeFunction
+    {
+        public NativeCeil()
+        {
+            Name = "Ceil";
+            Description = "Rounds expression up to the nearest integer.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Ceiling(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeCos : NativeFunction
+    {
+        public NativeCos()
+        {
+            Name = "Cos";
+            Description = "Cosine of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Cos(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeCosh : NativeFunction
+    {
+        public NativeCosh()
+        {
+            Name = "Cosh";
+            Description = "Cosine of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Cosh(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeExp : NativeFunction
+    {
+        public NativeExp()
+        {
+            Name = "Exp";
+            Description = "Returns the value of e (the base of natural logarithms) raised to the power of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Exp(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeAbs : NativeFunction
+    {
+        public NativeAbs()
+        {
+            Name = "Abs";
+            Description = "Absolute value of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Abs(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeFmod : NativeFunction
+    {
+        public NativeFmod()
+        {
+            Name = "Fmod";
+            Description = "Remainder of the division of the first expression by the second, with the sign of the first.";
+            Input = [
+                new ArgSpec("a", EArgKind.Numeric),
+                new ArgSpec("b", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double a = args[0].AsNumeric();
+            double b = args[1].AsNumeric();
+
+            double r = double.NaN;
+            if (b != 0)
+            {
+                r = a - b * Math.Truncate(a / b);
+            }
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeFloor : NativeFunction
+    {
+        public NativeFloor()
+        {
+            Name = "Floor";
+            Description = "Remainder of the division of the first expression by the second, with the sign of the first.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Floor(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeHypot : NativeFunction
+    {
+        public NativeHypot()
+        {
+            Name = "Hypot";
+            Description = "Returns the square root of the sum of the square of its two arguments.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric),
+                new ArgSpec("y", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double y = args[1].AsNumeric();
+            double r = Math.Sqrt(x * x + y * y);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeLog : NativeFunction
+    {
+        public NativeLog()
+        {
+            Name = "Log";
+            Description = "Natural logarithm of expression (expression > 0).";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Log(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeLog10 : NativeFunction
+    {
+        public NativeLog10()
+        {
+            Name = "Log10";
+            Description = "Base 10 logarithm of expression (expression > 0).";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Log10(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeMin : NativeFunction
+    {
+        public NativeMin()
+        {
+            Name = "Min";
+            Description = "Minimum of the two arguments.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric),
+                new ArgSpec("y", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double y = args[1].AsNumeric();
+            double r = Math.Min(x, y);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeMax : NativeFunction
+    {
+        public NativeMax()
+        {
+            Name = "Max";
+            Description = "Maximum of the two arguments.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric),
+                new ArgSpec("y", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double y = args[1].AsNumeric();
+            double r = Math.Max(x, y);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeRand : NativeFunction
+    {
+        public NativeRand()
+        {
+            Name = "Rand";
+            Description = "Random number between zero and expression.";
+            Input = [
+                new ArgSpec("bound", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double bound = args[0].AsNumeric();
+            double r;
+            if (bound < 0)
+            {
+                r = bound + Random.Shared.NextDouble() * (-bound);
+            }
+            else
+            {
+                r = Random.Shared.NextDouble() * bound;
+            }
+                
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeRound : NativeFunction
+    {
+        public NativeRound()
+        {
+            Name = "Round";
+            Description = "Rounds expression to the nearest integer.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Round(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeSqrt : NativeFunction
+    {
+        public NativeSqrt()
+        {
+            Name = "Sqrt";
+            Description = "Square root of expression (expression >= 0).";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Sqrt(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeSin : NativeFunction
+    {
+        public NativeSin()
+        {
+            Name = "Sin";
+            Description = "Sine of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Sin(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeSinh : NativeFunction
+    {
+        public NativeSinh()
+        {
+            Name = "Sinh";
+            Description = "Hyperbolic sine of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Sinh(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeStep : NativeFunction
+    {
+        public NativeStep()
+        {
+            Name = "Step";
+            Description = "Returns 0 if expression is negative, 1 if not.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = x < 0 ? 0 : 1;
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeTan : NativeFunction
+    {
+        public NativeTan()
+        {
+            Name = "Tan";
+            Description = "Tangent of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Tan(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativeTanh : NativeFunction
+    {
+        public NativeTanh()
+        {
+            Name = "Tan";
+            Description = "Hyperbolic tangent of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Numeric)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            double x = args[0].AsNumeric();
+            double r = Math.Tanh(x);
+            return new TuValue(r);
+        }
+    }
+
+    public sealed class NativePrint : NativeFunction
+    {
+        public NativePrint()
+        {
+            Name = "Tan";
+            Description = "Hyperbolic tangent of expression.";
+            Input = [
+                new ArgSpec("x", EArgKind.Any, true)];
+            Output = new ArgSpec("result", EArgKind.Numeric);
+        }
+
+        public override TuValue Execute(TuValue[] args)
+        {
+            string r = String.Empty;
+            if (args.Length == 0)
+            {
+                r = args[0].AsString();
+            }
+            Console.WriteLine(r);
+            return new TuValue(r);
+        }
+    }
+
+
 
 }

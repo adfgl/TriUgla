@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
@@ -22,43 +23,38 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuStack stack)
         {
-            string function = Id.Name;
+            string name = Id.Name;
 
+            bool allCompileTimeKnown = true;
             TuValue[] args = new TuValue[Args.Count];
             for (int i = 0; i < args.Length; i++)
             {
-                args[i] = Args[i].Evaluate(stack);
+                NodeBase arg = Args[i];
+                if (allCompileTimeKnown && arg is not NodeExprLiteralBase)
+                {
+                    allCompileTimeKnown = false;
+                }
+
+                args[i] = arg.Evaluate(stack);
             }
 
-            return function switch
+            if (!stack.Functions.TryGet(name, out NativeFunction fun))
             {
-                "Acos" => NativeFunctions.Acos(args),
-                "Asin" => NativeFunctions.Asin(args),
-                "Atan" => NativeFunctions.Atan(args),
-                "Atan2" => NativeFunctions.Atan2(args),
-                "Ceil" => NativeFunctions.Ceil(args),
-                "Cos" => NativeFunctions.Cos(args),
-                "Cosh" => NativeFunctions.Cosh(args),
-                "Exp" => NativeFunctions.Exp(args),
-                "Fabs" => NativeFunctions.Fabs(args),
-                "Fmod" => NativeFunctions.Fmod(args),
-                "Floor" => NativeFunctions.Floor(args),
-                "Hypot" => NativeFunctions.Hypot(args),
-                "Log" => NativeFunctions.Log(args),
-                "Log10" => NativeFunctions.Log10(args),
-                "Max" => NativeFunctions.Max(args),
-                "Min" => NativeFunctions.Min(args),
-                "Modulo" => NativeFunctions.Modulo(args),
-                "Rand" => NativeFunctions.Rand(args),
-                "Round" => NativeFunctions.Round(args),
-                "Sqrt" => NativeFunctions.Sqrt(args),
-                "Sin" => NativeFunctions.Sin(args),
-                "Sinh" => NativeFunctions.Sinh(args),
-                "Tan" => NativeFunctions.Tan(args),
-                "Tanh" => NativeFunctions.Tanh(args),
-                "Print" => NativeFunctions.Print(args),
-                _ => throw new Exception($"Unknown function '{function}'."),
-            };
+                throw new CompileTimeException($"Function '{name}' not supported.", Id.Token);
+            }
+
+            if (!fun.TryExecute(args, out TuValue result, out string error))
+            {
+                if (allCompileTimeKnown)
+                {
+                    throw new CompileTimeException(error, Id.Token);
+                }
+                else
+                {
+                    throw new RunTimeException(error, Id.Token);
+                }
+            }
+            return result;
         }
     }
 }

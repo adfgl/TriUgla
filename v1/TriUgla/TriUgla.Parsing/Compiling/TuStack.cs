@@ -18,11 +18,20 @@ namespace TriUgla.Parsing.Compiling
 
     public class TuStack
     {
-        readonly Stack<Scope> _scopes = new Stack<Scope>();
-        readonly List<PrintMsg> _printed = new List<PrintMsg>();
-        
+        readonly NativeFunctions _functions;
+        readonly Stack<Scope> _scopes;
+        readonly List<PrintMsg> _printed;
+
+        public TuStack()
+        {
+            _functions = new NativeFunctions();
+            _scopes = new Stack<Scope>();
+            _printed = new List<PrintMsg>();
+        }
+
         public IReadOnlyCollection<Scope> Scopes => _scopes;
         public IReadOnlyList<PrintMsg> Printed => _printed;
+        public NativeFunctions Functions => _functions;
 
         public void Print(Token token, string message)
         {

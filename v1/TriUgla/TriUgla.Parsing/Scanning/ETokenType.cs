@@ -8,7 +8,11 @@ namespace TriUgla.Parsing.Scanning
 {
     public enum ETokenType
     {
-        Undefined, Error, Comment, MultiLineComment, LineBreak, EOF,
+        Undefined, 
+        Error,
+        Comment, MultiLineComment, 
+        LineBreak, EOF,
+
         NumericLiteral, StringLiteral, IdentifierLiteral,
 
         Minus, Plus, Star, Slash, Modulo, Power, 
