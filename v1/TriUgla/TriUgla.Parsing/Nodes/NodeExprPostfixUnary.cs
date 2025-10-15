@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
@@ -19,26 +20,49 @@ namespace TriUgla.Parsing.Nodes
             ETokenType op = Operation.type;
             if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)
             {
-                throw new Exception($"Unsupported postfix op '{Operation.value}'.");
+                throw new CompileTimeException(
+                    $"Unsupported postfix operation '{Operation.value}'.",
+                    Operation);
             }
 
             if (Expression is not NodeExprIdentifier id)
             {
-                throw new Exception($"Postfix {Operation.value} requires an identifier");
+                throw new CompileTimeException(
+                    $"Postfix '{Operation.value}' requires an identifier.",
+                    Operation);
             }
 
             TuValue value = id.Evaluate(stack);
-            if (value.type != EDataType.Numeric)
+
+            Variable? v = stack.Current.Get(id.Name);
+            if (v is null)
             {
-                throw new Exception($"Postfix {Operation.value} requires numeric variable");
+                throw new CompileTimeException(
+                    $"Variable '{id.Name}' is not defined.",
+                    id.Token);
             }
 
-            Variable v = stack.Current.Get(id.Name)!;
-            double cur = v.Value.AsNumeric();
-            double next = op == ETokenType.PlusPlus ? cur + 1 : cur - 1;
+            TuValue curVal = v.Value;
+
+            if (curVal.type == EDataType.Nothing)
+            {
+                throw new CompileTimeException(
+                    $"Variable '{id.Name}' is uninitialized; cannot apply '{Operation.value}'.",
+                    id.Token);
+            }
+
+            if (curVal.type != EDataType.Numeric)
+            {
+                throw new CompileTimeException(
+                    $"Postfix '{Operation.value}' requires a numeric variable, but '{id.Name}' has type '{curVal.type}'.",
+                    id.Token);
+            }
+
+            double old = curVal.AsNumeric();
+            double next = (op == ETokenType.PlusPlus) ? old + 1 : old - 1;
 
             v.Value = new TuValue(next);
-            return new TuValue(cur);
+            return new TuValue(old);
 
         }
     }
