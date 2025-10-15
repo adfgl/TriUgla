@@ -17,6 +17,11 @@ namespace TriUgla.Parsing.Nodes
 
         public abstract TuValue Evaluate(TuStack stack);
 
+        public override string ToString()
+        {
+            return $"{Value}";
+        }
+
         public static string ToOrdinal(int n)
         {
             int mod100 = n % 100;

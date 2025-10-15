@@ -1,13 +1,33 @@
 ﻿using System.Collections.ObjectModel;
 using TriUgla.Parsing.Nodes.FlowControl;
+using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Compiling
 {
+    public class PrintMsg
+    {
+        public PrintMsg(Token token, string message)
+        {
+            Token = token;
+            Message = message;
+        }
+
+        public Token Token { get; set; }
+        public string Message { get; set; }
+    }
+
     public class TuStack
     {
-
         readonly Stack<Scope> _scopes = new Stack<Scope>();
+        readonly List<PrintMsg> _printed = new List<PrintMsg>();
+        
         public IReadOnlyCollection<Scope> Scopes => _scopes;
+        public IReadOnlyList<PrintMsg> Printed => _printed;
+
+        public void Print(Token token, string message)
+        {
+            _printed.Add(new PrintMsg(token, message));
+        }
 
         public Scope Current
         {

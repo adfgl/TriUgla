@@ -12,12 +12,6 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing
 {
-    public interface INodeWithParse<TSelf>
-    {
-        static abstract bool CanStart(Parser p);
-        static abstract TSelf Parse(Parser p);
-    }
-
     public class Parser 
     {
         readonly Scanner _scanner;

@@ -1,7 +1,95 @@
 ﻿using System.Xml.Linq;
+using TriUgla.Parsing.Nodes;
 
 namespace TriUgla.Parsing.Compiling
 {
+    public enum EArgKind
+    {
+        Any,
+        Numeric,
+        String,
+        Tuple,
+        Range,
+    }
+
+    public class ArgSpec
+    {
+        public string Name { get; }
+        public EArgKind Kind { get; }
+        public bool Optional { get; }
+        public TuValue? DefaultValue { get; }
+
+        public ArgSpec(string name, EArgKind kind = EArgKind.Any, bool optional = false, TuValue? defaultValue = null)
+        {
+            Name = name;
+            Kind = kind;
+            Optional = optional;
+            DefaultValue = defaultValue;
+        }
+
+        public bool Matches(TuValue value)
+        {
+            if (Kind == EArgKind.Any) return true;
+            return Kind switch
+            {
+                EArgKind.Numeric => value.type == EDataType.Numeric,
+                EArgKind.String => value.type == EDataType.String,
+                EArgKind.Tuple => value.type == EDataType.Tuple,
+                EArgKind.Range => value.type == EDataType.Range,
+                _ => false
+            };
+        }
+    }
+
+    public class NativeFunction
+    {
+        public string Name { get; set; } = String.Empty;
+        public string Description { get; set; } = String.Empty;
+
+        public ArgSpec[] Input { get; set; } = Array.Empty<ArgSpec>();
+        public ArgSpec? Output { get; set; }
+
+        public bool CanRun(TuValue[] args, out string reason)
+        {
+            reason = string.Empty;
+
+            if (Input is null || Input.Length == 0)
+            {
+                if (args.Length == 0) return true;
+                reason = $"'{Name}': expected 0 arguments, got {args.Length}.";
+                return false;
+            }
+
+            int required = 0;
+            for (int i = 0; i < Input.Length; i++)
+                if (!Input[i].Optional) required++;
+
+            if (args.Length < required)
+            {
+                reason = $"'{Name}': expected at least {required} arguments, got {args.Length}.";
+                return false;
+            }
+            if (args.Length > Input.Length)
+            {
+                reason = $"'{Name}': expected at most {Input.Length} arguments, got {args.Length}.";
+                return false;
+            }
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                var spec = Input[i];
+                var arg = args[i];
+                if (!spec.Matches(arg))
+                {
+                    reason =
+                        $"'{Name}': argument {i + 1} ('{spec.Name}') expected {spec.Kind}, got {arg.type}.";
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
     public static class NativeFunctions
     {
         public static TuValue Print(TuValue[] args)
