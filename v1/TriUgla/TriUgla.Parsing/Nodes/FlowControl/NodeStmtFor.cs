@@ -1,73 +1,73 @@
 ﻿using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
 {
     public class NodeStmtFor : NodeBase
     {
-        public NodeStmtFor(Token start, NodeBase id, NodeBase range, NodeStmtBlock block, Token end) : base(start)
+        public NodeStmtFor(Token token, IEnumerable<NodeBase> args, NodeStmtBlock block) : base(token)
         {
-            Counter = id;
-            Range = range;
             Block = block;
-            End = end;
+            Args = args.ToArray();
         }
 
-        public Token Start => Token;
-        public Token End { get; }
-
-        public NodeBase Counter { get; }
-        public NodeBase Range { get; }
+        public IReadOnlyList<NodeBase> Args { get; }
         public NodeStmtBlock Block { get; }
 
         public override TuValue Evaluate(TuRuntime stack)
         {
-            NodeExprIdentifier? id = Counter as NodeExprIdentifier;
-            if (id is null)
+            if (Args.Count != 2 && Args.Count != 3)
             {
-                throw new CompileTimeException($"Expected identifier but got '{Counter.Token.type}'.", Counter.Token);
+                throw new Exception();
             }
 
-            id.DeclareIfMissing = true;
-            id.Evaluate(stack);
-            Variable counter = stack.Current.Get(id.Name)!;
+            NodeBase fromNode = Args[0], toNode = Args[1];
+            NodeBase? stepNode = Args.Count == 3 ? Args[2] : null;
 
-            TuValue list = Range.Evaluate(stack);
-            IEnumerable<double> iterator = list.type switch
+            double from = fromNode.Evaluate(stack).AsNumeric();
+            double to = toNode.Evaluate(stack).AsNumeric();
+            double step;
+            if (stepNode != null)
             {
-                EDataType.Range => list.AsRange()!,
-                EDataType.Tuple => list.AsTuple()!,
-                _ => throw new RunTimeException($"For-loop expects {EDataType.Range} or {EDataType.Tuple} but got {list.type}.", Range.Token),
-            };
+                step = stepNode.Evaluate(stack).AsNumeric();
+            }
+            else
+            {
+                step = (to >= from) ? 1.0 : -1.0;
+            }
 
             var flow = stack.Flow;
-            flow.EnterLoop();
-
-            foreach (var item in iterator)
+            const double eps = 1e-12;
+            if (step > 0)
             {
-                if (flow.HasReturn) break;
-
-                counter.Value = new TuValue(item);
-
-                // run body
-                Block.Evaluate(stack);
-
-                if (flow.IsContinue)
+                for (double i = from; i <= to + eps; i += step)
                 {
-                    flow.ConsumeBreakOrContinue();
-                    continue;
+                    if (flow.HasReturn) break;
+
+                    // counter.Value = new TuValue(i);
+
+                    Block.Evaluate(stack);
+
+                    if (flow.IsContinue) { flow.ConsumeBreakOrContinue(); continue; }
+                    if (flow.IsBreak) { flow.ConsumeBreakOrContinue(); break; }
                 }
-                if (flow.IsBreak)
+            }
+            else
+            {
+                for (double i = from; i >= to - eps; i += step)
                 {
-                    flow.ConsumeBreakOrContinue();
-                    break;
+                    if (flow.HasReturn) break;
+
+                    // counter.Value = new TuValue(i);
+
+                    Block.Evaluate(stack);
+
+                    if (flow.IsContinue) { flow.ConsumeBreakOrContinue(); continue; }
+                    if (flow.IsBreak) { flow.ConsumeBreakOrContinue(); break; }
                 }
             }
 
             flow.LeaveLoop();
-
             return TuValue.Nothing;
         }
     }

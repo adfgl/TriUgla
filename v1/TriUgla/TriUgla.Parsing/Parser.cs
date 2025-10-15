@@ -441,11 +441,31 @@ namespace TriUgla.Parsing
         NodeBase ParseFor()
         {
             Token tkFor = Consume(ETokenType.For);
-            NodeBase counter = ParseExpression();
-            Consume(ETokenType.In);
-            NodeBase range = ParseExpression();
-            NodeStmtBlock forBlock = ParseBlockUntil(new Token(), [ETokenType.EndFor, ETokenType.EOF]);
-            return new NodeStmtFor(tkFor, counter, range, forBlock, Consume(ETokenType.EndFor));
+
+            bool forIn;
+            List<NodeBase> args;
+            if (Peek().type == ETokenType.OpenParen)
+            {
+                args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Colon);
+                forIn = false;
+            }
+            else
+            {
+                NodeBase counter = ParseExpression();
+                Consume(ETokenType.In);
+                NodeBase range = ParseExpression();
+                args = [counter, range];
+                forIn = true;
+            }
+
+            NodeStmtBlock forBlock = ParseBlockUntil(tkFor, [ETokenType.EndFor, ETokenType.EOF]);
+            Token end = Consume(ETokenType.EndFor);
+
+            if (forIn)
+            {
+                return new NodeStmtForIn(tkFor, args[0], args[1], forBlock, end);
+            }
+            return new NodeStmtFor(tkFor, args, forBlock);
         }
 
         NodeBase ParseIfElse()
