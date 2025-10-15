@@ -354,17 +354,20 @@ namespace TriUgla.Parsing
                     NodeBase expr = ParseExpression();
                     return new NodeExprGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
 
+                case ETokenType.Abort:
+                    Token tkAbort = Consume(); MaybeEOX();
+                    return new NodeAbort(tkAbort);
+
                 case ETokenType.Break:
-                    Token tkBreak = Consume();
+                    Token tkBreak = Consume(); MaybeEOX();
                     if (_loopDepth == 0)
                     {
                         throw new CompileTimeException($"'{tkBreak.value}' used outside of loop.", tkBreak);
                     }
-                    MaybeEOX();
                     return new NodeBreak(Consume());
 
                 case ETokenType.Continue:
-                    Token tkContinue = Consume();
+                    Token tkContinue = Consume(); MaybeEOX();
                     if (_loopDepth == 0)
                     {
                         throw new CompileTimeException($"'{tkContinue.value}' used outside of loop.", tkContinue);
