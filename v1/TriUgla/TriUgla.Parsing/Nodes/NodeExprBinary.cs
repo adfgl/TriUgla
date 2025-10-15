@@ -1,4 +1,6 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
+using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
@@ -53,7 +55,21 @@ namespace TriUgla.Parsing.Nodes
                 {
                     case ETokenType.Minus: return new TuValue(l - r);
                     case ETokenType.Plus: return new TuValue(l + r);
-                    case ETokenType.Slash: return new TuValue(l / r);
+                    case ETokenType.Slash:
+                        {
+                            if (r == 0)
+                            {
+                                if (Right is NodeExprLiteralBase)
+                                {
+                                    throw CompileTimeException.DivisionByZero(Right.Token);
+                                }
+                                else
+                                {
+                                    throw RunTimeException.DivisionByZero(Right.Token);
+                                }
+                            }
+                            return new TuValue(l / r);
+                        }
                     case ETokenType.Star: return new TuValue(l * r);
 
                     case ETokenType.Modulo: return new TuValue(l % r);

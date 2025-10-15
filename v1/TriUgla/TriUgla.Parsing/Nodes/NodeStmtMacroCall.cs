@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
@@ -24,14 +25,33 @@ namespace TriUgla.Parsing.Nodes
             TuValue nameValue = Name.Evaluate(stack);
             if (nameValue.type != EDataType.String)
             {
-                throw new Exception("Expected string");
+                if (Name is NodeExprIdentifier id)
+                {
+                    throw new CompileTimeException(
+                        $"Call expects a string macro name: variable '{id.Name}' has type '{nameValue.type}'.",
+                        Name.Token);
+                }
+
+                throw new RunTimeException(
+                    $"Call expects a string macro name, but the expression evaluated to '{nameValue.type}'.",
+                    Name.Token);
             }
 
-            string name = nameValue.AsString();
-            if (!stack.Current.Macros.TryGetValue(name, out var body))
+            string macroName = nameValue.AsString();
+            if (string.IsNullOrEmpty(macroName))
             {
-                throw new Exception($"Call: macro '{name}' not defined.");
+                throw new CompileTimeException(
+                    "Macro name cannot be empty.",
+                    Name.Token);
             }
+
+            if (!stack.Current.Macros.TryGetValue(macroName, out var body))
+            {
+                throw new CompileTimeException(
+                    $"Macro '{macroName}' is not defined.",
+                    Token);
+            }
+
             body.Evaluate(stack);
             return TuValue.Nothing;
         }

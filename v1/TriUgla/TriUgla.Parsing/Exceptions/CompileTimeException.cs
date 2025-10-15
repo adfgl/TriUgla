@@ -9,6 +9,11 @@ namespace TriUgla.Parsing.Exceptions
         {
         }
 
+        public static CompileTimeException DivisionByZero(Token token)
+        {
+            return new CompileTimeException("Division by zero.", token);
+        }
+
         public static CompileTimeException UnexpectedToken(Token token, string expected)
         {
             return new CompileTimeException(
