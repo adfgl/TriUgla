@@ -38,7 +38,7 @@ namespace TriUgla.Parsing.Nodes
             }
 
             string macroName = nameValue.AsString();
-            if (string.IsNullOrEmpty(macroName))
+            if (string.IsNullOrEmpty(macroName.Trim()))
             {
                 throw new CompileTimeException(
                     "Macro name cannot be empty.",

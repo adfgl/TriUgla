@@ -100,7 +100,7 @@ namespace TriUgla.Parsing.Compiling
 
             throw new InvalidCastException();
         }
-
+        
         public bool AsBoolean()
         {
             if (type == EDataType.Numeric)

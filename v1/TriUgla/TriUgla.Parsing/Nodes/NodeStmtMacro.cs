@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.FlowControl;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
@@ -22,18 +23,36 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuStack stack)
         {
-            TuValue nameValue = Name.Evaluate(stack);   
+            TuValue nameValue = Name.Evaluate(stack);
             if (nameValue.type != EDataType.String)
             {
-                throw new Exception("Expected string");
+                if (Name is NodeExprIdentifier id)
+                {
+                    throw new CompileTimeException(
+                        $"Macro definition expects a string name: variable '{id.Name}' has type '{nameValue.type}'.",
+                        Name.Token);
+                }
+
+                throw new RunTimeException(
+                    $"Macro definition expects a string name, but the expression evaluated to '{nameValue.type}'.",
+                    Name.Token);
             }
 
-            string name = nameValue.AsString();
-            if (stack.Current.Macros.ContainsKey(name))
+            string macroName = nameValue.AsString();
+            if (string.IsNullOrEmpty(macroName.Trim()))
             {
-                throw new Exception($"Macro '{name}' already exists.");
+                throw new CompileTimeException(
+                    "Macro name cannot be empty.",
+                    Name.Token);
             }
-            stack.Current.Macros[name] = Body;
+
+            if (stack.Current.Macros.ContainsKey(macroName))
+            {
+                throw new CompileTimeException(
+                    $"Macro '{macroName}' is already defined.",
+                    Token);
+            }
+            stack.Current.Macros[macroName] = Body;
             return TuValue.Nothing;
         }
     }

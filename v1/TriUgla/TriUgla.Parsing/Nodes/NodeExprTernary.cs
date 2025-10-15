@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
@@ -24,6 +25,9 @@ namespace TriUgla.Parsing.Nodes
             TuValue result;
 
             TuValue ifValue = IfExp.Evaluate(stack);
+            CheckResult(ifValue, IfExp);
+
+            bool condition = ifValue.AsBoolean();
             if (ifValue.AsBoolean())
             {
                 result = ThenExp.Evaluate(stack);
@@ -32,7 +36,18 @@ namespace TriUgla.Parsing.Nodes
             {
                 result = ElseExp.Evaluate(stack);
             }
+
+            CheckResult(result, condition ? ThenExp : ElseExp);
             return result;
+        }
+
+        static void CheckResult(TuValue value, NodeBase node)
+        {
+            if (value.type == EDataType.Nothing)
+            {
+                throw new RunTimeException(
+             $"Ternary condition must evaluate to boolean/numeric, but got '{value.type}'.", node.Token);
+            }
         }
     }
 }
