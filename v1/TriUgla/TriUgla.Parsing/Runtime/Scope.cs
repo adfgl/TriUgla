@@ -55,10 +55,10 @@ namespace TriUgla.Parsing.Runtime
                 throw new Exception("Already declared");
             }
 
-            Variable variable = new Variable(token)
-            {
-                Value = value
-            };
+            Variable variable = new Variable(token);
+            variable.Unprotect();
+            variable.Assign(value);
+          
             _variables.Add(name, variable);
             return variable;
         }

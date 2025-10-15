@@ -59,7 +59,11 @@ namespace TriUgla.Parsing.Nodes
             var variable = RequireVariable(stack, id);
 
             if (Operation == ETokenType.Equal)
-                return AssignEqual(variable, rhs);
+            {
+                variable.Assign(rhs);
+                return variable.Value;
+            }
+                
 
             EnsureInitializedForCompound(current, id);
 
@@ -79,12 +83,6 @@ namespace TriUgla.Parsing.Nodes
             if (v is null)
                 throw new RunTimeException($"Undefined variable '{id.Name}'.", id.Token);
             return v;
-        }
-
-        static TuValue AssignEqual(Variable variable, TuValue rhs)
-        {
-            variable.Value = rhs;
-            return variable.Value;
         }
 
         void EnsureInitializedForCompound(TuValue current, NodeExprIdentifier id)
@@ -128,7 +126,7 @@ namespace TriUgla.Parsing.Nodes
             {
                 throw new RunTimeException($"Unsupported tuple compound operation '{Operation}'.", Token);
             }
-            variable.Value = new TuValue(left);
+            variable.Assign(new TuValue(left));
             return TuValue.Nothing;
         }
 
@@ -156,7 +154,7 @@ namespace TriUgla.Parsing.Nodes
                         $"Unsupported compound operation '{Operation}' for numeric assignment.", Token)
             };
 
-            variable.Value = new TuValue(n);
+            variable.Assign(new TuValue(n));
             return variable.Value;
         }
 

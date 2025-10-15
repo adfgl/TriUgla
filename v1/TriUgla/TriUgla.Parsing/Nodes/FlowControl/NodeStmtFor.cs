@@ -37,7 +37,10 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
                 if (!ShouldContinueExclusive(i, to, by)) break;
 
-                AssignLoopVar(loopVar, i);
+                if (loopVar is not null)
+                {
+                    loopVar.Assign(new TuValue(i));
+                }
 
                 Block.Evaluate(stack);
 
@@ -98,11 +101,6 @@ namespace TriUgla.Parsing.Nodes.FlowControl
             return dir > 0 ? (i < to)
                  : dir < 0 ? (i > to)
                  : throw new Exception("'by' (step) cannot be zero."); // double safety
-        }
-
-        static void AssignLoopVar(Variable? loopVar, double i)
-        {
-            if (loopVar is not null) loopVar.Value = new TuValue(i);
         }
 
         static bool PreIteration(TuRuntime st, RuntimeFlow flow)

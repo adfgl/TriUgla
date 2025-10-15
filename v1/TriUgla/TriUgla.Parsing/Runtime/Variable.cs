@@ -1,4 +1,5 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Runtime
@@ -9,9 +10,40 @@ namespace TriUgla.Parsing.Runtime
         {
             Identifier = id;
         }
-
+        
         public Token Identifier { get; }
-        public TuValue Value { get; set; } = TuValue.Nothing;
+        public EVariableType Type { get; private set; }
+        public TuValue Value { get; private set; } = TuValue.Nothing;
+
+        public void Protect()
+        {
+            Type = EVariableType.Protected;
+        }
+
+        public void Unprotect()
+        {
+            Type = EVariableType.Normal;
+        }
+
+        public void Assign(TuValue value)
+        {
+            if (Type == EVariableType.Protected)
+            {
+                throw new RunTimeException(
+                    $"Cannot assign to protected variable '{Identifier}'.",
+                    Identifier);
+            }
+
+            if (Value.type != EDataType.Nothing && Value.type != value.type)
+            {
+                throw new RunTimeException(
+                    $"Type mismatch assigning to '{Identifier}': " +
+                    $"existing type {Value.type}, attempted {value.type}.",
+                    Identifier);
+            }
+
+            Value = value;
+        }
 
         public override string ToString()
         {

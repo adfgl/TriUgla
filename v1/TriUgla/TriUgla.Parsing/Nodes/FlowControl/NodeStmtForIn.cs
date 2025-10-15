@@ -50,7 +50,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
             {
                 if (!stack.Budget.Tick() || flow.HasReturn) break;
 
-                counter.Value = new TuValue(item);
+                counter.Assign(new TuValue(item));
 
                 Block.Evaluate(stack);
 

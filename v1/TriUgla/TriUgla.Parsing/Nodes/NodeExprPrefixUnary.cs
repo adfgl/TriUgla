@@ -62,7 +62,7 @@ namespace TriUgla.Parsing.Nodes
 
                 double cur = curVal.AsNumeric();
                 double next = (op == ETokenType.PlusPlus) ? cur + 1 : cur - 1;
-                v.Value = new TuValue(next);
+                v.Assign(new TuValue(next));
                 return v.Value;
             }
 
