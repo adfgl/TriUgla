@@ -88,7 +88,6 @@ namespace TriUgla.Parsing
 
                     default:
                         statements.Add(ParseExpression());
-                        MaybeEOX();
                         break;
                 }
             }
@@ -561,7 +560,9 @@ namespace TriUgla.Parsing
         bool IsEOX(Token token)
         {
             ETokenType type = token.type;
-            if (type != ETokenType.EOF && type != ETokenType.LineBreak && type != ETokenType.SemiColon)
+            if (type != ETokenType.EOF &&
+                type != ETokenType.LineBreak && 
+                type != ETokenType.SemiColon)
             {
                 return false;
             }
@@ -580,10 +581,7 @@ namespace TriUgla.Parsing
 
         void MaybeEOX()
         {
-            if (IsEOX(Peek()))
-            {
-                Consume();
-            }
+            if(IsEOX(Peek())) Consume();
         }
     }
 }

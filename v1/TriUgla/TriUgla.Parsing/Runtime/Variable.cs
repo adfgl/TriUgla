@@ -1,7 +1,7 @@
 ﻿using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing
+namespace TriUgla.Parsing.Runtime
 {
     public class Variable
     {

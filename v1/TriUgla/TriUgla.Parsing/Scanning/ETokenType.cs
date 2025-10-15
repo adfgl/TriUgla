@@ -11,7 +11,7 @@ namespace TriUgla.Parsing.Scanning
         Undefined, 
         Break, Continue,
 
-        Print, NativeFunction,
+        Print, Abort, NativeFunction,
         Error,
         Comment, MultiLineComment, 
         LineBreak, EOF,

@@ -9,6 +9,7 @@ namespace TriUgla.Parsing
         static readonly Dictionary<string, ETokenType> _keywords = new Dictionary<string, ETokenType>()
         {
             { "Print", ETokenType.Print },
+            { "Abort", ETokenType.Abort },
 
             { "If", ETokenType.If },
             { "Else", ETokenType.Else },

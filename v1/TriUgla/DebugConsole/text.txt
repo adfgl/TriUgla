@@ -1,5 +1,5 @@
-For (0:5:2)
+For i In {0:100000}
 	
-		Print("Hello")
+		Print(i)
 EndFor
 
