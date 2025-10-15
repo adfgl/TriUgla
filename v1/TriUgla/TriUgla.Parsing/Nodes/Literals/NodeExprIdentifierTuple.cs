@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeIdentifierTuple : NodeIdentifier
+    public class NodeExprIdentifierTuple : NodeExprIdentifier
     {
-        public NodeIdentifierTuple(Token token) : base(token)
+        public NodeExprIdentifierTuple(Token token) : base(token)
         {
         }
     }

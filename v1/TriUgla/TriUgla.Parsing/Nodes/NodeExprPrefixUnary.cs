@@ -4,9 +4,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodePrefixUnary : NodeBase
+    public class NodeExprPrefixUnary : NodeBase
     {
-        public NodePrefixUnary(Token op, NodeBase exp) : base(op)
+        public NodeExprPrefixUnary(Token op, NodeBase exp) : base(op)
         {
             Expression = exp;
         }
@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Nodes
             TuValue value;
             if (op == ETokenType.PlusPlus || op == ETokenType.MinusMinus)
             {
-                if (Expression is not NodeIdentifier id)
+                if (Expression is not NodeExprIdentifier id)
                 {
                     throw new Exception($"Prefix {Operation.value} requires an identifier");
                 }

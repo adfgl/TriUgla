@@ -5,9 +5,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.TupleOps
 {
-    public class NodeLengthOf : NodeBase
+    public class NodeExprLengthOf : NodeBase
     {
-        public NodeLengthOf(Token token, NodeBase tpl) : base(token)
+        public NodeExprLengthOf(Token token, NodeBase tpl) : base(token)
         {
             Tuple = tpl;
         }
@@ -22,16 +22,16 @@ namespace TriUgla.Parsing.Nodes.TupleOps
                 return new TuValue(value.AsTuple()!.Values.Count);
             }
 
-            if (Tuple is NodeIdentifier id)
+            if (Tuple is NodeExprIdentifier id)
             {
-                throw new CompiletimeException(
+                throw new CompileTimeException(
                       $"Cannot obtain number of elements: variable '{id.Name}' " +
                       $"has type '{value.type}', but a tuple was expected.",
                       Token);
             }
             else
             {
-                throw new RuntimeException(
+                throw new RunTimeException(
                       $"Cannot obtain number of elements from expression of type '{value.type}'. " +
                       $"Expected a tuple value ({{...}}).",
                       Token);

@@ -5,9 +5,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeMacro : NodeBase
+    public class NodeStmtMacro : NodeBase
     {
-        public NodeMacro(Token macro, NodeBase name, NodeBlock block, Token endMacro) : base(macro)
+        public NodeStmtMacro(Token macro, NodeBase name, NodeStmtBlock block, Token endMacro) : base(macro)
         {
             Name = name;
             Body = block;
@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes
 
         public Token Macro => Token;
         public NodeBase Name { get; }
-        public NodeBlock Body { get; }
+        public NodeStmtBlock Body { get; }
 
         public Token EndMacro { get; }
 

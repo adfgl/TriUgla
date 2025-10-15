@@ -10,9 +10,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeMacroCall : NodeBase
+    public class NodeStmtMacroCall : NodeBase
     {
-        public NodeMacroCall(Token token, NodeBase name) : base(token)
+        public NodeStmtMacroCall(Token token, NodeBase name) : base(token)
         {
             Name = name;
         }

@@ -6,9 +6,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeAssignment : NodeBase
+    public class NodeExprAssignment : NodeBase
     {
-        public NodeAssignment(NodeBase id, Token op, NodeBase expression) : base(op)
+        public NodeExprAssignment(NodeBase id, Token op, NodeBase expression) : base(op)
         {
             Assignee = id;
             Expression = expression;
@@ -20,7 +20,7 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuStack stack)
         {
-            if (Assignee is NodeValueAt valueAt)
+            if (Assignee is NodeExprValueAt valueAt)
             {
                 TuValue curr = valueAt.Evaluate(stack);
                 int i = valueAt.Index;
@@ -35,7 +35,7 @@ namespace TriUgla.Parsing.Nodes
                 return TuValue.Nothing;
             }
             
-            if (Assignee is NodeIdentifier id)
+            if (Assignee is NodeExprIdentifier id)
             {
                 id.DeclareIfMissing = true;
                 TuValue curr = id.Evaluate(stack);
@@ -94,7 +94,7 @@ namespace TriUgla.Parsing.Nodes
                     };
 
                     variable.Value = new TuValue(n);
-                    return TuValue.Nothing;
+                    return variable.Value;
                 }
 
             }

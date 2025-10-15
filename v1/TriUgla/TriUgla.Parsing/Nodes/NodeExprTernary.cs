@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeTernary : NodeBase
+    public class NodeExprTernary : NodeBase
     {
-        public NodeTernary(NodeBase ifExp, Token question, NodeBase thenExp, Token colon, NodeBase elseExp) : base(question)
+        public NodeExprTernary(NodeBase ifExp, Token question, NodeBase thenExp, Token colon, NodeBase elseExp) : base(question)
         {
             IfExp = ifExp;
             ThenExp = thenExp;

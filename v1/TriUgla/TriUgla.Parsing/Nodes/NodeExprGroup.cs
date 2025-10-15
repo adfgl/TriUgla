@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeGroup : NodeBase
+    public class NodeExprGroup : NodeBase
     {
-        public NodeGroup(Token open, NodeBase exp, Token close) : base(open)
+        public NodeExprGroup(Token open, NodeBase exp, Token close) : base(open)
         {
             Expression = exp;
             Close = close;

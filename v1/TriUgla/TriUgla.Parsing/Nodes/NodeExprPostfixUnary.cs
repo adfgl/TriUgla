@@ -4,9 +4,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodePostfixUnary : NodeBase
+    public class NodeExprPostfixUnary : NodeBase
     {
-        public NodePostfixUnary(Token op, NodeBase exp) : base(op)
+        public NodeExprPostfixUnary(Token op, NodeBase exp) : base(op)
         {
             Expression = exp;
         }
@@ -22,7 +22,7 @@ namespace TriUgla.Parsing.Nodes
                 throw new Exception($"Unsupported postfix op '{Operation.value}'.");
             }
 
-            if (Expression is not NodeIdentifier id)
+            if (Expression is not NodeExprIdentifier id)
             {
                 throw new Exception($"Postfix {Operation.value} requires an identifier");
             }

@@ -7,9 +7,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public abstract class NodeLiteralBase : NodeBase
+    public abstract class NodeExprLiteralBase : NodeBase
     {
-        protected NodeLiteralBase(Token token) : base(token)
+        protected NodeExprLiteralBase(Token token) : base(token)
         {
         }
     }

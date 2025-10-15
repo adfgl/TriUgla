@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class ProgramNode : NodeBase
+    public class ProgramExprNode : NodeBase
     {
-        public ProgramNode(Token token, IEnumerable<NodeBase> statements) : base(token)
+        public ProgramExprNode(Token token, IEnumerable<NodeBase> statements) : base(token)
         {
             Statements = statements.ToList();
         }

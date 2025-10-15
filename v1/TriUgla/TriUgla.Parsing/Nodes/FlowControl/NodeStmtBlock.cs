@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
 {
-    public class NodeBlock : NodeBase
+    public class NodeStmtBlock : NodeBase
     {
-        public NodeBlock(Token token, IEnumerable<NodeBase> statements) : base(token)
+        public NodeStmtBlock(Token token, IEnumerable<NodeBase> statements) : base(token)
         {
             Statements = statements.ToArray();
         }
@@ -14,9 +14,14 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
         public override TuValue Evaluate(TuStack stack)
         {
+            TuValue result = TuValue.Nothing;
             foreach (NodeBase node in Statements)
             {
-                node.Evaluate(stack);
+                TuValue value = node.Evaluate(stack);
+                if (value.type != EDataType.Nothing)
+                {
+                    result = value;
+                }
             }
             return TuValue.Nothing;
         }

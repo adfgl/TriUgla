@@ -2,28 +2,28 @@
 
 namespace TriUgla.Parsing.Exceptions
 {
-    public sealed class CompiletimeException : TuException
+    public sealed class CompileTimeException : TuException
     {
-        public CompiletimeException(string message, Token token, Exception? inner = null)
+        public CompileTimeException(string message, Token token, Exception? inner = null)
             : base(message, token, inner)
         {
         }
 
-        public static CompiletimeException UnexpectedToken(Token token, string expected)
+        public static CompileTimeException UnexpectedToken(Token token, string expected)
         {
-            return new CompiletimeException(
+            return new CompileTimeException(
                 $"Unexpected token '{token.value}' of type {token.type}; expected {expected}.",
                 token);
         }
 
-        public static CompiletimeException Syntax(string message, Token token)
+        public static CompileTimeException Syntax(string message, Token token)
         {
-            return new CompiletimeException($"Syntax error: {message}", token);
+            return new CompileTimeException($"Syntax error: {message}", token);
         }
 
-        public static CompiletimeException Semantic(string message, Token token)
+        public static CompileTimeException Semantic(string message, Token token)
         {
-            return new CompiletimeException($"Semantic error: {message}", token);
+            return new CompileTimeException($"Semantic error: {message}", token);
         }
     }
 }

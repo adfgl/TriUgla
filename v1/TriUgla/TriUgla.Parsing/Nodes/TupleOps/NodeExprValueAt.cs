@@ -11,9 +11,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.TupleOps
 {
-    public class NodeValueAt : NodeBase
+    public class NodeExprValueAt : NodeBase
     {
-        public NodeValueAt(Token token, NodeBase tuple, NodeBase index) : base(token)
+        public NodeExprValueAt(Token token, NodeBase tuple, NodeBase index) : base(token)
         {
             TupleExp = tuple;
             IndexExp = index;
@@ -29,14 +29,14 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue tuple = TupleExp.Evaluate(stack);
             if (tuple.type != EDataType.Tuple)
             {
-                if (TupleExp is NodeIdentifier id)
+                if (TupleExp is NodeExprIdentifier id)
                 {
-                    throw new CompiletimeException(
+                    throw new CompileTimeException(
                         $"Cannot index variable '{id.Name}': expected a tuple, but it is of type '{tuple.type}'.",
                         Token);
                 }
 
-                throw new RuntimeException(
+                throw new RunTimeException(
                     $"Cannot index expression of type '{tuple.type}'. Only tuples ({{...}}) support indexing.",
                     Token);
             }
@@ -47,20 +47,20 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             if (index.type != EDataType.Numeric)
             {
                 string msg = $"Tuple index must be numeric, but expression evaluated to '{index.type}'.";
-                if (IndexExp is NodeLiteralBase)
+                if (IndexExp is NodeExprLiteralBase)
                 {
-                    throw new CompiletimeException(msg, IndexExp.Token);
+                    throw new CompileTimeException(msg, IndexExp.Token);
                 }
                 else
                 {
-                    throw new RuntimeException(msg, IndexExp.Token);
+                    throw new RunTimeException(msg, IndexExp.Token);
                 }
             }
 
             double idxNum = index.AsNumeric();
             if (idxNum % 1 != 0)
             {
-                throw new RuntimeException(
+                throw new RunTimeException(
                     $"Tuple index must be an integer value, but got {idxNum}.",
                     IndexExp.Token);
             }
@@ -70,7 +70,7 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             List<double> t = tpl.Values;
             if (i < 0 || i >= t.Count)
             {
-                throw new RuntimeException(
+                throw new RunTimeException(
                     $"Tuple index {i} is out of range (valid range: 0–{t.Count - 1}).",
                     IndexExp.Token);
             }

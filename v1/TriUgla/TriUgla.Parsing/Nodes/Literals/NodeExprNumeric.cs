@@ -4,9 +4,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeNumeric : NodeLiteralBase
+    public class NodeExprNumeric : NodeExprLiteralBase
     {
-        public NodeNumeric(Token token) : base(token)
+        public NodeExprNumeric(Token token) : base(token)
         {
         }
 
@@ -22,7 +22,7 @@ namespace TriUgla.Parsing.Nodes.Literals
             {
                 return new TuValue(d);
             }
-            throw new CompiletimeException($"Invalid numeric literal '{value}'.", Token);
+            throw new CompileTimeException($"Invalid numeric literal '{value}'.", Token);
         }
     }
 }

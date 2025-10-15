@@ -5,7 +5,7 @@ namespace TriUgla.Parsing.Compiling
 {
     public class Scope
     {
-        readonly Dictionary<string, NodeBlock> _macros = new Dictionary<string, NodeBlock>();
+        readonly Dictionary<string, NodeStmtBlock> _macros = new Dictionary<string, NodeStmtBlock>();
         readonly Dictionary<string, Variable> _variables = new Dictionary<string, Variable>();
 
         public Scope(Scope? parent = null)
@@ -15,7 +15,7 @@ namespace TriUgla.Parsing.Compiling
 
         public Scope? Parent { get; }
         public IReadOnlyDictionary<string, Variable> Variables => _variables;
-        public Dictionary<string, NodeBlock> Macros => _macros;
+        public Dictionary<string, NodeStmtBlock> Macros => _macros;
 
         public void Clear()
         {

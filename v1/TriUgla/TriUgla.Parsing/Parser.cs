@@ -27,9 +27,9 @@ namespace TriUgla.Parsing
             _scanner = scanner;
         }
 
-        public ProgramNode Parse()
+        public ProgramExprNode Parse()
         {
-            return new ProgramNode(new Token(), ParseStatements());
+            return new ProgramExprNode(new Token(), ParseStatements());
         }
 
         List<NodeBase> ParseStatements()
@@ -48,7 +48,7 @@ namespace TriUgla.Parsing
                         break;
 
                     case ETokenType.Error:
-                        throw new CompiletimeException(token.value, token);
+                        throw new CompileTimeException(token.value, token);
 
                     case ETokenType.If:
                         statements.Add(ParseIfElse());
@@ -100,7 +100,7 @@ namespace TriUgla.Parsing
             {
                 Token op = Consume();                     // =, +=, -=, *=, /=
                 NodeBase right = ParseAssignmentExpression(); // right-assoc
-                return new NodeAssignment(left, op, right);
+                return new NodeExprAssignment(left, op, right);
             }
 
             return left;
@@ -115,7 +115,7 @@ namespace TriUgla.Parsing
                 NodeBase thenExpr = ParseAssignmentExpression();
                 Token c = Consume(ETokenType.Colon); // ':'
                 NodeBase elseExpr = ParseConditionalExpression();
-                return new NodeTernary(condition, q, thenExpr, c, elseExpr);
+                return new NodeExprTernary(condition, q, thenExpr, c, elseExpr);
             }
             return condition;
         }
@@ -127,7 +127,7 @@ namespace TriUgla.Parsing
             {
                 Token token = Consume();
                 NodeBase right = ParseLogicalAndExpression();
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -139,7 +139,7 @@ namespace TriUgla.Parsing
             {
                 Token token = Consume();
                 NodeBase right = ParseEqualityExpression();
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -157,7 +157,7 @@ namespace TriUgla.Parsing
                 }
                 Consume();
                 NodeBase right = ParseRelationalExpression();
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -177,7 +177,7 @@ namespace TriUgla.Parsing
                 }
                 Consume();
                 NodeBase right = ParseAdditiveExpression();
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -195,7 +195,7 @@ namespace TriUgla.Parsing
                 }
                 Consume();
                 NodeBase right = ParseMultiplicativeExpression();
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -214,7 +214,7 @@ namespace TriUgla.Parsing
                 }
                 Consume();
                 NodeBase right = ParseExponentiationExpression();
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -231,7 +231,7 @@ namespace TriUgla.Parsing
                 }
                 Consume();
                 NodeBase right = ParseExponentiationExpression(); // right-assoc
-                left = new NodeBinary(left, token, right);
+                left = new NodeExprBinary(left, token, right);
             }
             return left;
         }
@@ -248,7 +248,7 @@ namespace TriUgla.Parsing
             {
                 Token op = Consume();
                 NodeBase rhs = ParseUnaryExpression();
-                return new NodePrefixUnary(op, rhs);
+                return new NodeExprPrefixUnary(op, rhs);
             }
 
             return ParsePostfixExpression();
@@ -263,13 +263,13 @@ namespace TriUgla.Parsing
                 ETokenType t = Peek().type;
                 if (t == ETokenType.OpenParen)
                 {
-                    if (expr is not NodeIdentifier id)
+                    if (expr is not NodeExprIdentifier id)
                     {
                         throw new Exception();
                     }
 
                     List<NodeBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
-                    expr = new NodeFunctionCall(expr.Token, id, args);
+                    expr = new NodeExprFunctionCall(expr.Token, id, args);
                     continue;
                 }
 
@@ -279,14 +279,14 @@ namespace TriUgla.Parsing
             
                     NodeBase index = ParseExpression();
                     Consume(ETokenType.CloseSquare);
-                    expr = new NodeValueAt(tkn, expr, index);
+                    expr = new NodeExprValueAt(tkn, expr, index);
                     continue;
                 }
 
                 if (t == ETokenType.PlusPlus || t == ETokenType.MinusMinus)
                 {
                     Token op = Consume();
-                    expr = new NodePostfixUnary(op, expr);
+                    expr = new NodeExprPostfixUnary(op, expr);
                     continue;
                 }
 
@@ -311,7 +311,7 @@ namespace TriUgla.Parsing
                             || Peek().type == ETokenType.NumericLiteral)
                         {
                             NodeBase exp = ParsePostfixExpression(); 
-                            return new NodeLengthOf(hash, exp);
+                            return new NodeExprLengthOf(hash, exp);
                         }
                         break;
                     }
@@ -324,15 +324,15 @@ namespace TriUgla.Parsing
                     {
                         Consume(ETokenType.OpenSquare);
                         Consume(ETokenType.CloseSquare);
-                        return new NodeIdentifierTuple(id);
+                        return new NodeExprIdentifierTuple(id);
                     }
-                    return new NodeIdentifier(id);
+                    return new NodeExprIdentifier(id);
 
                 case ETokenType.NumericLiteral:
-                    return new NodeNumeric(Consume());
+                    return new NodeExprNumeric(Consume());
 
                 case ETokenType.StringLiteral:
-                    return new NodeString(Consume());
+                    return new NodeExprString(Consume());
 
                 case ETokenType.OpenCurly:
                     return ParseRangeOrTuple();
@@ -340,7 +340,7 @@ namespace TriUgla.Parsing
                 case ETokenType.OpenParen:
                     Token tkOpenParen = Consume(ETokenType.OpenParen);
                     NodeBase expr = ParseExpression();
-                    return new NodeGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
+                    return new NodeExprGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
             }
 
             throw new Exception("Unexpected token in primary: " + token.type);
@@ -353,7 +353,7 @@ namespace TriUgla.Parsing
 
             if (Peek().type == ETokenType.CloseCurly)
             {
-                return new NodeTuple(tkOpen, [], Consume(ETokenType.CloseCurly));
+                return new NodeExprTuple(tkOpen, [], Consume(ETokenType.CloseCurly));
             }
 
             var items = new List<NodeBase>(4);
@@ -363,7 +363,7 @@ namespace TriUgla.Parsing
             ETokenType t = Peek().type;
             if (t == ETokenType.CloseCurly)
             {
-                return new NodeTuple(tkOpen, items, Consume(ETokenType.CloseCurly));
+                return new NodeExprTuple(tkOpen, items, Consume(ETokenType.CloseCurly));
             }
 
             ETokenType sep;
@@ -398,10 +398,9 @@ namespace TriUgla.Parsing
 
             if (sep == ETokenType.Colon)
             {
-                return new NodeRange(tkOpen, items, tkClose);
+                return new NodeExprRange(tkOpen, items, tkClose);
             }
-
-            return new NodeTuple(tkOpen, items, tkClose);
+            return new NodeExprTuple(tkOpen, items, tkClose);
         }
 
         List<NodeBase> ParseArguments(ETokenType open = ETokenType.OpenParen, ETokenType close = ETokenType.CloseParen, ETokenType separator = ETokenType.Comma)
@@ -424,31 +423,24 @@ namespace TriUgla.Parsing
         NodeBase ParseFor()
         {
             Token tkFor = Consume(ETokenType.For);
-            NodeBase var = ParseExpression();
-            if (var is not NodeIdentifier id)
-            {
-                throw new Exception();
-            }
-
+            NodeBase counter = ParseExpression();
             Consume(ETokenType.In);
-            NodeBase rng = ParseExpression();
-
-            NodeBlock forBlock = ParseBlockUntil(new Token(), [ETokenType.EndFor, ETokenType.EOF]);
-
-            return new NodeFor(tkFor, id, rng, forBlock, Consume(ETokenType.EndFor));
+            NodeBase range = ParseExpression();
+            NodeStmtBlock forBlock = ParseBlockUntil(new Token(), [ETokenType.EndFor, ETokenType.EOF]);
+            return new NodeStmtFor(tkFor, counter, range, forBlock, Consume(ETokenType.EndFor));
         }
 
         NodeBase ParseIfElse()
         {
             HashSet<ETokenType> stop = [ETokenType.ElseIf, ETokenType.Else, ETokenType.EndIf, ETokenType.EOF];
 
-            List<(NodeBase Cond, NodeBlock Block)> elifs = new List<(NodeBase Cond, NodeBlock Block)>();
+            List<(NodeBase Cond, NodeStmtBlock Block)> elifs = new List<(NodeBase Cond, NodeStmtBlock Block)>();
 
             Token tkIf = Consume(ETokenType.If);
             Consume(ETokenType.OpenParen);
             NodeBase condition = ParseExpression();
             Consume(ETokenType.CloseParen);
-            NodeBlock ifBlock = ParseBlockUntil(tkIf, stop);
+            NodeStmtBlock ifBlock = ParseBlockUntil(tkIf, stop);
 
             elifs.Add((condition, ifBlock));
 
@@ -458,20 +450,20 @@ namespace TriUgla.Parsing
                 NodeBase elifCond = ParseExpression();
                 Consume(ETokenType.CloseParen);
 
-                NodeBlock elifBlock = ParseBlockUntil(tkElseIf, stop);
+                NodeStmtBlock elifBlock = ParseBlockUntil(tkElseIf, stop);
                 elifs.Add((elifCond, elifBlock));
             }
 
-            NodeBlock? elseBlock = null;
+            NodeStmtBlock? elseBlock = null;
             if (TryConsume(ETokenType.Else, out var tkElse))
             {
                 elseBlock = ParseBlockUntil(tkElse, [ETokenType.EndIf, ETokenType.EOF]);
             }
 
-            return new NodeIfElse(tkIf, elifs, elseBlock, Consume(ETokenType.EndIf));
+            return new NodeStmtIfElse(tkIf, elifs, elseBlock, Consume(ETokenType.EndIf));
         }
 
-        NodeBlock ParseBlockUntil(Token token, HashSet<ETokenType> stop)
+        NodeStmtBlock ParseBlockUntil(Token token, HashSet<ETokenType> stop)
         {
             List<NodeBase> stmts = new List<NodeBase>(8);
             while (true)
@@ -482,15 +474,15 @@ namespace TriUgla.Parsing
 
                 stmts.AddRange(ParseStatements());
             }
-            return new NodeBlock(token, stmts);
+            return new NodeStmtBlock(token, stmts);
         }
 
         NodeBase ParseMacro()
         {
             Token tkMacro = Consume();
             NodeBase nameExpr = ParseExpression();
-            NodeBlock block = ParseBlockUntil(tkMacro, [ETokenType.EndMacro, ETokenType.EOF]);
-            return new NodeMacro(tkMacro, nameExpr, block, Consume(ETokenType.EndMacro));
+            NodeStmtBlock block = ParseBlockUntil(tkMacro, [ETokenType.EndMacro, ETokenType.EOF]);
+            return new NodeStmtMacro(tkMacro, nameExpr, block, Consume(ETokenType.EndMacro));
         }
 
         NodeBase ParseMacroCall()
@@ -498,7 +490,7 @@ namespace TriUgla.Parsing
             Token tkCall = Consume(ETokenType.Call);
             NodeBase nameExpr = ParseExpression();
             MaybeEOX();
-            return new NodeMacroCall(tkCall, nameExpr);
+            return new NodeStmtMacroCall(tkCall, nameExpr);
         }
 
         Token Consume()
@@ -516,7 +508,7 @@ namespace TriUgla.Parsing
             Token token = Peek();
             if (token.type != type)
             {
-                throw new CompiletimeException($"Unexpected token: Expected {type} but got {token.type} ({token.value}).", token);
+                throw new CompileTimeException($"Unexpected token: Expected {type} but got {token.type} ({token.value}).", token);
             }
             return Consume();
         }

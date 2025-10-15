@@ -3,9 +3,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeBinary : NodeBase
+    public class NodeExprBinary : NodeBase
     {
-        public NodeBinary(NodeBase left, Token op, NodeBase right) : base(op)
+        public NodeExprBinary(NodeBase left, Token op, NodeBase right) : base(op)
         {
             Left = left;
             Right = right;

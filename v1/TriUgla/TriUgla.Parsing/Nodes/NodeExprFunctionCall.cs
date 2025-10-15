@@ -4,15 +4,15 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
 {
-    public class NodeFunctionCall : NodeBase
+    public class NodeExprFunctionCall : NodeBase
     {
-        public NodeFunctionCall(Token name, NodeIdentifier id, IEnumerable<NodeBase> args) : base(name)
+        public NodeExprFunctionCall(Token name, NodeExprIdentifier id, IEnumerable<NodeBase> args) : base(name)
         {
             Id = id;
             Args = args.ToArray();
         }
 
-        public NodeIdentifier Id { get; }
+        public NodeExprIdentifier Id { get; }
         public IReadOnlyList<NodeBase> Args { get; }
 
         public override string ToString()

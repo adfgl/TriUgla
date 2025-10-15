@@ -4,9 +4,9 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Literals
 {
-    public class NodeRange : NodeLiteralBase
+    public class NodeExprRange : NodeExprLiteralBase
     {
-        public NodeRange(Token start, IEnumerable<NodeBase> args, Token end) : base(start)
+        public NodeExprRange(Token start, IEnumerable<NodeBase> args, Token end) : base(start)
         {
             Args = args.ToArray();
             End = end;  
@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Nodes.Literals
         {
             if (Args.Count != 2 && Args.Count != 3)
             {
-                throw new CompiletimeException(
+                throw new CompileTimeException(
                     $"Range expects 2 or 3 arguments: Range(from, to, by). Got {Args.Count}.",
                     Token);
             }
@@ -42,13 +42,13 @@ namespace TriUgla.Parsing.Nodes.Literals
                 if (v.type != EDataType.Numeric)
                 {
                     string msg = $"Range '{argStr}' must be numeric.";
-                    if (arg is NodeLiteralBase)
+                    if (arg is NodeExprLiteralBase)
                     {
-                        throw new CompiletimeException(msg, arg.Token);
+                        throw new CompileTimeException(msg, arg.Token);
                     }
                     else
                     {
-                        throw new RuntimeException(msg, arg.Token);
+                        throw new RunTimeException(msg, arg.Token);
                     }
                 }
             }
@@ -58,21 +58,21 @@ namespace TriUgla.Parsing.Nodes.Literals
             double b = values[2].AsNumeric();
             if (b == 0)
             {
-                throw new RuntimeException("Range step 'by' cannot be zero.", Args.Count == 3 ? Args[2].Token : Token);
+                throw new RunTimeException("Range step 'by' cannot be zero.", Args.Count == 3 ? Args[2].Token : Token);
             }
 
             bool ascending = t >= f;
             bool stepUp = b > 0;
             if (ascending && !stepUp)
             {
-                throw new RuntimeException(
+                throw new RunTimeException(
                     $"Range step {b} does not progress from {f} to {t}. Use a positive step.",
                     Args.Count == 3 ? Args[2].Token : Token);
             }
 
             if (!ascending && stepUp)
             {
-                throw new RuntimeException(
+                throw new RunTimeException(
                     $"Range step {b} does not progress from {f} to {t}. Use a negative step.",
                     Args.Count == 3 ? Args[2].Token : Token);
             }

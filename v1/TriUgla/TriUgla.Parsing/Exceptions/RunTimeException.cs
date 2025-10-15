@@ -2,31 +2,31 @@
 
 namespace TriUgla.Parsing.Exceptions
 {
-    public sealed class RuntimeException : TuException
+    public sealed class RunTimeException : TuException
     {
-        public RuntimeException(string message, Token token, Exception? inner = null)
+        public RunTimeException(string message, Token token, Exception? inner = null)
             : base(message, token, inner)
         {
         }
 
-        public static RuntimeException UndefinedVariable(string name, Token token)
+        public static RunTimeException UndefinedVariable(string name, Token token)
         {
-            return new RuntimeException($"Undefined variable '{name}'.", token);
+            return new RunTimeException($"Undefined variable '{name}'.", token);
         }
 
-        public static RuntimeException DivisionByZero(Token token)
+        public static RunTimeException DivisionByZero(Token token)
         {
-            return new RuntimeException("Division by zero.", token);
+            return new RunTimeException("Division by zero.", token);
         }
 
-        public static RuntimeException InvalidOperation(string op, string leftType, string rightType, Token token)
+        public static RunTimeException InvalidOperation(string op, string leftType, string rightType, Token token)
         {
-            return new RuntimeException($"Invalid operation '{op}' between {leftType} and {rightType}.", token);
+            return new RunTimeException($"Invalid operation '{op}' between {leftType} and {rightType}.", token);
         }
 
-        public static RuntimeException Argument(string message, Token token)
+        public static RunTimeException Argument(string message, Token token)
         {
-            return new RuntimeException($"Invalid argument: {message}", token);
+            return new RunTimeException($"Invalid argument: {message}", token);
         }
     }
 }

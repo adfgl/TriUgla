@@ -15,6 +15,19 @@ namespace TriUgla.Parsing.Nodes
 
         public abstract TuValue Evaluate(TuStack stack);
 
+        public static string ToOrdinal(int n)
+        {
+            int mod100 = n % 100;
+            if (mod100 is >= 11 and <= 13) return n + "th";
+            return (n % 10) switch
+            {
+                1 => n + "st",
+                2 => n + "nd",
+                3 => n + "rd",
+                _ => n + "th"
+            };
+        }
+
         public static bool ValidIdentifier(string id, out string reason)
         {
             if (string.IsNullOrEmpty(id))
