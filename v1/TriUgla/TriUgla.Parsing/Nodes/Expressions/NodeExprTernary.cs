@@ -2,9 +2,9 @@
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprTernary : NodeBase
+    public class NodeExprTernary : NodeExprBase
     {
         public NodeExprTernary(NodeBase ifExp, Token question, NodeBase thenExp, Token colon, NodeBase elseExp) : base(question)
         {

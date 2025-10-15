@@ -4,9 +4,9 @@ using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.FlowControl
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtBlock : NodeBase
+    public class NodeStmtBlock : NodeStmtBase
     {
         public NodeStmtBlock(Token token, IEnumerable<NodeBase> statements) : base(token)
         {

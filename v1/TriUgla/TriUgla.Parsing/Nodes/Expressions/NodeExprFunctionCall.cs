@@ -1,11 +1,11 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprFunctionCall : NodeBase
+    public class NodeExprFunctionCall : NodeExprBase
     {
         public NodeExprFunctionCall(Token name, IEnumerable<NodeBase> args) : base(name)
         {

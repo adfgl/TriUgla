@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using TriUgla.Parsing.Data;
+﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.TupleOps
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprValueAt : NodeBase
+    public class NodeExprValueAt : NodeExprBase
     {
         public NodeExprValueAt(Token token, NodeBase tuple, NodeBase index) : base(token)
         {
@@ -77,8 +71,7 @@ namespace TriUgla.Parsing.Nodes.TupleOps
 
             Index = i;
             Tuple = tpl;
-            Value = new TuValue(t[i]);
-            return Value;
+            return new TuValue(t[i]);
         }
     }
 }

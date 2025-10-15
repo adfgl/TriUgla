@@ -1,13 +1,12 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
-using TriUgla.Parsing.Nodes.TupleOps;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprAssignment : NodeBase
+    public class NodeExprAssignment : NodeExprBase
     {
         public NodeExprAssignment(NodeBase id, Token op, NodeBase expression) : base(op)
         {

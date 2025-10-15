@@ -1,12 +1,12 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprPrefixUnary : NodeBase
+    public class NodeExprPrefixUnary : NodeExprBase
     {
         public NodeExprPrefixUnary(Token op, NodeBase exp) : base(op)
         {
@@ -61,7 +61,7 @@ namespace TriUgla.Parsing.Nodes
                 }
 
                 double cur = curVal.AsNumeric();
-                double next = (op == ETokenType.PlusPlus) ? cur + 1 : cur - 1;
+                double next = op == ETokenType.PlusPlus ? cur + 1 : cur - 1;
                 v.Assign(new TuValue(next));
                 return v.Value;
             }

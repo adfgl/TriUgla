@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtMacroCall : NodeBase
+    public class NodeStmtMacroCall : NodeStmtBase, IParsableNode<NodeStmtMacroCall>
     {
         public NodeStmtMacroCall(Token token, NodeBase name) : base(token)
         {
@@ -19,6 +19,14 @@ namespace TriUgla.Parsing.Nodes
         }
 
         public NodeBase Name { get; }
+
+        public static NodeStmtMacroCall Parse(Parser p)
+        {
+            Token tkCall = p.Consume(ETokenType.Call);
+            NodeBase nameExpr = p.ParseExpression();
+            p.MaybeEOX();
+            return new NodeStmtMacroCall(tkCall, nameExpr);
+        }
 
         public override TuValue Evaluate(TuRuntime stack)
         {
@@ -51,9 +59,7 @@ namespace TriUgla.Parsing.Nodes
                     $"Macro '{macroName}' is not defined.",
                     Token);
             }
-
-            body.Evaluate(stack);
-            return TuValue.Nothing;
+            return body.Evaluate(stack);
         }
     }
 }

@@ -1,13 +1,10 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using TriUgla.Parsing.Data;
+﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprBinary : NodeBase
+    public class NodeExprBinary : NodeExprBase
     {
         public NodeExprBinary(NodeBase left, Token op, NodeBase right) : base(op)
         {
@@ -27,8 +24,8 @@ namespace TriUgla.Parsing.Nodes
         public override TuValue Evaluate(TuRuntime stack)
         {
             ETokenType op = Operation.type;
-            if (op == ETokenType.Or) return Value = EvaluateOr(stack);
-            if (op == ETokenType.And) return Value = EvaluateAnd(stack);
+            if (op == ETokenType.Or) return EvaluateOr(stack);
+            if (op == ETokenType.And) return EvaluateAnd(stack);
 
             TuValue left = Left.Evaluate(stack);
             TuValue right = Right.Evaluate(stack);
@@ -50,8 +47,8 @@ namespace TriUgla.Parsing.Nodes
                 return EvaluateTupleTuple();
             }
 
-            if ((left.type == EDataType.Tuple && right.type == EDataType.Numeric) ||
-                (right.type == EDataType.Tuple && left.type == EDataType.Numeric))
+            if (left.type == EDataType.Tuple && right.type == EDataType.Numeric ||
+                right.type == EDataType.Tuple && left.type == EDataType.Numeric)
             {
                 return EvaluateTupleNumeric();
             }
@@ -117,10 +114,10 @@ namespace TriUgla.Parsing.Nodes
                 ETokenType.Modulo => l % r,
                 ETokenType.Power => Math.Pow(l, r),
 
-                _ => Double.NaN
+                _ => double.NaN
             };
 
-            if (!Double.IsNaN(dbl))
+            if (!double.IsNaN(dbl))
             {
                 return new TuValue(dbl);
             }

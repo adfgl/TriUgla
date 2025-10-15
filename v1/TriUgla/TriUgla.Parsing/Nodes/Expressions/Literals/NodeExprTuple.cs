@@ -2,7 +2,7 @@
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprTuple : NodeExprLiteralBase
     {
@@ -43,8 +43,7 @@ namespace TriUgla.Parsing.Nodes.Literals
                             item.Token);
                 }
             }
-            Value = new TuValue(new TuTuple(values));
-            return Value;
+            return new TuValue(new TuTuple(values));
         }
     }
 }

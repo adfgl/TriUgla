@@ -1,7 +1,7 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprString : NodeExprLiteralBase
     {
@@ -11,7 +11,6 @@ namespace TriUgla.Parsing.Nodes.Literals
 
         public override TuValue Evaluate(TuRuntime stack)
         {
-            Value = new TuValue(Token.value);
             return Value;
         }
     }

@@ -1,11 +1,12 @@
 ﻿using TriUgla.Parsing.Data;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.FlowControl
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtFor : NodeBase
+    public class NodeStmtFor : NodeStmtBase
     {
         public NodeStmtFor(Token token, IEnumerable<NodeBase> args, NodeStmtBlock block) : base(token)
         {
@@ -81,7 +82,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
         static double ReadBy(TuRuntime st, NodeBase? byNode, double from, double to)
         {
-            double def = (to >= from) ? 1.0 : -1.0;
+            double def = to >= from ? 1.0 : -1.0;
             double by = EvalNumOrDefault(st, byNode, "by", def);
             if (by == 0.0) throw new Exception("'by' (step) cannot be zero.");
             return by;
@@ -98,8 +99,8 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         static bool ShouldContinueExclusive(double i, double to, double by)
         {
             int dir = Math.Sign(by);
-            return dir > 0 ? (i < to)
-                 : dir < 0 ? (i > to)
+            return dir > 0 ? i < to
+                 : dir < 0 ? i > to
                  : throw new Exception("'by' (step) cannot be zero."); // double safety
         }
 

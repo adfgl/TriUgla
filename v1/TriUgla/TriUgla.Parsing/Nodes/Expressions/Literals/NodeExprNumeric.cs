@@ -2,7 +2,7 @@
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprNumeric : NodeExprLiteralBase
     {
@@ -22,8 +22,7 @@ namespace TriUgla.Parsing.Nodes.Literals
             string value = Token.value;
             if (double.TryParse(value, out double d))
             {
-                Value = new TuValue(d);
-                return Value;
+                return new TuValue(d);
             }
             throw new CompileTimeException($"Invalid numeric literal '{value}'.", Token);
         }

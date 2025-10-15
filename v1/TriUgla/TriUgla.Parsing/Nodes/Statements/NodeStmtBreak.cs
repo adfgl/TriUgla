@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.FlowControl
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeBreak : NodeBase
+    public class NodeStmtBreak : NodeStmtBase
     {
-        public NodeBreak(Token token) : base(token)
+        public NodeStmtBreak(Token token) : base(token)
         {
         }
 

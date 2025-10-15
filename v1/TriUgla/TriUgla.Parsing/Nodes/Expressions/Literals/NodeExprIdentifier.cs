@@ -3,7 +3,7 @@ using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprIdentifier : NodeExprLiteralBase
     {
@@ -34,8 +34,6 @@ namespace TriUgla.Parsing.Nodes.Literals
             {
                 throw new CompileTimeException($"Undefined variable '{Name}'.", Token);
             }
-
-            Value = v.Value;
             return Value;
         }
     }

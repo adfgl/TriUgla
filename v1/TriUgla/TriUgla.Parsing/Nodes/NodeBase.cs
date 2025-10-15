@@ -1,6 +1,6 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
@@ -13,7 +13,13 @@ namespace TriUgla.Parsing.Nodes
         }
 
         public Token Token { get; }
-        public TuValue Value { get; protected set; } = TuValue.Nothing;
+        public TuValue Value { get; private set; } 
+
+        public virtual TuValue Eval(TuRuntime rt)
+        {
+            Value = Evaluate(rt);
+            return Value;
+        }
 
         public abstract TuValue Evaluate(TuRuntime stack);
 

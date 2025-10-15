@@ -1,11 +1,11 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class ProgramExprNode : NodeBase
+    public class NodeExprProgram : NodeExprBase
     {
-        public ProgramExprNode(Token token, IEnumerable<NodeBase> statements) : base(token)
+        public NodeExprProgram(Token token, IEnumerable<NodeBase> statements) : base(token)
         {
             Statements = statements.ToList();
         }

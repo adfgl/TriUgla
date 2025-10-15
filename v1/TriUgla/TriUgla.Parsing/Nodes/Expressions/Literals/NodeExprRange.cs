@@ -2,7 +2,7 @@
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprRange : NodeExprLiteralBase
     {
@@ -79,8 +79,7 @@ namespace TriUgla.Parsing.Nodes.Literals
                     $"Range step {b} does not progress from {f} to {t}. Use a negative step.",
                     Args.Count == 3 ? Args[2].Token : Token);
             }
-            Value = new TuValue(new TuRange(f, t, b));
-            return Value;
+            return new TuValue(new TuRange(f, t, b));
         }
 
         public override string ToString()

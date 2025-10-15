@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Literals
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
-    public abstract class NodeExprLiteralBase : NodeBase
+    public abstract class NodeExprLiteralBase : NodeExprBase
     {
         protected NodeExprLiteralBase(Token token) : base(token)
         {

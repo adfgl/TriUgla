@@ -1,12 +1,11 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.FlowControl;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtMacro : NodeBase
+    public class NodeStmtMacro : NodeStmtBase, IParsableNode<NodeStmtMacro>
     {
         public NodeStmtMacro(Token macro, NodeBase name, NodeStmtBlock block, Token endMacro) : base(macro)
         {
@@ -54,6 +53,14 @@ namespace TriUgla.Parsing.Nodes
             }
             stack.Current.Macros[macroName] = Body;
             return TuValue.Nothing;
+        }
+
+        public static NodeStmtMacro Parse(Parser p)
+        {
+            Token tkMacro = p.Consume();
+            NodeBase nameExpr = p.ParseExpression();
+            NodeStmtBlock block = p.ParseBlockUntil(tkMacro, [ETokenType.EndMacro, ETokenType.EOF]);
+            return new NodeStmtMacro(tkMacro, nameExpr, block, p.Consume(ETokenType.EndMacro));
         }
     }
 }

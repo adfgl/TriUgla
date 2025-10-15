@@ -1,12 +1,12 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.FlowControl
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtForIn : NodeBase
+    public class NodeStmtForIn : NodeStmtBase
     {
         public NodeStmtForIn(Token start, NodeBase id, NodeBase range, NodeStmtBlock block, Token end) : base(start)
         {

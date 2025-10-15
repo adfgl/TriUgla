@@ -1,11 +1,11 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.TupleOps
+namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprLengthOf : NodeBase
+    public class NodeExprLengthOf : NodeExprBase
     {
         public NodeExprLengthOf(Token token, NodeBase tpl) : base(token)
         {
@@ -19,8 +19,7 @@ namespace TriUgla.Parsing.Nodes.TupleOps
             TuValue value = Tuple.Evaluate(stack);
             if (value.type == EDataType.Tuple)
             {
-                Value = new TuValue(value.AsTuple()!.Values.Count);
-                return value;
+                return new TuValue(value.AsTuple()!.Values.Count);
             }
 
             if (Tuple is NodeExprIdentifier id)

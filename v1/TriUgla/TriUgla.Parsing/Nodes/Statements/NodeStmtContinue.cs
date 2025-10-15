@@ -1,11 +1,11 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.FlowControl
+namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeContinue : NodeBase
+    public class NodeStmtContinue : NodeStmtBase
     {
-        public NodeContinue(Token token) : base(token)
+        public NodeStmtContinue(Token token) : base(token)
         {
         }
 
