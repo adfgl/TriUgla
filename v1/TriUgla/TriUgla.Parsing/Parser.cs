@@ -14,6 +14,7 @@ namespace TriUgla.Parsing
 {
     public class Parser 
     {
+        int _loopDepth;
         readonly Scanner _scanner;
 
         public Parser(Scanner scanner)
@@ -354,10 +355,21 @@ namespace TriUgla.Parsing
                     return new NodeExprGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
 
                 case ETokenType.Break:
+                    Token tkBreak = Consume();
+                    if (_loopDepth == 0)
+                    {
+                        throw new CompileTimeException($"'{tkBreak.value}' used outside of loop.", tkBreak);
+                    }
+                    MaybeEOX();
                     return new NodeBreak(Consume());
 
                 case ETokenType.Continue:
-                    return new NodeContinue(Consume());
+                    Token tkContinue = Consume();
+                    if (_loopDepth == 0)
+                    {
+                        throw new CompileTimeException($"'{tkContinue.value}' used outside of loop.", tkContinue);
+                    }
+                    return new NodeContinue(tkContinue);
             }
 
             throw new Exception("Unexpected token in primary: " + token.type);
@@ -498,6 +510,7 @@ namespace TriUgla.Parsing
 
         NodeStmtBlock ParseBlockUntil(Token token, HashSet<ETokenType> stop)
         {
+            _loopDepth++;
             List<NodeBase> stmts = new List<NodeBase>(8);
             while (true)
             {
@@ -507,6 +520,7 @@ namespace TriUgla.Parsing
 
                 stmts.AddRange(ParseStatements());
             }
+            _loopDepth--;
             return new NodeStmtBlock(token, stmts);
         }
 
