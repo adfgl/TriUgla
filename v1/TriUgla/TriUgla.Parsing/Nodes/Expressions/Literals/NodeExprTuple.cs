@@ -6,14 +6,14 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprTuple : NodeExprLiteralBase
     {
-        public NodeExprTuple(Token open, IEnumerable<NodeBase> args, Token close) : base(open)
+        public NodeExprTuple(Token open, IEnumerable<NodeExprBase> args, Token close) : base(open)
         {
             Args = args.ToArray();
             Close = close;
         }
 
-        public IReadOnlyList<NodeBase> Args { get; }
         public Token Open => Token;
+        public IReadOnlyList<NodeExprBase> Args { get; }
         public Token Close { get; }
 
         public override TuValue Evaluate(TuRuntime stack)

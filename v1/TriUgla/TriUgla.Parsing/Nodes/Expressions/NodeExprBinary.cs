@@ -6,15 +6,15 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprBinary : NodeExprBase
     {
-        public NodeExprBinary(NodeBase left, Token op, NodeBase right) : base(op)
+        public NodeExprBinary(NodeExprBase left, Token op, NodeExprBase right) : base(op)
         {
             Left = left;
             Right = right;
         }
 
-        public NodeBase Left { get; }
+        public NodeExprBase Left { get; }
         public Token Operation => Token;
-        public NodeBase Right { get; }
+        public NodeExprBase Right { get; }
 
         public override string ToString()
         {

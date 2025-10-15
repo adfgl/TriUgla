@@ -7,12 +7,12 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprLengthOf : NodeExprBase
     {
-        public NodeExprLengthOf(Token token, NodeBase tpl) : base(token)
+        public NodeExprLengthOf(Token token, NodeExprBase tpl) : base(token)
         {
             Tuple = tpl;
         }
 
-        public NodeBase Tuple { get; }
+        public NodeExprBase Tuple { get; }
 
         public override TuValue Evaluate(TuRuntime stack)
         {

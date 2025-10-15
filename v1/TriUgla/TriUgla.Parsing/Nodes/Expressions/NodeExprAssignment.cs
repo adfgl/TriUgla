@@ -40,7 +40,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 "Cannot assign a non-numeric value to a tuple element.");
 
             valueAt.Tuple!.Values[valueAt.Index] = rhs.AsNumeric();
-            return TuValue.Nothing;
+            return rhs;
         }
 
         static void EnsureTupleElementContext(NodeExprValueAt valueAt)
@@ -126,7 +126,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 throw new RunTimeException($"Unsupported tuple compound operation '{Operation}'.", Token);
             }
             variable.Assign(new TuValue(left));
-            return TuValue.Nothing;
+            return variable.Value;
         }
 
         TuValue AssignCompoundNumeric(Variable variable, TuValue current, TuValue rhs)

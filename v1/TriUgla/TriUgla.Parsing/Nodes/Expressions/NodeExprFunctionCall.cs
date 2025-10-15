@@ -7,12 +7,12 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprFunctionCall : NodeExprBase
     {
-        public NodeExprFunctionCall(Token name, IEnumerable<NodeBase> args) : base(name)
+        public NodeExprFunctionCall(Token name, IEnumerable<NodeExprBase> args) : base(name)
         {
             Args = args.ToArray();
         }
 
-        public IReadOnlyList<NodeBase> Args { get; }
+        public IReadOnlyList<NodeExprBase> Args { get; }
 
         public override string ToString()
         {
@@ -27,7 +27,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue[] args = new TuValue[Args.Count];
             for (int i = 0; i < args.Length; i++)
             {
-                NodeBase arg = Args[i];
+                NodeExprBase arg = Args[i];
                 if (allCompileTimeKnown && arg is not NodeExprLiteralBase)
                 {
                     allCompileTimeKnown = false;

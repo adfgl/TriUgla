@@ -3,7 +3,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtPrint : NodeStmtBase, IParsableNode<NodeStmtPrint>
+    public class NodeStmtPrint : NodeStmtBase
     {
         public NodeStmtPrint(Token token, NodeBase? arg) : base(token)
         {
@@ -22,21 +22,6 @@ namespace TriUgla.Parsing.Nodes.Statements
             }
             stack.Print(Token, msg);
             return TuValue.Nothing;
-        }
-
-        public static NodeStmtPrint Parse(Parser p)
-        {
-            Token print = p.Consume(ETokenType.Print);
-            p.Consume(ETokenType.OpenParen);
-
-            NodeBase? expr = null;
-            if (!p.TryConsume(ETokenType.CloseParen, out _))
-            {
-                expr = p.ParseExpression();
-                p.Consume(ETokenType.CloseParen);
-            }
-            p.MaybeEOX();
-            return new NodeStmtPrint(print, expr);
         }
     }
 }

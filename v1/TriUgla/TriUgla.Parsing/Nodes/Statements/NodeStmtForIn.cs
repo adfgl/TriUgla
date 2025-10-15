@@ -8,7 +8,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 {
     public class NodeStmtForIn : NodeStmtBase
     {
-        public NodeStmtForIn(Token start, NodeBase id, NodeBase range, NodeStmtBlock block, Token end) : base(start)
+        public NodeStmtForIn(Token start, NodeExprBase id, NodeExprBase range, NodeStmtBlock block, Token end) : base(start)
         {
             Counter = id;
             Range = range;
@@ -19,8 +19,8 @@ namespace TriUgla.Parsing.Nodes.Statements
         public Token Start => Token;
         public Token End { get; }
 
-        public NodeBase Counter { get; }
-        public NodeBase Range { get; }
+        public NodeExprBase Counter { get; }
+        public NodeExprBase Range { get; }
         public NodeStmtBlock Block { get; }
 
         public override TuValue Evaluate(TuRuntime stack)

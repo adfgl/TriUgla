@@ -7,14 +7,14 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprGroup : NodeExprBase
     {
-        public NodeExprGroup(Token open, NodeBase exp, Token close) : base(open)
+        public NodeExprGroup(Token open, NodeExprBase exp, Token close) : base(open)
         {
             Expression = exp;
             Close = close;
         }
 
         public Token Open => Token;
-        public NodeBase Expression { get; }
+        public NodeExprBase Expression { get; }
         public Token Close { get; }
 
         public override TuValue Evaluate(TuRuntime stack)

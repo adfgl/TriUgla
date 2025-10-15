@@ -5,7 +5,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtMacro : NodeStmtBase, IParsableNode<NodeStmtMacro>
+    public class NodeStmtMacro : NodeStmtBase
     {
         public NodeStmtMacro(Token macro, NodeBase name, NodeStmtBlock block, Token endMacro) : base(macro)
         {
@@ -53,14 +53,6 @@ namespace TriUgla.Parsing.Nodes.Statements
             }
             stack.Current.Macros[macroName] = Body;
             return TuValue.Nothing;
-        }
-
-        public static NodeStmtMacro Parse(Parser p)
-        {
-            Token tkMacro = p.Consume();
-            NodeBase nameExpr = p.ParseExpression();
-            NodeStmtBlock block = p.ParseBlockUntil(tkMacro, [ETokenType.EndMacro, ETokenType.EOF]);
-            return new NodeStmtMacro(tkMacro, nameExpr, block, p.Consume(ETokenType.EndMacro));
         }
     }
 }

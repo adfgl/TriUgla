@@ -8,13 +8,13 @@ namespace TriUgla.Parsing.Nodes.Statements
 {
     public class NodeStmtFor : NodeStmtBase
     {
-        public NodeStmtFor(Token token, IEnumerable<NodeBase> args, NodeStmtBlock block) : base(token)
+        public NodeStmtFor(Token token, IEnumerable<NodeExprBase> args, NodeStmtBlock block) : base(token)
         {
             Block = block;
             Args = args.ToArray();
         }
 
-        public IReadOnlyList<NodeBase> Args { get; }
+        public IReadOnlyList<NodeExprBase> Args { get; }
         public NodeStmtBlock Block { get; }
 
         public override TuValue Evaluate(TuRuntime stack)

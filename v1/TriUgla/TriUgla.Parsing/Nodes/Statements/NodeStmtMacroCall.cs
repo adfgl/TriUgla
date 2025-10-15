@@ -11,23 +11,15 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtMacroCall : NodeStmtBase, IParsableNode<NodeStmtMacroCall>
+    public class NodeStmtMacroCall : NodeStmtBase
     {
-        public NodeStmtMacroCall(Token token, NodeBase name) : base(token)
+        public NodeStmtMacroCall(Token token, NodeExprBase name) : base(token)
         {
             Name = name;
         }
 
-        public NodeBase Name { get; }
-
-        public static NodeStmtMacroCall Parse(Parser p)
-        {
-            Token tkCall = p.Consume(ETokenType.Call);
-            NodeBase nameExpr = p.ParseExpression();
-            p.MaybeEOX();
-            return new NodeStmtMacroCall(tkCall, nameExpr);
-        }
-
+        public NodeExprBase Name { get; }
+ 
         public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue nameValue = Name.Evaluate(stack);

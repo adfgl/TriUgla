@@ -8,13 +8,13 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprPostfixUnary : NodeExprBase
     {
-        public NodeExprPostfixUnary(Token op, NodeBase exp) : base(op)
+        public NodeExprPostfixUnary(Token op, NodeExprBase exp) : base(op)
         {
             Expression = exp;
         }
 
         public Token Operation => Token;
-        public NodeBase Expression { get; }
+        public NodeExprBase Expression { get; }
 
         public override TuValue Evaluate(TuRuntime stack)
         {

@@ -6,7 +6,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprTernary : NodeExprBase
     {
-        public NodeExprTernary(NodeBase ifExp, Token question, NodeBase thenExp, Token colon, NodeBase elseExp) : base(question)
+        public NodeExprTernary(NodeExprBase ifExp, Token question, NodeExprBase thenExp, Token colon, NodeExprBase elseExp) : base(question)
         {
             IfExp = ifExp;
             ThenExp = thenExp;
@@ -14,11 +14,11 @@ namespace TriUgla.Parsing.Nodes.Expressions
             ElseExp = elseExp;
         }
 
-        public NodeBase IfExp { get; }
+        public NodeExprBase IfExp { get; }
         public Token Question => Token;
-        public NodeBase ThenExp { get; }
+        public NodeExprBase ThenExp { get; }
         public Token Colon { get; }
-        public NodeBase ElseExp { get; }
+        public NodeExprBase ElseExp { get; }
 
         public override TuValue Evaluate(TuRuntime stack)
         {

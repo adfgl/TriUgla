@@ -7,14 +7,14 @@ namespace TriUgla.Parsing.Nodes.Expressions
 {
     public class NodeExprValueAt : NodeExprBase
     {
-        public NodeExprValueAt(Token token, NodeBase tuple, NodeBase index) : base(token)
+        public NodeExprValueAt(Token token, NodeExprBase tuple, NodeExprBase index) : base(token)
         {
             TupleExp = tuple;
             IndexExp = index;
         }
 
-        public NodeBase TupleExp { get; }
-        public NodeBase IndexExp { get; }
+        public NodeExprBase TupleExp { get; }
+        public NodeExprBase IndexExp { get; }
         public int Index { get; private set; }
         public TuTuple? Tuple { get; private set; }
 
