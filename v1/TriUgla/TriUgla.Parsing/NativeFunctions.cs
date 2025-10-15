@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
+using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Nodes;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing
 {
     public class NativeFunctions
     {
@@ -154,8 +155,8 @@ namespace TriUgla.Parsing.Compiling
 
     public abstract class NativeFunction
     {
-        public string Name { get; set; } = String.Empty;
-        public string Description { get; set; } = String.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
 
         public ArgSpec[] Input { get; set; } = Array.Empty<ArgSpec>();
         public ArgSpec? Output { get; set; }
@@ -549,7 +550,7 @@ namespace TriUgla.Parsing.Compiling
             double r;
             if (bound < 0)
             {
-                r = bound + Random.Shared.NextDouble() * (-bound);
+                r = bound + Random.Shared.NextDouble() * -bound;
             }
             else
             {
@@ -706,7 +707,7 @@ namespace TriUgla.Parsing.Compiling
 
         public override TuValue Execute(TuValue[] args)
         {
-            string r = String.Empty;
+            string r = string.Empty;
             if (args.Length != 0)
             {
                 r = args[0].AsString();

@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes
         {
             stack.OpenScope();
 
-            stack.Global.Declare("Pi", new TuValue(3.1415926535897932));
+            stack.Global.Declare(new Token(ETokenType.IdentifierLiteral, -1, -1, "Pi"), new TuValue(3.1415926535897932));
 
             TuValue result = TuValue.Nothing;
             foreach (NodeBase item in Statements)

@@ -1,4 +1,6 @@
-﻿namespace TriUgla.Parsing.Scanning
+﻿using TriUgla.Parsing.Scanning;
+
+namespace TriUgla.Parsing
 {
     public static class Keywords
     {

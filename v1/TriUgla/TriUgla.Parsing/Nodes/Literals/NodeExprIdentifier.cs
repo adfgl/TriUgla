@@ -23,14 +23,10 @@ namespace TriUgla.Parsing.Nodes.Literals
                       Token);
             }
 
-            Variable? v;
-            if (DeclareIfMissing)
+            Variable? v = stack.Current.Get(Name);
+            if (DeclareIfMissing && v is null)
             {
-                v = stack.Current.GetOrDeclare(Name);
-            }
-            else
-            {
-                v = stack.Current.Get(Name);
+                v = stack.Current.Declare(Token, TuValue.Nothing);
             }
 
             if (v is null)
