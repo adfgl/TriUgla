@@ -1,4 +1,4 @@
-﻿using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;

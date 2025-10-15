@@ -1,10 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using TriUgla.Parsing.Compiling;
-using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.FlowControl;
-using TriUgla.Parsing.Runtime;
+﻿using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing

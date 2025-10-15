@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Reflection.Emit;
-using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;

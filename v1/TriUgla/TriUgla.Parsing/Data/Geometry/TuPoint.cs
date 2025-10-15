@@ -1,5 +1,4 @@
-﻿
-namespace TriUgla.Parsing.Compiling
+﻿namespace TriUgla.Parsing.Data.Geometry
 {
     public class TuPoint : TuObject
     {

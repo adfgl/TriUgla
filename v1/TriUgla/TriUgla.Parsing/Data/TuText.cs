@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Data
 {
     public class TuText : TuObject
     {

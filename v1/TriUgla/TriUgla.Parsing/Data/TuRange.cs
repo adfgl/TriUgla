@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Data
 {
     public class TuRange : TuObject, IEnumerable<double>
     {

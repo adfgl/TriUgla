@@ -1,4 +1,4 @@
-﻿using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl

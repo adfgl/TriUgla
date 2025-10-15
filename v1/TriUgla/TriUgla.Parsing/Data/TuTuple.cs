@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Data
 {
     public class TuTuple : TuObject, IEnumerable<double>
     {
@@ -22,7 +22,7 @@ namespace TriUgla.Parsing.Compiling
 
         public override string ToString()
         {
-            return $"<{String.Join(", ", Values)}>";
+            return $"<{string.Join(", ", Values)}>";
         }
 
         public IEnumerator<double> GetEnumerator()

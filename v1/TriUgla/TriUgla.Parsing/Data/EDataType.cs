@@ -1,4 +1,4 @@
-﻿namespace TriUgla.Parsing.Compiling
+﻿namespace TriUgla.Parsing.Data
 {
     public enum EDataType : byte
     {

@@ -1,8 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using TriUgla.Parsing.Data.Geometry;
 
-namespace TriUgla.Parsing.Compiling
+namespace TriUgla.Parsing.Data
 {
     [DebuggerDisplay("{ToString()}")]
     public readonly struct TuValue 
@@ -96,7 +97,7 @@ namespace TriUgla.Parsing.Compiling
                 return obj.ToString();
             }
 
-            if (type == EDataType.Nothing) return String.Empty;
+            if (type == EDataType.Nothing) return string.Empty;
 
             throw new InvalidCastException();
         }

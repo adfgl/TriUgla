@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Scanning;

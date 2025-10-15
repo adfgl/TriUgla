@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
-using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Nodes;
 
 namespace TriUgla.Parsing
