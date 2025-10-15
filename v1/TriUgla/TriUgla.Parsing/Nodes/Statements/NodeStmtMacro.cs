@@ -20,9 +20,9 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public Token EndMacro { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
-            TuValue nameValue = Name.Evaluate(stack);
+            TuValue nameValue = Name.Eval(stack);
             if (nameValue.type != EDataType.String)
             {
                 if (Name is NodeExprIdentifier id)

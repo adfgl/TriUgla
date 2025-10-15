@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         public Token Start => Token;
         public Token End { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             if (Args.Count != 2 && Args.Count != 3)
             {
@@ -31,7 +31,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
             for (int i = 0; i < Args.Count; i++)
             {
                 NodeBase arg = Args[i];
-                TuValue v = arg.Evaluate(stack);
+                TuValue v = arg.Eval(stack);
 
                 string argStr = i switch
                 {

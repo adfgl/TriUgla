@@ -18,9 +18,9 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public int Index { get; private set; }
         public TuTuple? Tuple { get; private set; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
-            TuValue tuple = TupleExp.Evaluate(stack);
+            TuValue tuple = TupleExp.Eval(stack);
             if (tuple.type != EDataType.Tuple)
             {
                 if (TupleExp is NodeExprIdentifier id)
@@ -37,7 +37,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
             TuTuple tpl = tuple.AsTuple()!;
 
-            TuValue index = IndexExp.Evaluate(stack);
+            TuValue index = IndexExp.Eval(stack);
             if (index.type != EDataType.Numeric)
             {
                 string msg = $"Tuple index must be numeric, but expression evaluated to '{index.type}'.";

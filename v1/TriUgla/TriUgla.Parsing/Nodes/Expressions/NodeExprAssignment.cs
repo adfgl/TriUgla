@@ -18,7 +18,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public ETokenType Operation => Token.type;
         public NodeBase Expression { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             return Assignee switch
             {
@@ -32,10 +32,10 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         TuValue EvalAssignToElement(NodeExprValueAt valueAt, TuRuntime stack)
         {
-            TuValue currentElement = valueAt.Evaluate(stack); 
+            TuValue currentElement = valueAt.Eval(stack); 
             EnsureTupleElementContext(valueAt);
 
-            TuValue rhs = Expression.Evaluate(stack);
+            TuValue rhs = Expression.Eval(stack);
             EnsureNumeric(rhs, Expression.Token,
                 "Cannot assign a non-numeric value to a tuple element.");
 
@@ -53,8 +53,8 @@ namespace TriUgla.Parsing.Nodes.Expressions
         {
             id.DeclareIfMissing = Operation == ETokenType.Equal || id.DeclareIfMissing;
 
-            TuValue current = id.Evaluate(stack); 
-            TuValue rhs = Expression.Evaluate(stack);
+            TuValue current = id.Eval(stack); 
+            TuValue rhs = Expression.Eval(stack);
             var variable = RequireVariable(stack, id);
 
             if (Operation == ETokenType.Equal)

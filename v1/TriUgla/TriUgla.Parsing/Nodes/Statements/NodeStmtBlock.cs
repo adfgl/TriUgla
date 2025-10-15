@@ -15,8 +15,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public IReadOnlyList<NodeBase> Statements { get; }
 
-
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             TuValue last = TuValue.Nothing;
 
@@ -25,12 +24,12 @@ namespace TriUgla.Parsing.Nodes.Statements
             {
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
 
-                var v = node.Evaluate(stack);
+                var v = node.Eval(stack);
                 if (v.type != EDataType.Nothing) last = v;
 
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
             }
-            return TuValue.Nothing;
+            return last;
         }
     }
 }

@@ -23,7 +23,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public NodeExprBase Range { get; }
         public NodeStmtBlock Block { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             NodeExprIdentifier? id = Counter as NodeExprIdentifier;
             if (id is null)
@@ -32,10 +32,10 @@ namespace TriUgla.Parsing.Nodes.Statements
             }
 
             id.DeclareIfMissing = true;
-            id.Evaluate(stack);
+            id.Eval(stack);
             Variable counter = stack.Current.Get(id.Name)!;
 
-            TuValue list = Range.Evaluate(stack);
+            TuValue list = Range.Eval(stack);
             IEnumerable<double> iterator = list.type switch
             {
                 EDataType.Range => list.AsRange()!,
@@ -52,7 +52,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
                 counter.Assign(new TuValue(item));
 
-                Block.Evaluate(stack);
+                Block.Eval(stack);
 
                 if (!stack.Budget.Tick()) break;
 

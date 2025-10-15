@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public IReadOnlyList<NodeExprBase> Args { get; }
         public NodeStmtBlock Block { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             if (Args.Count is not (2 or 3))
                 throw new Exception("for expects 2 or 3 arguments: from, to[, by].");
@@ -43,7 +43,7 @@ namespace TriUgla.Parsing.Nodes.Statements
                     loopVar.Assign(new TuValue(i));
                 }
 
-                Block.Evaluate(stack);
+                Block.Eval(stack);
 
                 if (!PostIteration(stack, flow, ref i, by)) break;
             }
@@ -57,7 +57,7 @@ namespace TriUgla.Parsing.Nodes.Statements
             if (node is NodeExprIdentifier id)
             {
                 id.DeclareIfMissing = true;
-                TuValue cur = id.Evaluate(st);
+                TuValue cur = id.Eval(st);
                 double v = cur.type switch
                 {
                     EDataType.Nothing => 0.0,
@@ -69,7 +69,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
             if (node is NodeExprAssignment a && a.Assignee is NodeExprIdentifier tgt)
             {
-                TuValue cur = a.Evaluate(st);
+                TuValue cur = a.Eval(st);
                 if (cur.type != EDataType.Numeric) throw new Exception("'from' assignment must be numeric.");
                 return (cur.AsNumeric(), st.Current.Get(tgt.Name));
             }
@@ -91,7 +91,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         static double EvalNumOrDefault(TuRuntime st, NodeBase? node, string name, double def)
         {
             if (node is null) return def;
-            TuValue v = node.Evaluate(st);
+            TuValue v = node.Eval(st);
             if (v.type != EDataType.Numeric) throw new Exception($"'{name}' must be numeric.");
             return v.AsNumeric();
         }

@@ -21,19 +21,19 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Left} {Token.value} {Right}";
         }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             ETokenType op = Operation.type;
             if (op == ETokenType.Or) return EvaluateOr(stack);
             if (op == ETokenType.And) return EvaluateAnd(stack);
 
-            TuValue left = Left.Evaluate(stack);
-            TuValue right = Right.Evaluate(stack);
+            TuValue left = Left.Eval(stack);
+            TuValue right = Right.Eval(stack);
 
             if (left.type == EDataType.Numeric &&
                 right.type == EDataType.Numeric)
             {
-                return EvaluateNumericNumeric();
+                return EvaluateNumericNumeric(left, right);
             }
 
             if (op == ETokenType.Plus && (left.type == EDataType.String || right.type == EDataType.String))
@@ -41,16 +41,15 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 return new TuValue(left.AsString() + right.AsString());
             }
 
-            if (left.type == EDataType.Tuple &&
-                right.type == EDataType.Tuple)
+            if (left.type == EDataType.Tuple && right.type == EDataType.Tuple)
             {
-                return EvaluateTupleTuple();
+                return EvaluateTupleTuple(left, right);
             }
 
             if (left.type == EDataType.Tuple && right.type == EDataType.Numeric ||
                 right.type == EDataType.Tuple && left.type == EDataType.Numeric)
             {
-                return EvaluateTupleNumeric();
+                return EvaluateTupleNumeric(left, right);
             }
 
             if (op == ETokenType.EqualEqual)
@@ -66,7 +65,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         TuValue CheckForNothing(TuRuntime stack, NodeBase node)
         {
-            TuValue value = node.Evaluate(stack);
+            TuValue value = node.Eval(stack);
             if (value.type == EDataType.Nothing)
             {
                 throw new RunTimeException($"Should evaluate to '{EDataType.Numeric}' but got '{EDataType.Nothing}'", node.Token);
@@ -92,17 +91,17 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return new TuValue(right.AsBoolean());
         }
 
-        TuValue EvaluateNumericNumeric()
+        TuValue EvaluateNumericNumeric(TuValue left, TuValue right)
         {
             ETokenType op = Operation.type;
 
             if (op == ETokenType.Slash)
             {
-                CheckDivisionByZero(Right);
+                CheckDivisionByZero(Right, right);
             }
 
-            double l = Left.Value.AsNumeric();
-            double r = Right.Value.AsNumeric();
+            double l = left.AsNumeric();
+            double r = right.AsNumeric();
 
             double dbl = op switch
             {
@@ -141,11 +140,11 @@ namespace TriUgla.Parsing.Nodes.Expressions
         }
 
 
-        TuValue EvaluateTupleTuple()
+        TuValue EvaluateTupleTuple(TuValue left, TuValue right)
         {
-            List<double> lt = Left.Value.AsTuple()!.Values;
+            List<double> lt = left.AsTuple()!.Values;
             ETokenType op = Operation.type;
-            List<double> rt = Right.Value.AsTuple()!.Values;
+            List<double> rt = right.AsTuple()!.Values;
 
             if (lt.Count != rt.Count)
             {
@@ -188,22 +187,26 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return new TuValue(tpl);
         }
 
-        public TuValue EvaluateTupleNumeric()
+        public TuValue EvaluateTupleNumeric(TuValue left, TuValue right)
         {
             NodeBase tupleNode = Left, scalarNode = Right;
-            if (Right.Value.type == EDataType.Tuple)
+            if (right.type == EDataType.Tuple)
             {
                 tupleNode = Right;
                 scalarNode = Left;
+
+                TuValue t = left;
+                left = right;
+                right = t;
             }
 
-            TuTuple tuple = Left.Value.AsTuple()!;
+            TuTuple tuple = left.AsTuple()!;
             ETokenType op = Operation.type;
-            double scalar = Right.Value.AsNumeric();
+            double scalar = right.AsNumeric();
 
             if (op == ETokenType.Slash)
             {
-                CheckDivisionByZero(scalarNode);
+                CheckDivisionByZero(scalarNode, right);
             }
 
             Func<double, bool>? fb = op switch

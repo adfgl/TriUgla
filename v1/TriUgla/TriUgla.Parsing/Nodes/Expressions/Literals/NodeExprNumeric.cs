@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
             return Token.value;
         }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             string value = Token.value;
             if (double.TryParse(value, out double d))

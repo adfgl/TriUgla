@@ -13,20 +13,14 @@ namespace TriUgla.Parsing.Nodes
         }
 
         public Token Token { get; }
-        public TuValue Value { get; private set; } 
 
         public virtual TuValue Eval(TuRuntime rt)
         {
-            Value = Evaluate(rt);
-            return Value;
+            TuValue value = Evaluate(rt);
+            return value;
         }
 
-        public abstract TuValue Evaluate(TuRuntime stack);
-
-        public override string ToString()
-        {
-            return $"{Value}";
-        }
+        protected abstract TuValue Evaluate(TuRuntime stack);
 
         public static string ToOrdinal(int n)
         {
@@ -41,14 +35,14 @@ namespace TriUgla.Parsing.Nodes
             };
         }
 
-        public static void CheckDivisionByZero(NodeBase node)
+        public static void CheckDivisionByZero(NodeBase node, TuValue value)
         {
-            if (node.Value.type != EDataType.Numeric)
+            if (value.type != EDataType.Numeric)
             {
                 throw new Exception("Node must be evaluated to numeric at this point.");
             }
 
-            if (node.Value.AsNumeric() != 0) return;
+            if (value.AsNumeric() != 0) return;
 
             if (node is NodeExprLiteralBase)
             {

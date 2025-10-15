@@ -1,5 +1,1 @@
-For (i=1:10)
-	
-		Print(i)
-EndFor
-
+a = 1

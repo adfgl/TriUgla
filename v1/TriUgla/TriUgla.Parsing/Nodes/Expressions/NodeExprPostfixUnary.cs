@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public Token Operation => Token;
         public NodeExprBase Expression { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             ETokenType op = Operation.type;
             if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)
@@ -33,7 +33,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     Operation);
             }
 
-            TuValue value = id.Evaluate(stack);
+            TuValue value = id.Eval(stack);
 
             Variable? v = stack.Current.Get(id.Name);
             if (v is null)

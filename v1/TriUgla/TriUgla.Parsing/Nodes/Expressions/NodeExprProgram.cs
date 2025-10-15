@@ -12,7 +12,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         public IReadOnlyList<NodeBase> Statements { get; }
 
-        public override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Evaluate(TuRuntime stack)
         {
             stack.OpenScope();
 
@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue result = TuValue.Nothing;
             foreach (NodeBase item in Statements)
             {
-                TuValue value = item.Evaluate(stack);
+                TuValue value = item.Eval(stack);
                 if (value.type != EDataType.Nothing)
                 {
                     result = value;
