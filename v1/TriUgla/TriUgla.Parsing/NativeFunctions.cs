@@ -8,7 +8,9 @@ namespace TriUgla.Parsing
 {
     public class NativeFunctions
     {
-        private readonly Dictionary<string, NativeFunction> _map;
+        public static readonly NativeFunctions ALL = new NativeFunctions();
+
+        readonly Dictionary<string, NativeFunction> _map;
 
         public IReadOnlyDictionary<string, NativeFunction> All => _map;
 

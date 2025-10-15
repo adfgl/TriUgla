@@ -276,14 +276,8 @@ namespace TriUgla.Parsing
                 ETokenType t = Peek().type;
                 if (t == ETokenType.OpenParen)
                 {
-                    if (expr is not NodeExprIdentifier id)
-                    {
-                        throw new Exception();
-                    }
+                    throw new Exception();
 
-                    List<NodeBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
-                    expr = new NodeExprFunctionCall(expr.Token, id, args);
-                    continue;
                 }
 
                 if (t == ETokenType.OpenSquare)
@@ -314,6 +308,11 @@ namespace TriUgla.Parsing
             Token token = Peek();
             switch (token.type)
             {
+                case ETokenType.NativeFunction:
+                    Consume();
+                    List<NodeBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
+                    return new NodeExprFunctionCall(token, args);
+
                 case ETokenType.Hash:
                     {
                         Token hash = Consume();

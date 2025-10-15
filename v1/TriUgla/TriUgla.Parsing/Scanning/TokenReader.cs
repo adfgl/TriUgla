@@ -128,11 +128,17 @@ namespace TriUgla.Parsing.Scanning
             int len = _pos - start;
             string text = _src.Substring(start, len);
 
+            ETokenType type = ETokenType.IdentifierLiteral;
             if (Keywords.Source.TryGetValue(text, out ETokenType keyword))
             {
-                return new Token(keyword, line, col, string.Empty);
+                type = keyword;
+                
             }
-            return new Token(ETokenType.IdentifierLiteral, line, col, text);
+            else if (NativeFunctions.ALL.Has(text))
+            {
+                type = ETokenType.NativeFunction;
+            }
+            return new Token(type, line, col, text);
         }
 
         Token ReadNumber()

@@ -7,13 +7,11 @@ namespace TriUgla.Parsing.Nodes
 {
     public class NodeExprFunctionCall : NodeBase
     {
-        public NodeExprFunctionCall(Token name, NodeExprIdentifier id, IEnumerable<NodeBase> args) : base(name)
+        public NodeExprFunctionCall(Token name, IEnumerable<NodeBase> args) : base(name)
         {
-            Id = id;
             Args = args.ToArray();
         }
 
-        public NodeExprIdentifier Id { get; }
         public IReadOnlyList<NodeBase> Args { get; }
 
         public override string ToString()
@@ -23,7 +21,7 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuRuntime stack)
         {
-            string name = Id.Name;
+            string name = Token.value;
 
             bool allCompileTimeKnown = true;
             TuValue[] args = new TuValue[Args.Count];
@@ -40,18 +38,18 @@ namespace TriUgla.Parsing.Nodes
 
             if (!stack.Functions.TryGet(name, out NativeFunction fun))
             {
-                throw new CompileTimeException($"Function '{name}' not supported.", Id.Token);
+                throw new CompileTimeException($"Function '{name}' not supported.", Token);
             }
 
             if (!fun.TryExecute(args, out TuValue result, out string error))
             {
                 if (allCompileTimeKnown)
                 {
-                    throw new CompileTimeException(error, Id.Token);
+                    throw new CompileTimeException(error, Token);
                 }
                 else
                 {
-                    throw new RunTimeException(error, Id.Token);
+                    throw new RunTimeException(error, Token);
                 }
             }
             return result;

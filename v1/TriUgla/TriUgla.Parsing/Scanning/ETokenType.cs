@@ -9,7 +9,7 @@ namespace TriUgla.Parsing.Scanning
     public enum ETokenType
     {
         Undefined, 
-        Print,
+        Print, NativeFunction,
         Error,
         Comment, MultiLineComment, 
         LineBreak, EOF,
@@ -27,8 +27,6 @@ namespace TriUgla.Parsing.Scanning
         Equal,
 
         Colon, SemiColon, Comma, Dot, Hash,
-
-        Point, Line,
 
         And, Or, Not, Question,
         EqualEqual, NotEqual,
