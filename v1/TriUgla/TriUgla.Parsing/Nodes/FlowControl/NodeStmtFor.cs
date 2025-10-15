@@ -1,4 +1,6 @@
 ﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Nodes.Literals;
+using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
@@ -16,63 +18,119 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
         public override TuValue Evaluate(TuRuntime stack)
         {
-            if (Args.Count != 2 && Args.Count != 3)
-            {
-                throw new Exception();
-            }
+            if (Args.Count is not (2 or 3))
+                throw new Exception("for expects 2 or 3 arguments: from, to[, by].");
 
-            NodeBase fromNode = Args[0], toNode = Args[1];
-            NodeBase? stepNode = Args.Count == 3 ? Args[2] : null;
-
-            double from = fromNode.Evaluate(stack).AsNumeric();
-            double to = toNode.Evaluate(stack).AsNumeric();
-            double step;
-            if (stepNode != null)
-            {
-                step = stepNode.Evaluate(stack).AsNumeric();
-            }
-            else
-            {
-                step = (to >= from) ? 1.0 : -1.0;
-            }
+            var (from, loopVar) = BindFrom(stack, Args[0]);
+            NodeBase toNode = Args[1];
+            NodeBase? byNode = Args.Count == 3 ? Args[2] : null;
 
             var flow = stack.Flow;
-            const double eps = 1e-12;
-            if (step > 0)
+            double i = from;
+
+            for (; ; )
             {
-                for (double i = from; i <= to + eps; i += step)
-                {
-                    if (!stack.Budget.Tick() || flow.HasReturn) break;
+                if (!PreIteration(stack, flow)) break;
 
-                    // counter.Value = new TuValue(i);
+                double to = ReadTo(stack, toNode, from);
+                double by = ReadBy(stack, byNode, from, to);
 
-                    Block.Evaluate(stack);
+                if (!ShouldContinueExclusive(i, to, by)) break;
 
-                    if (!stack.Budget.Tick()) break;
+                AssignLoopVar(loopVar, i);
 
-                    if (flow.IsContinue) { flow.ConsumeBreakOrContinue(); continue; }
-                    if (flow.IsBreak) { flow.ConsumeBreakOrContinue(); break; }
-                }
-            }
-            else
-            {
-                for (double i = from; i >= to - eps; i += step)
-                {
-                    if (!stack.Budget.Tick() || flow.HasReturn) break;
+                Block.Evaluate(stack);
 
-                    // counter.Value = new TuValue(i);
-
-                    Block.Evaluate(stack);
-
-                    if (!stack.Budget.Tick()) break;
-
-                    if (flow.IsContinue) { flow.ConsumeBreakOrContinue(); continue; }
-                    if (flow.IsBreak) { flow.ConsumeBreakOrContinue(); break; }
-                }
+                if (!PostIteration(stack, flow, ref i, by)) break;
             }
 
             flow.LeaveLoop();
             return TuValue.Nothing;
         }
+
+        static (double start, Variable? loopVar) BindFrom(TuRuntime st, NodeBase node)
+        {
+            if (node is NodeExprIdentifier id)
+            {
+                id.DeclareIfMissing = true;
+                TuValue cur = id.Evaluate(st);
+                double v = cur.type switch
+                {
+                    EDataType.Nothing => 0.0,
+                    EDataType.Numeric => cur.AsNumeric(),
+                    _ => throw new Exception("'from' must be numeric.")
+                };
+                return (v, st.Current.Get(id.Name));
+            }
+
+            if (node is NodeExprAssignment a && a.Assignee is NodeExprIdentifier tgt)
+            {
+                TuValue cur = a.Evaluate(st);
+                if (cur.type != EDataType.Numeric) throw new Exception("'from' assignment must be numeric.");
+                return (cur.AsNumeric(), st.Current.Get(tgt.Name));
+            }
+
+            return (EvalNumOrDefault(st, node, "from", 0.0), null);
+        }
+
+        static double ReadTo(TuRuntime st, NodeBase toNode, double @from)
+            => EvalNumOrDefault(st, toNode, "to", @from);
+
+        static double ReadBy(TuRuntime st, NodeBase? byNode, double from, double to)
+        {
+            double def = (to >= from) ? 1.0 : -1.0;
+            double by = EvalNumOrDefault(st, byNode, "by", def);
+            if (by == 0.0) throw new Exception("'by' (step) cannot be zero.");
+            return by;
+        }
+
+        static double EvalNumOrDefault(TuRuntime st, NodeBase? node, string name, double def)
+        {
+            if (node is null) return def;
+            TuValue v = node.Evaluate(st);
+            if (v.type != EDataType.Numeric) throw new Exception($"'{name}' must be numeric.");
+            return v.AsNumeric();
+        }
+
+        static bool ShouldContinueExclusive(double i, double to, double by)
+        {
+            int dir = Math.Sign(by);
+            return dir > 0 ? (i < to)
+                 : dir < 0 ? (i > to)
+                 : throw new Exception("'by' (step) cannot be zero."); // double safety
+        }
+
+        static void AssignLoopVar(Variable? loopVar, double i)
+        {
+            if (loopVar is not null) loopVar.Value = new TuValue(i);
+        }
+
+        static bool PreIteration(TuRuntime st, RuntimeFlow flow)
+        {
+            if (!st.Budget.Tick()) return false;
+            if (flow.HasReturn) return false;
+            return true;
+        }
+
+        static bool PostIteration(TuRuntime st, RuntimeFlow flow, ref double i, double by)
+        {
+            if (!st.Budget.Tick()) return false;
+
+            if (flow.IsContinue)
+            {
+                flow.ConsumeBreakOrContinue();
+                i += by;
+                return true;
+            }
+
+            if (flow.IsBreak)
+            {
+                flow.ConsumeBreakOrContinue();
+                return false;
+            }
+            i += by;
+            return true;
+        }
+
     }
 }

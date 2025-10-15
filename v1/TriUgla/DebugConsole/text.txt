@@ -1,7 +1,5 @@
-For i In {0:100000}
+For (i=1:10)
 	
 		Print(i)
-		Abort
 EndFor
-
 
