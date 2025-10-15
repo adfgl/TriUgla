@@ -1,5 +1,5 @@
-﻿using System.Runtime.ConstrainedExecution;
-using TriUgla.Parsing.Compiling;
+﻿using TriUgla.Parsing.Compiling;
+using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Literals;
 using TriUgla.Parsing.Nodes.TupleOps;
 using TriUgla.Parsing.Scanning;
@@ -20,86 +20,140 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuStack stack)
         {
-            if (Assignee is NodeExprValueAt valueAt)
+            return Assignee switch
             {
-                TuValue curr = valueAt.Evaluate(stack);
-                int i = valueAt.Index;
-                TuTuple tpl = valueAt.Tuple!;
-                TuValue value = Expression.Evaluate(stack);
+                NodeExprValueAt valueAt => EvalAssignToElement(valueAt, stack),
+                NodeExprIdentifier ident => EvalAssignToIdentifier(ident, stack),
+                _ => throw new CompileTimeException(
+                        "Left-hand side of assignment must be an identifier or an index into a tuple.",
+                        Assignee.Token)
+            };
+        }
 
-                if (curr.type != value.type)
-                {
-                    throw new Exception("Type mismatch");
-                }
-                tpl.Values[i] = value.AsNumeric();
-                return TuValue.Nothing;
-            }
-            
-            if (Assignee is NodeExprIdentifier id)
+        TuValue EvalAssignToElement(NodeExprValueAt valueAt, TuStack stack)
+        {
+            TuValue currentElement = valueAt.Evaluate(stack); 
+            EnsureTupleElementContext(valueAt);
+
+            TuValue rhs = Expression.Evaluate(stack);
+            EnsureNumeric(rhs, Expression.Token,
+                "Cannot assign a non-numeric value to a tuple element.");
+
+            valueAt.Tuple!.Values[valueAt.Index] = rhs.AsNumeric();
+            return TuValue.Nothing;
+        }
+
+        static void EnsureTupleElementContext(NodeExprValueAt valueAt)
+        {
+            if (valueAt.Tuple is null)
+                throw new RunTimeException("Internal error: missing tuple reference for element assignment.", valueAt.Token);
+        }
+
+        TuValue EvalAssignToIdentifier(NodeExprIdentifier id, TuStack stack)
+        {
+            id.DeclareIfMissing = Operation == ETokenType.Equal || id.DeclareIfMissing;
+
+            TuValue current = id.Evaluate(stack); 
+            TuValue rhs = Expression.Evaluate(stack);
+            var variable = RequireVariable(stack, id);
+
+            if (Operation == ETokenType.Equal)
+                return AssignEqual(variable, rhs);
+
+            EnsureInitializedForCompound(current, id);
+
+            return rhs.type switch
             {
-                id.DeclareIfMissing = true;
-                TuValue curr = id.Evaluate(stack);
-                TuValue value = Expression.Evaluate(stack);
+                EDataType.Tuple => AssignCompoundTuple(variable, current, rhs),
+                EDataType.Numeric => AssignCompoundNumeric(variable, current, rhs),
+                _ => throw new RunTimeException(
+                        $"Unsupported right-hand side type '{rhs.type}' for operation '{Operation}'.",
+                        Expression.Token)
+            };
+        }
 
-                if (curr.type != EDataType.Nothing &&
-                    curr.type != value.type)
-                {
-                    throw new Exception("Type mismatch");
-                }
+        static Variable RequireVariable(TuStack stack, NodeExprIdentifier id)
+        {
+            var v = stack.Current.Get(id.Name);
+            if (v is null)
+                throw new RunTimeException($"Undefined variable '{id.Name}'.", id.Token);
+            return v;
+        }
 
-                Variable variable = stack.Current.Get(id.Name)!;
+        static TuValue AssignEqual(Variable variable, TuValue rhs)
+        {
+            variable.Value = rhs;
+            return variable.Value;
+        }
 
-                if (Operation == ETokenType.Equal)
-                {
-                    variable.Value = value;
-                    return TuValue.Nothing;
-                }
+        void EnsureInitializedForCompound(TuValue current, NodeExprIdentifier id)
+        {
+            if (current.type == EDataType.Nothing)
+                throw new RunTimeException(
+                    $"Compound assignment '{Operation}' requires an initialized variable '{id.Name}'.",
+                    Token);
+        }
 
-                if (value.type == EDataType.Tuple)
-                {
-                    if (curr.type == EDataType.Nothing)
-                    {
-                        throw new Exception("Invalid operation for unassigned varialble.");
-                    }
+        TuValue AssignCompoundTuple(Variable variable, TuValue current, TuValue rhs)
+        {
+            if (current.type != EDataType.Tuple)
+                throw new RunTimeException(
+                    $"Invalid operation '{Operation}' between '{current.type}' and 'Tuple'.",
+                    Token);
 
-                    if (Operation == ETokenType.PlusEqual)
-                    {
-                        List<double> values = new(variable.Value.AsTuple()!);
-                        values.AddRange(value.AsTuple()!);
+            if (Operation != ETokenType.PlusEqual)
+                throw new RunTimeException(
+                    $"Unsupported tuple compound operation '{Operation}'. Only '+=' is allowed for tuples.",
+                    Token);
 
-                        variable.Value = new TuValue(new TuTuple(values));
-                        return TuValue.Nothing;
-                    }
-                    throw new Exception();
-                }
+            var left = variable.Value.AsTuple()!;
+            var right = rhs.AsTuple()!;
 
-                if (value.type == EDataType.Numeric)
-                {
-                    if (curr.type == EDataType.Nothing)
-                    {
-                        throw new Exception("Invalid operation for unassigned varialble.");
-                    }
+            var merged = ConcatTuples(left, right);
+            variable.Value = new TuValue(new TuTuple(merged));
+            return TuValue.Nothing;
+        }
 
-                    double l = curr.AsNumeric();
-                    double r = value.AsNumeric();
-                    double n = Operation switch
-                    {
-                        ETokenType.PlusEqual => l + r,
-                        ETokenType.MinusEqual => l - r,
-                        ETokenType.StarEqual => l * r,
-                        ETokenType.SlashEqual => r == 0 ? throw new DivideByZeroException() : l / r,
-                        ETokenType.ModuloEqual => l % r,
-                        ETokenType.PowerEqual => Math.Pow(l, r),
-                        _ => throw new Exception($"Unsupported operation {Operation}")
-                    };
+        static List<double> ConcatTuples(TuTuple left, TuTuple right)
+        {
+            var res = new List<double>(left.Values.Count + right.Values.Count);
+            res.AddRange(left);
+            res.AddRange(right);
+            return res;
+        }
 
-                    variable.Value = new TuValue(n);
-                    return variable.Value;
-                }
+        TuValue AssignCompoundNumeric(Variable variable, TuValue current, TuValue rhs)
+        {
+            if (current.type != EDataType.Numeric)
+                throw new RunTimeException(
+                    $"Invalid operation '{Operation}' between '{current.type}' and 'Numeric'.",
+                    Token);
 
-            }
+            double l = current.AsNumeric();
+            double r = rhs.AsNumeric();
 
-            throw new Exception();
+            double n = Operation switch
+            {
+                ETokenType.PlusEqual => l + r,
+                ETokenType.MinusEqual => l - r,
+                ETokenType.StarEqual => l * r,
+                ETokenType.SlashEqual => r == 0
+                    ? throw RunTimeException.DivisionByZero(Token)
+                    : l / r,
+                ETokenType.ModuloEqual => l % r,
+                ETokenType.PowerEqual => Math.Pow(l, r),
+                _ => throw new RunTimeException(
+                        $"Unsupported compound operation '{Operation}' for numeric assignment.", Token)
+            };
+
+            variable.Value = new TuValue(n);
+            return variable.Value;
+        }
+
+        static void EnsureNumeric(TuValue v, Token tok, string message)
+        {
+            if (v.type != EDataType.Numeric)
+                throw new RunTimeException(message, tok);
         }
     }
 }

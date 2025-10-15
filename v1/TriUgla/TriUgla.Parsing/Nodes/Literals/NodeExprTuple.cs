@@ -6,7 +6,6 @@ namespace TriUgla.Parsing.Nodes.Literals
 {
     public class NodeExprTuple : NodeExprLiteralBase
     {
-
         public NodeExprTuple(Token open, IEnumerable<NodeBase> args, Token close) : base(open)
         {
             Args = args.ToArray();
