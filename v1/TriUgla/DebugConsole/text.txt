@@ -1,7 +1,6 @@
 For i In {0:100000}
 	
 		Print(i)
-break
 
 EndFor
 

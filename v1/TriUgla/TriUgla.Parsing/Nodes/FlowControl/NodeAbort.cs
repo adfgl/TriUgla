@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
         public override TuValue Evaluate(TuRuntime stack)
         {
-            stack.Budget.Aborted = true;
+            stack.Budget.FullStop();
             return TuValue.Nothing;
         }
     }

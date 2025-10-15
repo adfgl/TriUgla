@@ -5,6 +5,15 @@ namespace TriUgla.Parsing.Runtime
 {
     public sealed class RuntimeBudget
     {
+        public enum EStopReason
+        {
+            None,
+            StepLimit,
+            Timeout,
+            Cancellation,
+            FullStop
+        }
+
         // Check wall-clock every N ticks (cheap bitmask throttle)
         const int TimeCheckMask = 0x3FF; // 1024
         const long NoDeadline = long.MaxValue;
@@ -19,8 +28,10 @@ namespace TriUgla.Parsing.Runtime
         long _deadlineSwTicks = NoDeadline;
 
         public TimeSpan TimeLimit { get; set; } = Infinite;
-        public CancellationToken Token { get; set; } 
+        public CancellationToken Token { get; set; }
+
         public bool Aborted { get; set; }
+        public EStopReason Reason { get; set; } = EStopReason.None;
 
         /// <summary>
         /// Sets a wall-clock limit from "now". Non-positive disables the time limit.
@@ -35,10 +46,10 @@ namespace TriUgla.Parsing.Runtime
 
             TimeLimit = limit;
             var now = Stopwatch.GetTimestamp();
-            // Convert TimeSpan.Ticks to Stopwatch ticks: divide by (TimeSpanTicksPerSwTick)
             _deadlineSwTicks = now + (long)(limit.Ticks / TimeSpanTicksPerSwTick);
 
             Aborted = false;
+            Reason = EStopReason.None;
             _throttleCounter = 0;
         }
 
@@ -49,6 +60,16 @@ namespace TriUgla.Parsing.Runtime
         {
             _stepsRemaining = steps <= 0 ? 0 : steps;
             Aborted = false;
+            Reason = EStopReason.None;
+        }
+
+        /// <summary>
+        /// Manually stop all execution.
+        /// </summary>
+        public void FullStop()
+        {
+            Aborted = true;
+            Reason = EStopReason.FullStop;
         }
 
         /// <summary>
@@ -57,6 +78,7 @@ namespace TriUgla.Parsing.Runtime
         public void Reset()
         {
             Aborted = false;
+            Reason = EStopReason.None;
             _stepsRemaining = long.MaxValue;
             _throttleCounter = 0;
             Token = default;
@@ -76,6 +98,7 @@ namespace TriUgla.Parsing.Runtime
             if (_stepsRemaining != long.MaxValue && --_stepsRemaining <= 0)
             {
                 Aborted = true;
+                Reason = EStopReason.StepLimit;
                 return false;
             }
 
@@ -83,17 +106,16 @@ namespace TriUgla.Parsing.Runtime
             if (Token.IsCancellationRequested)
             {
                 Aborted = true;
+                Reason = EStopReason.Cancellation;
                 return false;
             }
 
             // Time check throttled
-            if ((++_throttleCounter & TimeCheckMask) == 0)
+            if ((++_throttleCounter & TimeCheckMask) == 0 && IsTimeLimitReached())
             {
-                if (IsTimeLimitReached())
-                {
-                    Aborted = true;
-                    return false;
-                }
+                Aborted = true;
+                Reason = EStopReason.Timeout;
+                return false;
             }
 
             return true;
@@ -111,17 +133,31 @@ namespace TriUgla.Parsing.Runtime
             if (_stepsRemaining != long.MaxValue && _stepsRemaining <= 0)
             {
                 Aborted = true;
+                Reason = EStopReason.StepLimit;
                 return false;
             }
 
-            if (Token.IsCancellationRequested || IsTimeLimitReached())
+            if (Token.IsCancellationRequested)
             {
                 Aborted = true;
+                Reason = EStopReason.Cancellation;
+                return false;
+            }
+
+            if (IsTimeLimitReached())
+            {
+                Aborted = true;
+                Reason = EStopReason.Timeout;
                 return false;
             }
 
             return true;
         }
+
+        /// <summary>
+        /// Returns the reason why the budget was aborted (Timeout, StepLimit, Cancellation, FullStop, or None).
+        /// </summary>
+        public EStopReason GetStopReason() => Reason;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         void DisableTimeLimit()

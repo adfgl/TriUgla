@@ -19,7 +19,16 @@ namespace TriUgla.Parsing
 
             if (stack.Budget.Aborted)
             {
-                Console.WriteLine("Time-out");
+                string msg = stack.Budget.Reason switch
+                {
+                    Runtime.RuntimeBudget.EStopReason.None => "Execution stopped (no specific reason).",
+                    Runtime.RuntimeBudget.EStopReason.StepLimit => "Execution stopped: step limit reached.",
+                    Runtime.RuntimeBudget.EStopReason.Timeout => "Execution stopped: time limit exceeded.",
+                    Runtime.RuntimeBudget.EStopReason.Cancellation => "Execution cancelled by external request.",
+                    Runtime.RuntimeBudget.EStopReason.FullStop => "Execution stopped manually (full stop).",
+                    _ => "Execution stopped: unknown reason."
+                };
+                return new TuValue(msg);
             }
             return result;
         }
