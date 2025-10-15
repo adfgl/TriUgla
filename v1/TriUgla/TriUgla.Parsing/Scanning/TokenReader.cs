@@ -164,27 +164,100 @@ namespace TriUgla.Parsing.Scanning
 
         Token ReadString()
         {
-            int line = _line, col = _col, start = _pos; // start at opening quote
-            Advance(); // consume opening "
+            int line = _line, col = _col;
+            int startPos = _pos;     // at opening "
+            Advance();               // consume opening "
+
+            var sb = new System.Text.StringBuilder();
 
             while (true)
             {
                 char c = Peek();
-                if (c == EOF || c == '\n') break;      // unterminated: raw up to EOL/EOF
-                Advance();
-                if (c == '"') break;                   // consumed closing quote, done
-                if (c == '\\')                         // skip escaped char (raw)
+                if (c == EOF) break;            // unterminated -> return what we have
+                if (c == '"') { Advance(); break; } // consume closing ", done
+                if (c == '\n' || c == '\r')
+                {   // stop at EOL for safety (treat as unterminated)
+                    break;
+                }
+
+                if (c != '\\')                  // normal char
                 {
-                    char e = Peek();
-                    if (e == EOF || e == '\n') break;
+                    sb.Append(c);
                     Advance();
+                    continue;
+                }
+
+                Advance();                      // consume backslash
+                char e = Peek();
+                if (e == EOF) break;
+
+                switch (e)
+                {
+                    case '"': sb.Append('"'); Advance(); break;
+                    case '\\': sb.Append('\\'); Advance(); break;
+                    case 'n': sb.Append('\n'); Advance(); break;
+                    case 'r': sb.Append('\r'); Advance(); break;
+                    case 't': sb.Append('\t'); Advance(); break;
+                    case 'b': sb.Append('\b'); Advance(); break;
+                    case 'f': sb.Append('\f'); Advance(); break;
+                    case '0': sb.Append('\0'); Advance(); break;
+
+                    case 'x':  // \xHH (2 hex)
+                        {
+                            Advance();
+                            int v = 0, digits = 0;
+                            for (int i = 0; i < 2; i++)
+                            {
+                                char h = Peek();
+                                int d = HexVal(h);
+                                if (d < 0) break;
+                                v = (v << 4) | d;
+                                Advance();
+                                digits++;
+                            }
+                            sb.Append(digits > 0 ? (char)v : 'x'); // if bad, keep 'x' literally
+                            break;
+                        }
+
+                    case 'u':  // \uHHHH (4 hex)
+                        {
+                            Advance();
+                            int v = 0, digits = 0;
+                            for (int i = 0; i < 4; i++)
+                            {
+                                char h = Peek();
+                                int d = HexVal(h);
+                                if (d < 0) break;
+                                v = (v << 4) | d;
+                                Advance();
+                                digits++;
+                            }
+                            if (digits == 4)
+                                sb.Append((char)v);
+                            else
+                                sb.Append('u'); // minimal recovery on malformed
+                            break;
+                        }
+
+                    default:
+                        sb.Append(e);
+                        Advance();
+                        break;
                 }
             }
 
-            int len = _pos - start;
-            string lexeme = _src.Substring(start, len); 
-            return new Token(ETokenType.StringLiteral, line, col, lexeme);
+            string cooked = sb.ToString();
+            return new Token(ETokenType.StringLiteral, line, col, cooked);
+
+            static int HexVal(char ch)
+            {
+                if (ch >= '0' && ch <= '9') return ch - '0';
+                if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
+                if (ch >= 'A' && ch <= 'F') return 10 + (ch - 'A');
+                return -1;
+            }
         }
+
 
         Token ReadOperatorOrPunct()
         {

@@ -1,12 +1,6 @@
-For i In {0:5}
-	For j In {0:5}
-		If (j == 2 )
-			break
-		EndIf
-
-		Print(i + " " + j)
-	EndFor
-	Print()
+For {0:5}
+	
+	Print(i)
 EndFor
 
 	Print("Hello")

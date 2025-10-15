@@ -455,18 +455,14 @@ namespace TriUgla.Parsing
             List<(NodeBase Cond, NodeStmtBlock Block)> elifs = new List<(NodeBase Cond, NodeStmtBlock Block)>();
 
             Token tkIf = Consume(ETokenType.If);
-            Consume(ETokenType.OpenParen);
             NodeBase condition = ParseExpression();
-            Consume(ETokenType.CloseParen);
             NodeStmtBlock ifBlock = ParseBlockUntil(tkIf, stop);
 
             elifs.Add((condition, ifBlock));
 
             while (TryConsume(ETokenType.ElseIf, out var tkElseIf))
             {
-                Consume(ETokenType.OpenParen);
                 NodeBase elifCond = ParseExpression();
-                Consume(ETokenType.CloseParen);
 
                 NodeStmtBlock elifBlock = ParseBlockUntil(tkElseIf, stop);
                 elifs.Add((elifCond, elifBlock));
