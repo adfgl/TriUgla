@@ -42,11 +42,13 @@ namespace TriUgla.Parsing.Nodes.FlowControl
             {
                 for (double i = from; i <= to + eps; i += step)
                 {
-                    if (flow.HasReturn) break;
+                    if (!stack.Budget.Tick() || flow.HasReturn) break;
 
                     // counter.Value = new TuValue(i);
 
                     Block.Evaluate(stack);
+
+                    if (!stack.Budget.Tick()) break;
 
                     if (flow.IsContinue) { flow.ConsumeBreakOrContinue(); continue; }
                     if (flow.IsBreak) { flow.ConsumeBreakOrContinue(); break; }
@@ -56,11 +58,13 @@ namespace TriUgla.Parsing.Nodes.FlowControl
             {
                 for (double i = from; i >= to - eps; i += step)
                 {
-                    if (flow.HasReturn) break;
+                    if (!stack.Budget.Tick() || flow.HasReturn) break;
 
                     // counter.Value = new TuValue(i);
 
                     Block.Evaluate(stack);
+
+                    if (!stack.Budget.Tick()) break;
 
                     if (flow.IsContinue) { flow.ConsumeBreakOrContinue(); continue; }
                     if (flow.IsBreak) { flow.ConsumeBreakOrContinue(); break; }

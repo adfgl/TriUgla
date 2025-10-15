@@ -1,4 +1,4 @@
-For (0:5)
+For (0:5:2)
 	
 		Print("Hello")
 EndFor

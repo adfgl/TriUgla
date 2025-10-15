@@ -47,11 +47,13 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
             foreach (var item in iterator)
             {
-                if (flow.HasReturn) break;
+                if (!stack.Budget.Tick() || flow.HasReturn) break;
 
                 counter.Value = new TuValue(item);
 
                 Block.Evaluate(stack);
+
+                if (!stack.Budget.Tick()) break;
 
                 if (flow.IsContinue)
                 {

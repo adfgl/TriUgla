@@ -23,18 +23,21 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
             foreach (var (cond, block) in Branches)
             {
-                if (flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
+                if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
 
                 if (cond.Evaluate(stack).AsBoolean())
                 {
                     block.Evaluate(stack);
-                    return TuValue.Nothing; // any flow set inside bubbles up
+                    return TuValue.Nothing; 
                 }
             }
 
-            if (!flow.HasReturn && !flow.IsBreak && !flow.IsContinue && ElseBlock is not null)
-                ElseBlock.Evaluate(stack);
+            if (ElseBlock is null || (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue))
+            {
+                return TuValue.Nothing;
+            }
 
+            ElseBlock.Evaluate(stack);
             return TuValue.Nothing;
         }
     }

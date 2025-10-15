@@ -22,12 +22,12 @@ namespace TriUgla.Parsing.Nodes.FlowControl
             RuntimeFlow flow = stack.Flow;
             foreach (NodeBase node in Statements)
             {
-                if (flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
+                if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
 
                 var v = node.Evaluate(stack);
                 if (v.type != EDataType.Nothing) last = v;
 
-                if (flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
+                if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
             }
             return TuValue.Nothing;
         }

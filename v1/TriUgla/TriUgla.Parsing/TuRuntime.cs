@@ -1,4 +1,6 @@
 ﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.FlowControl;
@@ -58,17 +60,74 @@ namespace TriUgla.Parsing
         }
     }
 
+    public sealed class RuntimeBudget
+    {
+        readonly Stopwatch _sw = new();
+        long _stepsLeft = long.MaxValue;   // disabled by default
+        int _throttle;                    // throttles time/token checks
+
+        public TimeSpan TimeLimit { get; private set; } = Timeout.InfiniteTimeSpan;
+        public CancellationToken Token;            // optional external cancel
+        public bool Aborted { get; private set; }
+
+        public void SetTimeLimit(TimeSpan limit)
+        {
+            TimeLimit = (limit <= TimeSpan.Zero) ? Timeout.InfiniteTimeSpan : limit;
+            if (TimeLimit == Timeout.InfiniteTimeSpan) { _sw.Reset(); return; }
+            if (!_sw.IsRunning) _sw.Restart(); else _sw.Restart(); // restart whenever limit changes
+            Aborted = false; _throttle = 0;
+        }
+
+        public void SetStepBudget(long steps)
+        {
+            _stepsLeft = steps <= 0 ? 0 : steps;
+            Aborted = false; // reset aborted state when reconfiguring
+        }
+
+        public void Reset()
+        {
+            Aborted = false;
+            _stepsLeft = long.MaxValue;
+            _throttle = 0;
+            _sw.Reset();
+            TimeLimit = Timeout.InfiniteTimeSpan;
+            Token = default;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Tick()
+        {
+            if (Aborted) return false;
+
+            if (_stepsLeft != long.MaxValue && --_stepsLeft <= 0)
+                return (Aborted = true) == false;
+
+            // Throttle wall-clock / cancellation checks to ~ every 1024 ticks
+            if ((++_throttle & 0x3FF) == 0)
+            {
+                if ((TimeLimit != Timeout.InfiniteTimeSpan && _sw.IsRunning && _sw.Elapsed >= TimeLimit)
+                    || (Token.CanBeCanceled && Token.IsCancellationRequested))
+                {
+                    Aborted = true;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
     public class TuRuntime
     {
         readonly NativeFunctions _functions = new NativeFunctions();
         readonly Stack<Scope> _scopes = new Stack<Scope>();
         readonly List<PrintMsg> _printed = new List<PrintMsg>();
-        readonly RuntimeFlow _flow = new RuntimeFlow();
 
         public IReadOnlyCollection<Scope> Scopes => _scopes;
         public IReadOnlyList<PrintMsg> Printed => _printed;
         public NativeFunctions Functions => _functions;
-        public RuntimeFlow Flow => _flow;
+        public RuntimeFlow Flow { get; } = new RuntimeFlow();
+        public RuntimeBudget Budget { get; } = new RuntimeBudget();
 
         public void Print(Token token, string message)
         {
