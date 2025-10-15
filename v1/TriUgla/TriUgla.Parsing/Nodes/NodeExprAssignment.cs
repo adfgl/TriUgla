@@ -97,29 +97,38 @@ namespace TriUgla.Parsing.Nodes
         TuValue AssignCompoundTuple(Variable variable, TuValue current, TuValue rhs)
         {
             if (current.type != EDataType.Tuple)
-                throw new RunTimeException(
-                    $"Invalid operation '{Operation}' between '{current.type}' and 'Tuple'.",
-                    Token);
+            {
+                throw new RunTimeException($"Invalid operation '{Operation}' between '{current.type}' and 'Tuple'.", Token);
+            }
 
-            if (Operation != ETokenType.PlusEqual)
-                throw new RunTimeException(
-                    $"Unsupported tuple compound operation '{Operation}'. Only '+=' is allowed for tuples.",
-                    Token);
+            TuTuple left = variable.Value.AsTuple()!;
+            TuTuple right = rhs.AsTuple()!;
 
-            var left = variable.Value.AsTuple()!;
-            var right = rhs.AsTuple()!;
-
-            var merged = ConcatTuples(left, right);
-            variable.Value = new TuValue(new TuTuple(merged));
+            if (Operation == ETokenType.PlusEqual)
+            {
+                left.Values.AddRange(right.Values);
+            }
+            else if (Operation == ETokenType.MinusEqual)
+            {
+                for (int i = left.Values.Count - 1; i >= 0; i--)
+                {
+                    double value = left.Values[i];
+                    foreach (double other in right)
+                    {
+                        if (other == value)
+                        {
+                            left.Values.RemoveAt(i);
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                throw new RunTimeException($"Unsupported tuple compound operation '{Operation}'.", Token);
+            }
+            variable.Value = new TuValue(left);
             return TuValue.Nothing;
-        }
-
-        static List<double> ConcatTuples(TuTuple left, TuTuple right)
-        {
-            var res = new List<double>(left.Values.Count + right.Values.Count);
-            res.AddRange(left);
-            res.AddRange(right);
-            return res;
         }
 
         TuValue AssignCompoundNumeric(Variable variable, TuValue current, TuValue rhs)
