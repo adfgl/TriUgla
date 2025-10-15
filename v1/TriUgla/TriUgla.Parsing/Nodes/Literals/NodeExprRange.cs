@@ -27,7 +27,8 @@ namespace TriUgla.Parsing.Nodes.Literals
             }
 
             TuValue[] values = new TuValue[3];
-            for (int i = 0; i < values.Length; i++)
+            values[2] = new TuValue(1);
+            for (int i = 0; i < Args.Count; i++)
             {
                 NodeBase arg = Args[i];
                 TuValue v = arg.Evaluate(stack);
@@ -51,6 +52,8 @@ namespace TriUgla.Parsing.Nodes.Literals
                         throw new RunTimeException(msg, arg.Token);
                     }
                 }
+
+                values[i] = v;
             }
 
             double f = values[0].AsNumeric();

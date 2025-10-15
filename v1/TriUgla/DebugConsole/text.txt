@@ -1,6 +1,12 @@
-a = { 1, 2, 3}
-a += {3}
-a -= {3}
+For i In {0:5}
+	For j In {0:5}
+		If (j == 2 )
+			break
+		EndIf
 
+		Print(i + " " + j)
+	EndFor
+	Print()
+EndFor
 
-Print(Min(a[0], a[1]))
+	Print("Hello")

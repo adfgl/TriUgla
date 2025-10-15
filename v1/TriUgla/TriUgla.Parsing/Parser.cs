@@ -353,6 +353,12 @@ namespace TriUgla.Parsing
                     Token tkOpenParen = Consume(ETokenType.OpenParen);
                     NodeBase expr = ParseExpression();
                     return new NodeExprGroup(tkOpenParen, expr, Consume(ETokenType.CloseParen));
+
+                case ETokenType.Break:
+                    return new NodeBreak(Consume());
+
+                case ETokenType.Continue:
+                    return new NodeContinue(Consume());
             }
 
             throw new Exception("Unexpected token in primary: " + token.type);

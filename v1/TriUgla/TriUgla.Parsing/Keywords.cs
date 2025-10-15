@@ -26,7 +26,10 @@ namespace TriUgla.Parsing
             { "and", ETokenType.And },
             { "or", ETokenType.Or },
             { "not", ETokenType.Not },
-            { "is", ETokenType.EqualEqual }
+            { "is", ETokenType.EqualEqual },
+
+            { "break", ETokenType.Break },
+            { "continue", ETokenType.Continue },
         };
     }
 }

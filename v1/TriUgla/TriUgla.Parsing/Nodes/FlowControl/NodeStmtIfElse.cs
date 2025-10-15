@@ -7,11 +7,11 @@ namespace TriUgla.Parsing.Nodes.FlowControl
     {
         public NodeStmtIfElse(Token start, IEnumerable<(NodeBase condition, NodeStmtBlock block)> ifBlocks, NodeStmtBlock? elseBlock, Token end) : base(start)
         {
-            IfElifBlocks = ifBlocks.ToArray();
+            Branches = ifBlocks.ToArray();
             End = end;
         }
 
-        public IReadOnlyList<(NodeBase condition, NodeStmtBlock block)> IfElifBlocks { get; }
+        public IReadOnlyList<(NodeBase condition, NodeStmtBlock block)> Branches { get; }
         public NodeStmtBlock? ElseBlock { get; }
 
         public Token Start => Token;
@@ -19,22 +19,22 @@ namespace TriUgla.Parsing.Nodes.FlowControl
 
         public override TuValue Evaluate(TuRuntime stack)
         {
-            TuValue result;
-            bool checkElse = true;
-            foreach ((NodeBase condition, NodeStmtBlock block) in IfElifBlocks)
+            var flow = stack.Flow;
+
+            foreach (var (cond, block) in Branches)
             {
-                if (condition.Evaluate(stack).AsBoolean())
+                if (flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
+
+                if (cond.Evaluate(stack).AsBoolean())
                 {
-                    result = block.Evaluate(stack);
-                    checkElse = false;
-                    break;
+                    block.Evaluate(stack);
+                    return TuValue.Nothing; // any flow set inside bubbles up
                 }
             }
 
-            if (checkElse && ElseBlock is not null)
-            {
-                result = ElseBlock.Evaluate(stack);
-            }
+            if (!flow.HasReturn && !flow.IsBreak && !flow.IsContinue && ElseBlock is not null)
+                ElseBlock.Evaluate(stack);
+
             return TuValue.Nothing;
         }
     }

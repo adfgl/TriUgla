@@ -1,4 +1,6 @@
-﻿using TriUgla.Parsing.Compiling;
+﻿using System.Collections.Generic;
+using System.Reflection.Emit;
+using TriUgla.Parsing.Compiling;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.FlowControl
@@ -11,16 +13,21 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         }
 
         public IReadOnlyList<NodeBase> Statements { get; }
+
+
         public override TuValue Evaluate(TuRuntime stack)
         {
-            TuValue result = TuValue.Nothing;
+            TuValue last = TuValue.Nothing;
+
+            RuntimeFlow flow = stack.Flow;
             foreach (NodeBase node in Statements)
             {
-                TuValue value = node.Evaluate(stack);
-                if (value.type != EDataType.Nothing)
-                {
-                    result = value;
-                }
+                if (flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
+
+                var v = node.Evaluate(stack);
+                if (v.type != EDataType.Nothing) last = v;
+
+                if (flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
             }
             return TuValue.Nothing;
         }

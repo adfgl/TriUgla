@@ -35,25 +35,39 @@ namespace TriUgla.Parsing.Nodes.FlowControl
             Variable counter = stack.Current.Get(id.Name)!;
 
             TuValue list = Range.Evaluate(stack);
-            switch (list.type)
+            IEnumerable<double> iterator = list.type switch
             {
-                case EDataType.Range:
-                    foreach (double item in list.AsRange()!)
-                    {
-                        counter.Value = new TuValue(item);
-                        Block.Evaluate(stack);
-                    }
+                EDataType.Range => list.AsRange()!,
+                EDataType.Tuple => list.AsTuple()!,
+                _ => throw new RunTimeException($"For-loop expects {EDataType.Range} or {EDataType.Tuple} but got {list.type}.", Range.Token),
+            };
+
+            var flow = stack.Flow;
+            flow.EnterLoop();
+
+            foreach (var item in iterator)
+            {
+                if (flow.HasReturn) break;
+
+                counter.Value = new TuValue(item);
+
+                // run body
+                Block.Evaluate(stack);
+
+                if (flow.IsContinue)
+                {
+                    flow.ConsumeBreakOrContinue();
+                    continue;
+                }
+                if (flow.IsBreak)
+                {
+                    flow.ConsumeBreakOrContinue();
                     break;
-                case EDataType.Tuple:
-                    foreach (double item in list.AsTuple()!)
-                    {
-                        counter.Value = new TuValue(item);
-                        Block.Evaluate(stack);
-                    }
-                    break;
-                default:
-                    throw new Exception($"For-loop expects {EDataType.Range} or {EDataType.Tuple} but got {list.type}.");
+                }
             }
+
+            flow.LeaveLoop();
+
             return TuValue.Nothing;
         }
     }
