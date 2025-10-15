@@ -18,7 +18,7 @@ namespace TriUgla.Parsing.Nodes
         public ETokenType Operation => Token.type;
         public NodeBase Expression { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             return Assignee switch
             {
@@ -30,7 +30,7 @@ namespace TriUgla.Parsing.Nodes
             };
         }
 
-        TuValue EvalAssignToElement(NodeExprValueAt valueAt, TuStack stack)
+        TuValue EvalAssignToElement(NodeExprValueAt valueAt, TuRuntime stack)
         {
             TuValue currentElement = valueAt.Evaluate(stack); 
             EnsureTupleElementContext(valueAt);
@@ -49,7 +49,7 @@ namespace TriUgla.Parsing.Nodes
                 throw new RunTimeException("Internal error: missing tuple reference for element assignment.", valueAt.Token);
         }
 
-        TuValue EvalAssignToIdentifier(NodeExprIdentifier id, TuStack stack)
+        TuValue EvalAssignToIdentifier(NodeExprIdentifier id, TuRuntime stack)
         {
             id.DeclareIfMissing = Operation == ETokenType.Equal || id.DeclareIfMissing;
 
@@ -72,7 +72,7 @@ namespace TriUgla.Parsing.Nodes
             };
         }
 
-        static Variable RequireVariable(TuStack stack, NodeExprIdentifier id)
+        static Variable RequireVariable(TuRuntime stack, NodeExprIdentifier id)
         {
             var v = stack.Current.Get(id.Name);
             if (v is null)

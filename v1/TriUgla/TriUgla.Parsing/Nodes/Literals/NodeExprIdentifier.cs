@@ -14,7 +14,7 @@ namespace TriUgla.Parsing.Nodes.Literals
         public string Name { get; private set; }
         public bool DeclareIfMissing { get; set; } = false;
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             if (!ValidIdentifier(Name, out string reason))
             {

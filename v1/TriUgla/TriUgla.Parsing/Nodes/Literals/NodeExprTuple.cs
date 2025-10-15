@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes.Literals
         public Token Open => Token;
         public Token Close { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             List<double> values = new List<double>(Args.Count);
             for (int i = 0; i < Args.Count; i++)

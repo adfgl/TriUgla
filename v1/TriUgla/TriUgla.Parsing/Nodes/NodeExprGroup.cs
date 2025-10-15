@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes
         public NodeBase Expression { get; }
         public Token Close { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue value = Expression.Evaluate(stack);
             if (value.type == EDataType.Nothing)

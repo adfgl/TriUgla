@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         public Token Start => Token;
         public Token End { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue result;
             bool checkElse = true;

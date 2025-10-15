@@ -10,7 +10,7 @@ namespace TriUgla.Parsing
         {
             Scanner scanner = new Scanner(code);
             Parser parser = new Parser(scanner);
-            TuStack stack = new TuStack();
+            TuRuntime stack = new TuRuntime();
 
             var program = parser.Parse();
             TuValue result = program.Evaluate(stack);

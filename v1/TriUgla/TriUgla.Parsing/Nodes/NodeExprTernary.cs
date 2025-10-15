@@ -20,7 +20,7 @@ namespace TriUgla.Parsing.Nodes
         public Token Colon { get; }
         public NodeBase ElseExp { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue result;
 

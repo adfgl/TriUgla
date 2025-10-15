@@ -14,7 +14,7 @@ namespace TriUgla.Parsing.Nodes.TupleOps
 
         public NodeBase Tuple { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue value = Tuple.Evaluate(stack);
             if (value.type == EDataType.Tuple)

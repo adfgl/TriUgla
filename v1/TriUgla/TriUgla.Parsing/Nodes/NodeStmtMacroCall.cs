@@ -20,7 +20,7 @@ namespace TriUgla.Parsing.Nodes
 
         public NodeBase Name { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue nameValue = Name.Evaluate(stack);
             if (nameValue.type != EDataType.String)

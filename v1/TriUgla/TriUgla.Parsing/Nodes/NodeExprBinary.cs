@@ -24,7 +24,7 @@ namespace TriUgla.Parsing.Nodes
             return $"{Left} {Token.value} {Right}";
         }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             ETokenType op = Operation.type;
             if (op == ETokenType.Or) return Value = EvaluateOr(stack);
@@ -67,7 +67,7 @@ namespace TriUgla.Parsing.Nodes
             throw new Exception($"Unsupported binary operation '{Token.value}'.");
         }
 
-        TuValue CheckForNothing(TuStack stack, NodeBase node)
+        TuValue CheckForNothing(TuRuntime stack, NodeBase node)
         {
             TuValue value = node.Evaluate(stack);
             if (value.type == EDataType.Nothing)
@@ -77,7 +77,7 @@ namespace TriUgla.Parsing.Nodes
             return value;
         }
 
-        TuValue EvaluateOr(TuStack stack)
+        TuValue EvaluateOr(TuRuntime stack)
         {
             TuValue left = CheckForNothing(stack, Left);
             if (left.AsBoolean()) return new TuValue(true);
@@ -86,7 +86,7 @@ namespace TriUgla.Parsing.Nodes
             return new TuValue(right.AsBoolean());
         }
 
-        TuValue EvaluateAnd(TuStack stack)
+        TuValue EvaluateAnd(TuRuntime stack)
         {
             TuValue left = CheckForNothing(stack, Left);
             if (!left.AsBoolean()) return new TuValue(false);

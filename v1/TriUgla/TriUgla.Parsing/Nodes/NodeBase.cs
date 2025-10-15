@@ -15,7 +15,7 @@ namespace TriUgla.Parsing.Nodes
         public Token Token { get; }
         public TuValue Value { get; protected set; } = TuValue.Nothing;
 
-        public abstract TuValue Evaluate(TuStack stack);
+        public abstract TuValue Evaluate(TuRuntime stack);
 
         public override string ToString()
         {

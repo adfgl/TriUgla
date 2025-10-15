@@ -22,7 +22,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         public NodeBase Range { get; }
         public NodeStmtBlock Block { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             NodeExprIdentifier? id = Counter as NodeExprIdentifier;
             if (id is null)

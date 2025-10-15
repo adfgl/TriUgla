@@ -15,7 +15,7 @@ namespace TriUgla.Parsing.Nodes
         public Token Operation => Token;
         public NodeBase Expression { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             ETokenType op = Operation.type;
             if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)

@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Literals
         public Token Start => Token;
         public Token End { get; }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             if (Args.Count != 2 && Args.Count != 3)
             {

@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Nodes
             return $"{Token.value}({Args.Count})";
         }
 
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             string name = Id.Name;
 

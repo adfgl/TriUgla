@@ -11,9 +11,7 @@ namespace TriUgla.Parsing.Nodes.FlowControl
         }
 
         public IReadOnlyList<NodeBase> Statements { get; }
-        public TuValue Value { get; private set; }
-
-        public override TuValue Evaluate(TuStack stack)
+        public override TuValue Evaluate(TuRuntime stack)
         {
             TuValue result = TuValue.Nothing;
             foreach (NodeBase node in Statements)

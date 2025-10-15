@@ -16,13 +16,13 @@ namespace TriUgla.Parsing.Compiling
         public string Message { get; set; }
     }
 
-    public class TuStack
+    public class TuRuntime
     {
         readonly NativeFunctions _functions;
         readonly Stack<Scope> _scopes;
         readonly List<PrintMsg> _printed;
 
-        public TuStack()
+        public TuRuntime()
         {
             _functions = new NativeFunctions();
             _scopes = new Stack<Scope>();
