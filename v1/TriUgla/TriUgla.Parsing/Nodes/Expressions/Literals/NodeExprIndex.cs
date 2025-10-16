@@ -1,13 +1,12 @@
 ﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Expressions
+namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
-    public sealed class NodeExprValueAt : NodeExprBase
+    public sealed class NodeExprIndex : NodeExprBase
     {
-        public NodeExprValueAt(Token token, NodeExprBase tuple, NodeExprBase index) : base(token)
+        public NodeExprIndex(Token token, NodeExprBase tuple, NodeExprBase index) : base(token)
         {
             TupleExp = tuple;
             IndexExp = index;
@@ -16,7 +15,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public NodeExprBase TupleExp { get; }
         public NodeExprBase IndexExp { get; }
         public int Index { get; private set; }
-        public TuTuple? Tuple { get; private set; }
+        public TuTuple Tuple { get; private set; } = null!;
 
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
@@ -27,8 +26,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     $"Cannot index expression of type '{tuple.type}'. Only tuples ({{...}}) support indexing.",
                     Token);
             }
-
-            TuTuple tpl = tuple.AsTuple()!;
 
             TuValue index = IndexExp.Evaluate(rt);
             if (index.type != EDataType.Integer)
@@ -46,6 +43,8 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
                 
             int i = (int)index.AsNumeric();
+
+            TuTuple tpl = tuple.AsTuple();
             if (i < 0 || i >= tpl.Count)
             {
                 throw new RunTimeException(

@@ -10,6 +10,7 @@
         Text = 1 << 2,
         Range = 1 << 3,
         Tuple = 1 << 4,
+        Reference = 1 << 5,
 
         Numeric = Integer | Real,
         Scalar = Numeric | Text,

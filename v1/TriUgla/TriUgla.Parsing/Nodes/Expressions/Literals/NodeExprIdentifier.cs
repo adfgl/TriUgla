@@ -17,7 +17,6 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 
         public bool IsTuple { get; }
         public NodeExprBase? Index { get; }
-
         public Variable? Variable => _variable;
         public bool DeclareIfMissing { get; set; } = false;
 
@@ -29,6 +28,16 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
             }
 
             string name = Token.value;
+            if (Index is not null)
+            {
+                TuValue index = Index.Evaluate(rt);
+                if (index.type != EDataType.Integer)
+                {
+                    throw new CompileTimeException("Expected index.", Index.Token);
+                }
+                name += $"_{index.AsInteger()}";
+            }
+
             if (!ValidIdentifier(name, out string reason))
             {
                 throw new CompileTimeException(
@@ -39,14 +48,20 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
             _variable = rt.Current.Get(name);
             if (DeclareIfMissing && _variable is null)
             {
-                _variable = rt.Current.Declare(Token, TuValue.Nothing);
+                _variable = rt.Current.Declare(new Token(Token, name), TuValue.Nothing);
             }
 
             if (_variable is null)
             {
                 throw new CompileTimeException($"Undefined variable '{name}'.", Token);
             }
-            return _variable.Value;
+
+            TuValue value = _variable.Value;
+            if (IsTuple && value.type != EDataType.Nothing && value.type != EDataType.Tuple)
+            {
+                throw new CompileTimeException("Expected tuple", Token);
+            }
+            return value;
         }
     }
 }

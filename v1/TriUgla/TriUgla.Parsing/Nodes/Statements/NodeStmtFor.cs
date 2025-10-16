@@ -1,5 +1,5 @@
 ﻿using TriUgla.Parsing.Data;
-using TriUgla.Parsing.Nodes.Expressions;
+using TriUgla.Parsing.Nodes.Expressions.Assignment;
 using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Runtime;
 using TriUgla.Parsing.Scanning;

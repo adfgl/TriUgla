@@ -11,7 +11,11 @@ namespace TriUgla.Parsing
             { "Print", ETokenType.Print },
             { "Abort", ETokenType.Abort },
             { "Return", ETokenType.Return },
+
             { "NameOf", ETokenType.NameOf },
+            { "Exists", ETokenType.Exists },
+            { "Get", ETokenType.Get },
+            { "Set", ETokenType.Set },
 
             { "If", ETokenType.If },
             { "Else", ETokenType.Else },

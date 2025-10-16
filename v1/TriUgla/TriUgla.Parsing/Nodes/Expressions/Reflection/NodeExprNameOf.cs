@@ -2,7 +2,7 @@
 using TriUgla.Parsing.Nodes.Expressions.Literals;
 using TriUgla.Parsing.Scanning;
 
-namespace TriUgla.Parsing.Nodes.Expressions
+namespace TriUgla.Parsing.Nodes.Expressions.Reflection
 {
     public class NodeExprNameOf : NodeExprBase
     {

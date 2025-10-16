@@ -29,12 +29,23 @@ namespace TriUgla.Parsing.Data
             numeric = b ? 1 : 0;
             obj = null;
         }
+        public bool AsBoolean()
+        {
+            if (type == EDataType.Real || type == EDataType.Integer) return numeric > 0;
+            if (obj is not null) return true;
+            throw new InvalidCastException();
+        }
 
         public TuValue(int n)
         {
             type = EDataType.Integer;
             numeric = n;
             obj = null;
+        }
+        public int AsInteger()
+        {
+            if (type == EDataType.Integer) return (int)numeric;
+            throw new InvalidCastException();
         }
 
         public TuValue(double n)
@@ -43,12 +54,22 @@ namespace TriUgla.Parsing.Data
             numeric = n;
             obj = null;
         }
+        public double AsNumeric()
+        {
+            if (type == EDataType.Real || type == EDataType.Integer) return numeric;
+            throw new InvalidCastException();
+        }
 
         public TuValue(string s)
         {
             type = EDataType.Text;
             obj = new TuText(s);
             numeric = double.NaN;
+        }
+        public TuText AsText()
+        {
+            if (type == EDataType.Text && obj is TuText t) return t;
+            throw new InvalidCastException();
         }
 
         public TuValue(TuText text)
@@ -64,6 +85,11 @@ namespace TriUgla.Parsing.Data
             obj = range;
             numeric = double.NaN;
         }
+        public TuRange AsRange()
+        {
+            if (type == EDataType.Range && obj is TuRange r) return r;
+            throw new InvalidCastException();
+        }
 
         public TuValue(TuTuple tuple)
         {
@@ -71,52 +97,6 @@ namespace TriUgla.Parsing.Data
             obj = tuple;
             numeric = double.NaN;
         }
-
-        public double AsNumeric()
-        {
-            if (type == EDataType.Real || type == EDataType.Integer) return numeric;
-            throw new InvalidCastException();
-        }
-
-        public int AsInteger()
-        {
-            if (type == EDataType.Integer) return (int)numeric;
-            throw new InvalidCastException();
-        }
-
-        public TuText AsText()
-        {
-            if (type == EDataType.Text && obj is TuText t) return t;
-            throw new InvalidCastException();
-        }
-
-        public override string ToString()
-        {
-            return $"[{type}] {AsString()}";
-        }
-
-        public string AsString()
-        {
-            if (type == EDataType.Real) return numeric.ToString("0.0#################", CultureInfo.InvariantCulture);
-            if (type == EDataType.Integer) return ((int)numeric).ToString();
-            if (obj is not null) return obj.ToString() ?? string.Empty;
-            if (type == EDataType.Nothing) return string.Empty;
-            throw new InvalidCastException();
-        }
-
-        public bool AsBoolean()
-        {
-            if (type == EDataType.Real || type == EDataType.Integer) return numeric > 0;
-            if (obj is not null) return true;
-            throw new InvalidCastException();
-        }
-
-        public TuRange AsRange()
-        {
-            if (type == EDataType.Range && obj is TuRange r) return r;
-            throw new InvalidCastException();
-        }
-
         public TuTuple AsTuple()
         {
             if (type == EDataType.Tuple && obj is TuTuple t) return t;
@@ -135,8 +115,48 @@ namespace TriUgla.Parsing.Data
                 }
                 return tpl;
             }
+            if (type == EDataType.Text)
+            {
+                TuTuple tpl = new TuTuple();
+                foreach (char dbl in AsText().Content)
+                {
+                    tpl.Add(new TuValue($"{dbl}"));
+                }
+                return tpl;
+            }
             throw new InvalidCastException();
         }
+
+        public TuValue(TuRef reference)
+        {
+            type = EDataType.Reference;
+            obj = reference;
+        }
+        public TuRef AsRef()
+        {
+            if (type == EDataType.Reference && obj is TuRef t) return t;
+            throw new InvalidCastException();
+        }
+
+        public override string ToString()
+        {
+            return $"[{type}] {AsString()}";
+        }
+
+        public string AsString()
+        {
+            if (type == EDataType.Real) return numeric.ToString("0.0#################", CultureInfo.InvariantCulture);
+            if (type == EDataType.Integer) return ((int)numeric).ToString();
+            if (obj is not null) return obj.ToString() ?? string.Empty;
+            if (type == EDataType.Nothing) return string.Empty;
+            throw new InvalidCastException();
+        }
+
+        
+
+     
+
+   
 
         public TuValue Copy()
         {
