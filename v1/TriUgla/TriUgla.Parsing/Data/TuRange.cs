@@ -4,25 +4,29 @@ namespace TriUgla.Parsing.Data
 {
     public class TuRange : TuObject, IEnumerable<TuValue>
     {
-        readonly double _from, _to, _by;
-        double _current;
+        readonly TuValue _from, _to, _by;
+        TuValue _current;
 
-        public TuRange(double from, double to, double by = 1)
+        public TuRange(TuValue from, TuValue to, TuValue by)
         {
-            int steps = (int)((_from - _to) / _by);
-            if (steps < 0) throw new Exception("Ivalid range.");
+            TuValue steps = (to - from) / by;
+            if (steps.AsNumeric() < 0) throw new Exception("Ivalid range.");
 
             _from =  from;
             _to = to;
             _by = by;
 
+            if (by.type == EDataType.Real && from.type == EDataType.Integer)
+            {
+                _from = new TuValue(by.AsNumeric());
+            }
             Reset();
         }
 
-        public double From { get; }
-        public double To { get; }
-        public double By { get; }
-        public double Current => _current;
+        public TuValue From { get; }
+        public TuValue To { get; }
+        public TuValue By { get; }
+        public TuValue Current => _current;
 
         bool s_first = true;
 
@@ -39,8 +43,8 @@ namespace TriUgla.Parsing.Data
                 s_first = false;
                 return true;
             }
-            double next = _current + _by;
-            if (next >= _to)
+            TuValue next = _current + _by;
+            if ((next >= _to).AsBoolean())
             {
                 return false;
             }
@@ -53,7 +57,7 @@ namespace TriUgla.Parsing.Data
         {
             while (Next())
             {
-                yield return new TuValue(_current);
+                yield return _current;
             }
         }
 

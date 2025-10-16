@@ -17,15 +17,24 @@ namespace TriUgla.Parsing.Nodes.Expressions
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             TuValue value = Tuple.Evaluate(rt);
+
+            int count;
             if (value.type == EDataType.Tuple)
             {
-                return new TuValue(value.AsTuple()!.Values.Count);
+                count = value.AsTuple().Values.Count;
             }
-
-            throw new RunTimeException(
+            else if (value.type == EDataType.Text)
+            {
+                count = value.AsText().Content.Length;
+            }
+            else
+            {
+                throw new RunTimeException(
                                $"Cannot obtain number of elements from expression of type '{value.type}'. " +
                                $"Expected a tuple value ({{...}}).",
                                Token);
+            }
+            return new TuValue(count);
         }
     }
 }

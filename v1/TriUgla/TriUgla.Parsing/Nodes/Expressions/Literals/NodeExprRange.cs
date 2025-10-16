@@ -53,7 +53,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     _ => "by"
                 };
 
-                if (v.type != EDataType.Real)
+                if (!v.type.IsNumeric())
                 {
                     string msg = $"Range '{argStr}' must be numeric.";
                     if (arg is NodeExprLiteralBase)
@@ -93,7 +93,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     Args.Count == 3 ? Args[2].Token : Token);
             }
 
-            TuRange rng = new TuRange(f, t, b);
+            TuRange rng = new TuRange(values[0], values[1], values[2]);
             if (allCompileTimeKnown)
             {
                 _value = new TuValue(rng);

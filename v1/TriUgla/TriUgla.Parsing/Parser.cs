@@ -377,11 +377,37 @@ namespace TriUgla.Parsing
             return expr;
         }
 
+        NodeExprNameOf ParseNameOf()
+        {
+            Token tknNameOf = Consume(ETokenType.NameOf);
+            Consume(ETokenType.OpenParen);
+            if (TryConsume(ETokenType.CloseParen, out _))
+            {
+                throw new CompileTimeException("Missing argument", tknNameOf);
+            }
+
+            NodeExprBase exp = ParseExpression();
+            Consume(ETokenType.CloseParen);
+            MaybeEOX();
+
+            if (exp is NodeExprIdentifier id)
+            {
+                return new NodeExprNameOf(tknNameOf, id);
+            }
+            else
+            {
+                throw new CompileTimeException("Expected identifier", exp.Token);
+            }
+        }
+
         NodeExprBase ParseSimplePrimaryExpression()
         {
             Token token = Peek();
             switch (token.type)
             {
+                case ETokenType.NameOf:
+                    return ParseNameOf();
+
                 case ETokenType.NativeFunction:
                     Consume();
                     List<NodeExprBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);

@@ -18,7 +18,7 @@ namespace TriUgla.Parsing.Nodes.Statements
             if (Arg != null)
             {
                 TuValue v = Arg.Evaluate(rt);
-                msg = v.AsString();
+                msg = v.ToString();
             }
             rt.Print(Token, msg);
             return new TuValue(msg);
