@@ -31,7 +31,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuTuple tpl = tuple.AsTuple()!;
 
             TuValue index = IndexExp.Evaluate(rt);
-            if (index.type != EDataType.Real)
+            if (index.type != EDataType.Integer)
             {
                 string msg = $"Tuple index must be numeric, but expression evaluated to '{index.type}'.";
                 if (IndexExp is NodeExprLiteralBase)
@@ -44,16 +44,8 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 }
             }
 
-            double idxNum = index.AsNumeric();
-            if (idxNum % 1 != 0)
-            {
-                throw new RunTimeException(
-                    $"Tuple index must be an integer value, but got {idxNum}.",
-                    IndexExp.Token);
-            }
                 
-            int i = (int)idxNum;
-
+            int i = (int)index.AsNumeric();
             if (i < 0 || i >= tpl.Count)
             {
                 throw new RunTimeException(

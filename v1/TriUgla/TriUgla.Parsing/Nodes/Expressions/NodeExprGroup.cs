@@ -20,12 +20,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             TuValue value = Expression.Evaluate(rt);
-            if (value.type == EDataType.Nothing)
-            {
-                throw new RunTimeException(
-                    "Grouped expression evaluated to 'Nothing'.",
-                    Expression.Token);
-            }
             return value;
         }
 

@@ -16,7 +16,6 @@ namespace TriUgla.Parsing.Data
             return t1 == EDataType.Nothing || t1 == t2 || (t1 == EDataType.Real && t2 == EDataType.Integer);
         }
 
-
         TuValue(EDataType type, double numeric, TuObject? obj)
         {
             this.type = type;
@@ -121,7 +120,7 @@ namespace TriUgla.Parsing.Data
         public TuTuple AsTuple()
         {
             if (type == EDataType.Tuple && obj is TuTuple t) return t;
-            if (type == EDataType.Real)
+            if (type.IsNumeric())
             {
                 TuTuple tpl = new TuTuple();
                 tpl.Add(this);
@@ -148,16 +147,12 @@ namespace TriUgla.Parsing.Data
 
         public bool Equals(TuValue other)
         {
-            if (type != other.type) return false;
-
-            return type switch
+            if (type.IsNumeric() && other.type.IsNumeric())
             {
-                EDataType.Real => numeric.Equals(other.numeric),
-                EDataType.Text or EDataType.Range or EDataType.Tuple
-                    => Equals(obj, other.obj),
-                EDataType.Nothing => true,
-                _ => false
-            };
+                return numeric == other.numeric;
+            }
+            if (type != other.type) return false;
+            return Equals(obj, other.obj);
         }
 
         public override bool Equals(object? obj)
@@ -177,41 +172,70 @@ namespace TriUgla.Parsing.Data
         public static bool operator ==(TuValue left, TuValue right) => left.Equals(right);
         public static bool operator !=(TuValue left, TuValue right) => !left.Equals(right);
 
+        static TuValue NumericOp(TuValue left, TuValue right, Func<double, double, double> op)
+        {
+            if (!left.type.IsNumeric() || !right.type.IsNumeric())
+                throw new InvalidOperationException();
+
+            double result = op(left.AsNumeric(), right.AsNumeric());
+            return (left.type == EDataType.Real || right.type == EDataType.Real)
+                ? new TuValue(result)
+                : new TuValue((int)result);
+        }
+
+        static TuValue BooleanOp(TuValue left, TuValue right, Func<double, double, bool> op)
+        {
+            if (!left.type.IsNumeric() || !right.type.IsNumeric())
+                throw new InvalidOperationException();
+            return new TuValue(op(left.AsNumeric(), right.AsNumeric()));
+        }
+
         public static TuValue operator +(TuValue left, TuValue right)
         {
             if (left.type == EDataType.Text || right.type == EDataType.Text)
-            {
-                return new TuValue(left.AsString() +  right.AsString());
-            }
+                return new TuValue(left.AsString() + right.AsString());
+            return NumericOp(left, right, (a, b) => a + b);
+        }
 
-            if (left.type.IsNumeric() && right.type.IsNumeric())
+        public static TuValue operator -(TuValue left, TuValue right)
+            => NumericOp(left, right, (a, b) => a - b);
+
+        public static TuValue operator *(TuValue left, TuValue right)
+            => NumericOp(left, right, (a, b) => a * b);
+
+        public static TuValue operator /(TuValue left, TuValue right)
+            => NumericOp(left, right, (a, b) => a / b);
+
+        public static TuValue operator %(TuValue left, TuValue right)
+            => NumericOp(left, right, (a, b) => a % b);
+
+        public static TuValue operator ^(TuValue left, TuValue right)
+            => NumericOp(left, right, Math.Pow);
+
+        public static TuValue operator <(TuValue left, TuValue right)
+            => BooleanOp(left, right, (a, b) => a < b);
+
+        public static TuValue operator >(TuValue left, TuValue right)
+            => BooleanOp(left, right, (a, b) => a > b);
+
+        public static TuValue operator <=(TuValue left, TuValue right)
+           => BooleanOp(left, right, (a, b) => a <= b);
+
+        public static TuValue operator >=(TuValue left, TuValue right)
+            => BooleanOp(left, right, (a, b) => a >= b);
+
+        public static TuValue operator -(TuValue value)
+        {
+            if (value.type.IsNumeric())
             {
-                double result = left.AsNumeric() + right.AsNumeric();
-                if (left.type == EDataType.Numeric || right.type == EDataType.Numeric)
+                double result = -value.AsNumeric();
+                if (value.type == EDataType.Numeric)
                 {
                     return new TuValue(result);
                 }
                 return new TuValue((int)result);
             }
-
             throw new InvalidOperationException();
         }
-
-        public static TuValue operator -(TuValue value)
-        {
-            switch (value.type)
-            {
-                case EDataType.Real:
-                    return new TuValue(-value.AsNumeric());
-
-                case EDataType.Integer:
-                    return new TuValue(-(int)value.AsNumeric());
-
-                default:
-                    throw new InvalidOperationException(
-                        $"Unary '-' is not defined for type {value.type}.");
-            }
-        }
-
     }
 }

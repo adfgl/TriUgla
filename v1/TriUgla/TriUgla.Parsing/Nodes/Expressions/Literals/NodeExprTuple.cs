@@ -25,40 +25,46 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                 return _value;
             }
 
-            bool allCompileTimeKnown = true;
             TuTuple values = new TuTuple(Args.Count);
+
+            bool allCompileTimeKnown = true;
+            EDataType type = EDataType.Nothing;
             for (int i = 0; i < Args.Count; i++)
             {
-                NodeBase item = Args[i];
-                if (allCompileTimeKnown && item is not NodeExprLiteralBase)
+                NodeBase arg = Args[i];
+                if (allCompileTimeKnown && arg is not NodeExprLiteralBase)
                 {
                     allCompileTimeKnown = false;
                 }
 
-                TuValue v = item.Evaluate(rt);
-                if (!TuValue.Compatible(values.Type, v.type))
+                foreach (TuValue v in arg.Evaluate(rt).AsTuple())
                 {
-                    throw new RunTimeException(
-                        $"Tuple element {ToOrdinal(i + 1)} must be numeric, range, or tuple, " +
-                        $"but expression evaluated to '{v.type}'.",
-                        item.Token);
-                }
-
-                switch (v.type)
-                {
-                    case EDataType.Real:
-                    case EDataType.Integer:
-                    case EDataType.Text:
-                    case EDataType.Range:
-                    case EDataType.Tuple:
-                        values.Add(v); 
-                        break;
-
-                    default:
+                    TuValue set = v;
+                    if (v.type == type || type == EDataType.Nothing)
+                    {
+                        type = v.type;
+                    }
+                    else if (type == EDataType.Real && v.type == EDataType.Integer)
+                    {
+                        set = new TuValue(v.AsNumeric());
+                    }
+                    else if (type == EDataType.Integer && v.type == EDataType.Real)
+                    {
+                        type = EDataType.Real;
+                        set = new TuValue(v.AsNumeric());
+                        for (int j = 0; j < i; j++)
+                        {
+                            values[j] = new TuValue(values[j].AsNumeric());
+                        }
+                    }
+                    else
+                    {
                         throw new RunTimeException(
-                            $"Tuple element {ToOrdinal(i + 1)} must be numeric, range, or tuple, " +
-                            $"but expression evaluated to '{v.type}'.",
-                            item.Token);
+                            $"Type mismatch — expected: {type}; actual: {v.type}.",
+                            arg.Token);
+                    }
+
+                    values.Add(set);
                 }
             }
 

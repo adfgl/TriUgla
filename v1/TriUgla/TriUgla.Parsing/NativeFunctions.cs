@@ -96,34 +96,16 @@ namespace TriUgla.Parsing
     }
 
 
-    [Flags]
-    public enum EArgKind
-    {
-        Any = 0,
-
-        Integer = 1 << 0,
-        Real = 1 << 1,
-        String = 1 << 2,
-        Tuple = 1 << 3,
-        Range = 1 << 4,
-
-        // Logical groupings
-        Numeric = Integer | Real,
-        Scalar = Numeric | String,
-        Iterable = Tuple | Range
-    }
-
-
     public class ArgSpec
     {
         public string Name { get; }
-        public EArgKind Kind { get; }
+        public EDataType Kind { get; }
         public bool Optional { get; }
         public TuValue? DefaultValue { get; }
 
         public ArgSpec(
             string name,
-            EArgKind kind = EArgKind.Any,
+            EDataType kind = EDataType.Any,
             bool optional = false,
             TuValue? defaultValue = null)
         {
@@ -135,23 +117,14 @@ namespace TriUgla.Parsing
 
         public bool Matches(TuValue value)
         {
-            if (Kind == EArgKind.Any)
+            if (Kind == EDataType.Any)
                 return true;
-
-            EArgKind actual = value.type switch
-            {
-                EDataType.Real => EArgKind.Numeric,
-                EDataType.Text => EArgKind.String,
-                EDataType.Tuple => EArgKind.Tuple,
-                EDataType.Range => EArgKind.Range,
-                _ => EArgKind.Any
-            };
-            return (Kind & actual) != 0;
+            return (Kind & value.type) != 0;
         }
 
         public override string ToString()
         {
-            string flags = Kind == EArgKind.Any ? "Any" : Kind.ToString();
+            string flags = Kind == EDataType.Any ? "Any" : Kind.ToString();
             return Optional
                 ? $"{Name}?:{flags}"
                 : $"{Name}:{flags}";
@@ -228,8 +201,8 @@ namespace TriUgla.Parsing
         {
             Name = "Acos";
             Description = "Arc cosine (inverse cosine) of an expression in [-1,1]. Returns a value in [0,Pi].";
-            Input = [new ArgSpec("x", EArgKind.Numeric)]; 
-            Output = new ArgSpec("result", EArgKind.Numeric);
+            Input = [new ArgSpec("x", EDataType.Numeric)]; 
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -246,8 +219,8 @@ namespace TriUgla.Parsing
         {
             Name = "Asin";
             Description = "Arc sine (inverse sine) of an expression in [-1,1]. Returns a value in [-Pi/2,Pi/2].";
-            Input = [new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+            Input = [new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -264,8 +237,8 @@ namespace TriUgla.Parsing
         {
             Name = "Atan";
             Description = "Arc tangent (inverse tangent) of expression. Returns a value in [-Pi/2,Pi/2].";
-            Input = [new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+            Input = [new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -283,9 +256,9 @@ namespace TriUgla.Parsing
             Name = "Atan2";
             Description = "Arc tangent (inverse tangent) of the first expression divided by the second. Returns a value in [-Pi,Pi].";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric),
-                new ArgSpec("y", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric),
+                new ArgSpec("y", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -304,8 +277,8 @@ namespace TriUgla.Parsing
             Name = "Ceil";
             Description = "Rounds expression up to the nearest integer.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -323,8 +296,8 @@ namespace TriUgla.Parsing
             Name = "Cos";
             Description = "Cosine of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -342,8 +315,8 @@ namespace TriUgla.Parsing
             Name = "Cosh";
             Description = "Cosine of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -361,8 +334,8 @@ namespace TriUgla.Parsing
             Name = "Exp";
             Description = "Returns the value of e (the base of natural logarithms) raised to the power of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -380,8 +353,8 @@ namespace TriUgla.Parsing
             Name = "Abs";
             Description = "Absolute value of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -399,9 +372,9 @@ namespace TriUgla.Parsing
             Name = "Fmod";
             Description = "Remainder of the division of the first expression by the second, with the sign of the first.";
             Input = [
-                new ArgSpec("a", EArgKind.Numeric),
-                new ArgSpec("b", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("a", EDataType.Numeric),
+                new ArgSpec("b", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -425,8 +398,8 @@ namespace TriUgla.Parsing
             Name = "Floor";
             Description = "Remainder of the division of the first expression by the second, with the sign of the first.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -444,9 +417,9 @@ namespace TriUgla.Parsing
             Name = "Hypot";
             Description = "Returns the square root of the sum of the square of its two arguments.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric),
-                new ArgSpec("y", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric),
+                new ArgSpec("y", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -465,8 +438,8 @@ namespace TriUgla.Parsing
             Name = "Log";
             Description = "Natural logarithm of expression (expression > 0).";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -484,8 +457,8 @@ namespace TriUgla.Parsing
             Name = "Log10";
             Description = "Base 10 logarithm of expression (expression > 0).";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -503,9 +476,9 @@ namespace TriUgla.Parsing
             Name = "Min";
             Description = "Minimum of the two arguments.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric),
-                new ArgSpec("y", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric),
+                new ArgSpec("y", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -524,9 +497,9 @@ namespace TriUgla.Parsing
             Name = "Max";
             Description = "Maximum of the two arguments.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric),
-                new ArgSpec("y", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric),
+                new ArgSpec("y", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -545,8 +518,8 @@ namespace TriUgla.Parsing
             Name = "Rand";
             Description = "Random number between zero and expression.";
             Input = [
-                new ArgSpec("bound", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("bound", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -573,8 +546,8 @@ namespace TriUgla.Parsing
             Name = "Round";
             Description = "Rounds expression to the nearest integer.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -592,8 +565,8 @@ namespace TriUgla.Parsing
             Name = "Sqrt";
             Description = "Square root of expression (expression >= 0).";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -611,8 +584,8 @@ namespace TriUgla.Parsing
             Name = "Sin";
             Description = "Sine of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -630,8 +603,8 @@ namespace TriUgla.Parsing
             Name = "Sinh";
             Description = "Hyperbolic sine of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -649,8 +622,8 @@ namespace TriUgla.Parsing
             Name = "Step";
             Description = "Returns 0 if expression is negative, 1 if not.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -668,8 +641,8 @@ namespace TriUgla.Parsing
             Name = "Tan";
             Description = "Tangent of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -687,8 +660,8 @@ namespace TriUgla.Parsing
             Name = "Tanh";
             Description = "Hyperbolic tangent of expression.";
             Input = [
-                new ArgSpec("x", EArgKind.Numeric)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Numeric)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
@@ -706,8 +679,8 @@ namespace TriUgla.Parsing
             Name = "Print";
             Description = "";
             Input = [
-                new ArgSpec("x", EArgKind.Any, true)];
-            Output = new ArgSpec("result", EArgKind.Numeric);
+                new ArgSpec("x", EDataType.Any, true)];
+            Output = new ArgSpec("result", EDataType.Numeric);
         }
 
         public override TuValue Execute(TuValue[] args)
