@@ -33,7 +33,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
             id.DeclareIfMissing = true;
             id.Evaluate(stack);
-            Variable counter = stack.Current.Get(id.Name)!;
+            Variable counter = id.Variable!;
 
             TuValue list = Range.Evaluate(stack);
             IEnumerable<TuValue> iterator = list.type switch

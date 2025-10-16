@@ -25,13 +25,6 @@ namespace TriUgla.Parsing.Nodes.Statements
             TuValue nameValue = Name.Evaluate(stack);
             if (nameValue.type != EDataType.Text)
             {
-                if (Name is NodeExprIdentifier id)
-                {
-                    throw new CompileTimeException(
-                        $"Macro definition expects a string name: variable '{id.Name}' has type '{nameValue.type}'.",
-                        Name.Token);
-                }
-
                 throw new RunTimeException(
                     $"Macro definition expects a string name, but the expression evaluated to '{nameValue.type}'.",
                     Name.Token);

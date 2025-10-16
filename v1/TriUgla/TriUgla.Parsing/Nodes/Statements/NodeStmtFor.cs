@@ -64,14 +64,14 @@ namespace TriUgla.Parsing.Nodes.Statements
                     EDataType.Numeric => cur.AsNumeric(),
                     _ => throw new Exception("'from' must be numeric.")
                 };
-                return (v, st.Current.Get(id.Name));
+                return (v, id.Variable);
             }
 
             if (node is NodeExprAssignment a && a.Assignee is NodeExprIdentifier tgt)
             {
                 TuValue cur = a.Evaluate(st);
                 if (cur.type != EDataType.Numeric) throw new Exception("'from' assignment must be numeric.");
-                return (cur.AsNumeric(), st.Current.Get(tgt.Name));
+                return (cur.AsNumeric(), tgt.Variable);
             }
 
             return (EvalNumOrDefault(st, node, "from", 0.0), null);

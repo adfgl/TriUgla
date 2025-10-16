@@ -14,6 +14,7 @@ namespace TriUgla.Parsing.Runtime
         public Token Identifier { get; }
         public EVariableType Type { get; private set; }
         public TuValue Value { get; private set; } = TuValue.Nothing;
+        public string Name => Identifier.value;
 
         public void Protect()
         {

@@ -23,13 +23,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue tuple = TupleExp.Evaluate(stack);
             if (tuple.type != EDataType.Tuple)
             {
-                if (TupleExp is NodeExprIdentifier id)
-                {
-                    throw new CompileTimeException(
-                        $"Cannot index variable '{id.Name}': expected a tuple, but it is of type '{tuple.type}'.",
-                        Token);
-                }
-
                 throw new RunTimeException(
                     $"Cannot index expression of type '{tuple.type}'. Only tuples ({{...}}) support indexing.",
                     Token);

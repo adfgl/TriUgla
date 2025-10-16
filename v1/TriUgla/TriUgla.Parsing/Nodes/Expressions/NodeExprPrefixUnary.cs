@@ -36,27 +36,20 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     throw new Exception($"Postfix {Operation.value} requires numeric variable");
                 }
 
-                Variable? v = stack.Current.Get(id.Name);
-                if (v is null)
-                {
-                    throw new CompileTimeException(
-                        $"Variable '{id.Name}' is not defined.",
-                        id.Token);
-                }
-
+                Variable v = id.Variable!;
                 TuValue curVal = v.Value;
 
                 if (curVal.type == EDataType.Nothing)
                 {
                     throw new CompileTimeException(
-                        $"Variable '{id.Name}' is uninitialized; cannot apply '{Operation.value}'.",
+                        $"Variable '{v.Name}' is uninitialized; cannot apply '{Operation.value}'.",
                         id.Token);
                 }
 
                 if (curVal.type != EDataType.Numeric)
                 {
                     throw new CompileTimeException(
-                        $"Prefix '{Operation.value}' requires a numeric variable, but '{id.Name}' has type '{curVal.type}'.",
+                        $"Prefix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{curVal.type}'.",
                         id.Token);
                 }
 
@@ -70,13 +63,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
             if (value.type == EDataType.Nothing)
             {
-                if (Expression is NodeExprIdentifier id2)
-                {
-                    throw new CompileTimeException(
-                        $"Operand of prefix '{Operation.value}' cannot be 'Nothing': variable '{id2.Name}' is undefined or uninitialized.",
-                        id2.Token);
-                }
-
                 throw new RunTimeException(
                     $"Operand of prefix '{Operation.value}' evaluated to 'Nothing'.",
                     Expression.Token);
@@ -86,13 +72,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
             {
                 if (value.type != EDataType.Numeric)
                 {
-                    if (Expression is NodeExprIdentifier id3)
-                    {
-                        throw new CompileTimeException(
-                            $"Prefix '{Token.value}' requires numeric/boolean (0 = false, nonzero = true): variable '{id3.Name}' has type '{value.type}'.",
-                            id3.Token);
-                    }
-
                     throw new RunTimeException(
                         $"Prefix '{Token.value}' requires operand to evaluate to numeric/boolean, but got '{value.type}'.",
                         Expression.Token);
@@ -125,13 +104,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         static void ThrowNonNumericUnary(string opLexeme, in TuValue v, NodeBase expr)
         {
-            if (expr is NodeExprIdentifier id)
-            {
-                throw new CompileTimeException(
-                    $"Prefix '{opLexeme}' requires a numeric operand: variable '{id.Name}' has type '{v.type}'.",
-                    id.Token);
-            }
-
             throw new RunTimeException(
                 $"Prefix '{opLexeme}' requires operand to evaluate to numeric, but got '{v.type}'.",
                 expr.Token);

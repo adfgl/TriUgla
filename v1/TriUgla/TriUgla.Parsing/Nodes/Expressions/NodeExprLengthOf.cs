@@ -22,20 +22,10 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 return new TuValue(value.AsTuple()!.Values.Count);
             }
 
-            if (Tuple is NodeExprIdentifier id)
-            {
-                throw new CompileTimeException(
-                      $"Cannot obtain number of elements: variable '{id.Name}' " +
-                      $"has type '{value.type}', but a tuple was expected.",
-                      Token);
-            }
-            else
-            {
-                throw new RunTimeException(
-                      $"Cannot obtain number of elements from expression of type '{value.type}'. " +
-                      $"Expected a tuple value ({{...}}).",
-                      Token);
-            }
+            throw new RunTimeException(
+                               $"Cannot obtain number of elements from expression of type '{value.type}'. " +
+                               $"Expected a tuple value ({{...}}).",
+                               Token);
         }
     }
 }

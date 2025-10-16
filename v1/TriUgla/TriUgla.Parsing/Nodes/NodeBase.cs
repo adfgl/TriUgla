@@ -14,11 +14,7 @@ namespace TriUgla.Parsing.Nodes
 
         public Token Token { get; }
 
-        public virtual TuValue Evaluate(TuRuntime rt)
-        {
-            TuValue value = Eval(rt);
-            return value;
-        }
+        public virtual TuValue Evaluate(TuRuntime rt) => Eval(rt);
 
         protected abstract TuValue Eval(TuRuntime stack);
 

@@ -7,34 +7,41 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public class NodeExprIdentifier : NodeExprLiteralBase
     {
+        Variable? _variable = null;
+
         public NodeExprIdentifier(Token token) : base(token)
         {
-            Name = token.value;
         }
 
-        public string Name { get; private set; }
+        public Variable? Variable => _variable;
         public bool DeclareIfMissing { get; set; } = false;
 
         protected override TuValue Eval(TuRuntime stack)
         {
-            if (!ValidIdentifier(Name, out string reason))
+            if (_variable is not null)
+            {
+                return _variable.Value;
+            }
+
+            string name = Token.value;
+            if (!ValidIdentifier(name, out string reason))
             {
                 throw new CompileTimeException(
-                      $"Invalid identifier name '{Name}': {reason}.",
+                      $"Invalid identifier name '{name}': {reason}.",
                       Token);
             }
 
-            Variable? v = stack.Current.Get(Name);
-            if (DeclareIfMissing && v is null)
+            _variable = stack.Current.Get(name);
+            if (DeclareIfMissing && _variable is null)
             {
-                v = stack.Current.Declare(Token, TuValue.Nothing);
+                _variable = stack.Current.Declare(Token, TuValue.Nothing);
             }
 
-            if (v is null)
+            if (_variable is null)
             {
-                throw new CompileTimeException($"Undefined variable '{Name}'.", Token);
+                throw new CompileTimeException($"Undefined variable '{name}'.", Token);
             }
-            return v.Value;
+            return _variable.Value;
         }
     }
 }

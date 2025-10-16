@@ -22,13 +22,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue value = Expression.Evaluate(stack);
             if (value.type == EDataType.Nothing)
             {
-                if (Expression is NodeExprIdentifier id)
-                {
-                    throw new CompileTimeException(
-                        $"Grouped expression cannot be 'Nothing': variable '{id.Name}' is undefined or uninitialized.",
-                        id.Token);
-                }
-
                 throw new RunTimeException(
                     "Grouped expression evaluated to 'Nothing'.",
                     Expression.Token);

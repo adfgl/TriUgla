@@ -6,18 +6,27 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public sealed class NodeExprNumeric : NodeExprLiteralBase
     {
+        TuValue _value = TuValue.Nothing;
+
         public NodeExprNumeric(Token token) : base(token)
         {
         }
 
         protected override TuValue Eval(TuRuntime stack)
         {
-            string value = Token.value;
-            if (double.TryParse(value, out double d))
+            if (_value.type == EDataType.Nothing)
             {
-                return new TuValue(d);
+                string value = Token.value;
+                if (double.TryParse(value, out double d))
+                {
+                    _value = new TuValue(d);
+                }
+                else
+                {
+                    throw new CompileTimeException($"Invalid numeric literal '{value}'.", Token);
+                }
             }
-            throw new CompileTimeException($"Invalid numeric literal '{value}'.", Token);
+            return _value;
         }
     }
 }

@@ -34,28 +34,21 @@ namespace TriUgla.Parsing.Nodes.Expressions
             }
 
             TuValue value = id.Evaluate(stack);
-
-            Variable? v = stack.Current.Get(id.Name);
-            if (v is null)
-            {
-                throw new CompileTimeException(
-                    $"Variable '{id.Name}' is not defined.",
-                    id.Token);
-            }
+            Variable v = id.Variable!;
 
             TuValue curVal = v.Value;
 
             if (curVal.type == EDataType.Nothing)
             {
                 throw new CompileTimeException(
-                    $"Variable '{id.Name}' is uninitialized; cannot apply '{Operation.value}'.",
+                    $"Variable '{v.Name}' is uninitialized; cannot apply '{Operation.value}'.",
                     id.Token);
             }
 
             if (curVal.type != EDataType.Numeric)
             {
                 throw new CompileTimeException(
-                    $"Postfix '{Operation.value}' requires a numeric variable, but '{id.Name}' has type '{curVal.type}'.",
+                    $"Postfix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{curVal.type}'.",
                     id.Token);
             }
 

@@ -22,14 +22,11 @@ namespace TriUgla.Parsing.Nodes.Expressions
             if (Assignee is NodeExprIdentifier id)
             {
                 id.DeclareIfMissing = true;
-
                 TuValue current = id.Evaluate(stack);
                 TuValue value = Expression.Evaluate(stack);
-                Variable variable = stack.Current.Get(id.Name)!;
-                variable.Assign(value);
-                return variable.Value;
+                id.Variable!.Assign(value);
+                return id.Variable.Value;
             }
-
             throw new Exception();
         }
     }

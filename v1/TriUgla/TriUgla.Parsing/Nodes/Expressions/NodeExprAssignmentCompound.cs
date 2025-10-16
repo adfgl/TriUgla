@@ -80,7 +80,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         {
             id.DeclareIfMissing = false;
             id.Evaluate(rt);
-            Variable vrbl = rt.Current.Get(id.Name)!;
+            Variable vrbl = id.Variable!;
             TuValue curr = vrbl.Value;
 
             TuValue newValue;
