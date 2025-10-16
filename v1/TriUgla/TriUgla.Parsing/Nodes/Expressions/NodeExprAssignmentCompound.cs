@@ -179,17 +179,17 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return curDbl;
         }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            TuValue value = Expression.Evaluate(stack);
+            TuValue value = Expression.Evaluate(rt);
             if (Assignee is NodeExprIdentifier id)
             {
-                return AssignToIdentifier(stack, id, value);
+                return AssignToIdentifier(rt, id, value);
             }
 
             if (Assignee is NodeExprValueAt at)
             {
-                return AssignToTuple(stack, at, value);
+                return AssignToTuple(rt, at, value);
             }
 
             throw new CompileTimeException($"Unsupported operator '{Token.value}'", Token);

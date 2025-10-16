@@ -18,7 +18,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         public IReadOnlyList<NodeExprBase> Args { get; }
         public Token Close { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             if (_value.type != EDataType.Nothing)
             {
@@ -35,7 +35,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     allCompileTimeKnown = false;
                 }
 
-                TuValue v = item.Evaluate(stack);
+                TuValue v = item.Evaluate(rt);
                 if (!TuValue.Compatible(values.Type, v.type))
                 {
                     throw new RunTimeException(

@@ -20,6 +20,8 @@ namespace TriUgla.Parsing.Nodes.Statements
             TuValue last = TuValue.Nothing;
 
             RuntimeFlow flow = stack.Flow;
+
+            stack.OpenScope();
             foreach (NodeBase node in Statements)
             {
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
@@ -29,6 +31,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
             }
+            stack.CloseScope();
             return last;
         }
     }

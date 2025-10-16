@@ -23,7 +23,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public NodeExprBase Range { get; }
         public NodeStmtBlock Block { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             NodeExprIdentifier? id = Counter as NodeExprIdentifier;
             if (id is null)
@@ -32,10 +32,10 @@ namespace TriUgla.Parsing.Nodes.Statements
             }
 
             id.DeclareIfMissing = true;
-            id.Evaluate(stack);
+            id.Evaluate(rt);
             Variable counter = id.Variable!;
 
-            TuValue list = Range.Evaluate(stack);
+            TuValue list = Range.Evaluate(rt);
             IEnumerable<TuValue> iterator = list.type switch
             {
                 EDataType.Range => list.AsRange()!,
@@ -43,18 +43,18 @@ namespace TriUgla.Parsing.Nodes.Statements
                 _ => throw new RunTimeException($"For-loop expects {EDataType.Range} or {EDataType.Tuple} but got {list.type}.", Range.Token),
             };
 
-            var flow = stack.Flow;
+            var flow = rt.Flow;
             flow.EnterLoop();
 
             foreach (TuValue item in iterator)
             {
-                if (!stack.Budget.Tick() || flow.HasReturn) break;
+                if (!rt.Budget.Tick() || flow.HasReturn) break;
 
                 counter.Assign(item);
 
-                Block.Evaluate(stack);
+                Block.Evaluate(rt);
 
-                if (!stack.Budget.Tick()) break;
+                if (!rt.Budget.Tick()) break;
 
                 if (flow.IsContinue)
                 {

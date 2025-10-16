@@ -9,9 +9,9 @@ namespace TriUgla.Parsing.Nodes.Statements
         {
         }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            stack.Budget.FullStop();
+            rt.Budget.FullStop();
             return TuValue.Nothing;
         }
     }

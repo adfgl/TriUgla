@@ -12,7 +12,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         {
         }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             if (_value.type == EDataType.Nothing)
             {

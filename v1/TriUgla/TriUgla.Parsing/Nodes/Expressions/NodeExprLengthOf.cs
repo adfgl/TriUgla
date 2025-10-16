@@ -14,9 +14,9 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         public NodeExprBase Tuple { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            TuValue value = Tuple.Evaluate(stack);
+            TuValue value = Tuple.Evaluate(rt);
             if (value.type == EDataType.Tuple)
             {
                 return new TuValue(value.AsTuple()!.Values.Count);

@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Token.value}({Args.Count})";
         }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             string name = Token.value;
 
@@ -33,10 +33,10 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     allCompileTimeKnown = false;
                 }
 
-                args[i] = arg.Evaluate(stack);
+                args[i] = arg.Evaluate(rt);
             }
 
-            if (!stack.Functions.TryGet(name, out NativeFunction fun))
+            if (!rt.Functions.TryGet(name, out NativeFunction fun))
             {
                 throw new CompileTimeException($"Function '{name}' not supported.", Token);
             }

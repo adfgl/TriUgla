@@ -20,9 +20,9 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public NodeExprBase Name { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            TuValue nameValue = Name.Evaluate(stack);
+            TuValue nameValue = Name.Evaluate(rt);
             if (nameValue.type != EDataType.Text)
             {
                 throw new RunTimeException(
@@ -38,13 +38,13 @@ namespace TriUgla.Parsing.Nodes.Statements
                     Name.Token);
             }
 
-            if (!stack.Current.Macros.TryGetValue(macroName, out var body))
+            if (!rt.Current.Macros.TryGetValue(macroName, out var body))
             {
                 throw new CompileTimeException(
                     $"Macro '{macroName}' is not defined.",
                     Token);
             }
-            return body.Evaluate(stack);
+            return body.Evaluate(rt);
         }
     }
 }

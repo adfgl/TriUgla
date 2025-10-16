@@ -17,27 +17,27 @@ namespace TriUgla.Parsing.Nodes.Statements
         public Token Start => Token;
         public Token End { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            var flow = stack.Flow;
+            var flow = rt.Flow;
 
             foreach (var (cond, block) in Branches)
             {
-                if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
+                if (!rt.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
 
-                if (cond.Evaluate(stack).AsBoolean())
+                if (cond.Evaluate(rt).AsBoolean())
                 {
-                    block.Evaluate(stack);
+                    block.Evaluate(rt);
                     return TuValue.Nothing; 
                 }
             }
 
-            if (ElseBlock is null || !stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue)
+            if (ElseBlock is null || !rt.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue)
             {
                 return TuValue.Nothing;
             }
 
-            ElseBlock.Evaluate(stack);
+            ElseBlock.Evaluate(rt);
             return TuValue.Nothing;
         }
 

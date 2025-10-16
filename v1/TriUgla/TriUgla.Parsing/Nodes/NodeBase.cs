@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes
 
         public abstract TuValue Evaluate(TuRuntime rt);
 
-        protected abstract TuValue EvaluateInvariant(TuRuntime stack);
+        protected abstract TuValue EvaluateInvariant(TuRuntime rt);
 
         public static string ToOrdinal(int n)
         {

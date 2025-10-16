@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         public Variable? Variable => _variable;
         public bool DeclareIfMissing { get; set; } = false;
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             if (_variable is not null)
             {
@@ -31,10 +31,10 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                       Token);
             }
 
-            _variable = stack.Current.Get(name);
+            _variable = rt.Current.Get(name);
             if (DeclareIfMissing && _variable is null)
             {
-                _variable = stack.Current.Declare(Token, TuValue.Nothing);
+                _variable = rt.Current.Declare(Token, TuValue.Nothing);
             }
 
             if (_variable is null)

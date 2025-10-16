@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 namespace TriUgla.Parsing.Scanning
 {
     public enum ETokenType
@@ -11,7 +6,7 @@ namespace TriUgla.Parsing.Scanning
         Undefined, 
         Break, Continue,
 
-        Print, Abort, NativeFunction,
+        Print, Abort, Return, NativeFunction,
         Error,
         Comment, MultiLineComment, 
         LineBreak, EOF,

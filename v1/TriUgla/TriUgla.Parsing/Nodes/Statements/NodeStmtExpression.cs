@@ -17,9 +17,9 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public NodeExprBase Expr { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            return Expr.Evaluate(stack);
+            return Expr.Evaluate(rt);
         }
     }
 }

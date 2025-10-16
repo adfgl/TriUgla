@@ -14,9 +14,9 @@ namespace TriUgla.Parsing.Nodes.Statements
         {
         }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            stack.Flow.SignalBreak();
+            rt.Flow.SignalBreak();
             return TuValue.Nothing;
         }
     }

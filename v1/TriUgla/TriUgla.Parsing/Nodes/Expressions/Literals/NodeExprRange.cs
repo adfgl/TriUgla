@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         public Token Start => Token;
         public Token End { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             if (_value.type != EDataType.Nothing)
             {
@@ -44,7 +44,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     allCompileTimeKnown = false;
                 }
 
-                TuValue v = arg.Evaluate(stack);
+                TuValue v = arg.Evaluate(rt);
 
                 string argStr = i switch
                 {

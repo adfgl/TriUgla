@@ -17,24 +17,24 @@ namespace TriUgla.Parsing.Nodes.Statements
         public IReadOnlyList<NodeExprBase> Args { get; }
         public NodeStmtBlock Block { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             if (Args.Count is not (2 or 3))
                 throw new Exception("for expects 2 or 3 arguments: from, to[, by].");
 
-            var (from, loopVar) = BindFrom(stack, Args[0]);
+            var (from, loopVar) = BindFrom(rt, Args[0]);
             NodeBase toNode = Args[1];
             NodeBase? byNode = Args.Count == 3 ? Args[2] : null;
 
-            var flow = stack.Flow;
+            var flow = rt.Flow;
             double i = from;
 
             for (; ; )
             {
-                if (!PreIteration(stack, flow)) break;
+                if (!PreIteration(rt, flow)) break;
 
-                double to = ReadTo(stack, toNode, from);
-                double by = ReadBy(stack, byNode, from, to);
+                double to = ReadTo(rt, toNode, from);
+                double by = ReadBy(rt, byNode, from, to);
 
                 if (!ShouldContinueExclusive(i, to, by)) break;
 
@@ -43,9 +43,9 @@ namespace TriUgla.Parsing.Nodes.Statements
                     loopVar.Assign(new TuValue(i));
                 }
 
-                Block.Evaluate(stack);
+                Block.Evaluate(rt);
 
-                if (!PostIteration(stack, flow, ref i, by)) break;
+                if (!PostIteration(rt, flow, ref i, by)) break;
             }
 
             flow.LeaveLoop();

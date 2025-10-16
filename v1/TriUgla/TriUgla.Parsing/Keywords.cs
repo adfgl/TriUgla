@@ -10,6 +10,7 @@ namespace TriUgla.Parsing
         {
             { "Print", ETokenType.Print },
             { "Abort", ETokenType.Abort },
+            { "Return", ETokenType.Return },
 
             { "If", ETokenType.If },
             { "Else", ETokenType.Else },

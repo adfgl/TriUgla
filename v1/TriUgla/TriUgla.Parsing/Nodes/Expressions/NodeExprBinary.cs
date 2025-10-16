@@ -21,14 +21,14 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Left} {Token.value} {Right}";
         }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             ETokenType op = Operation.type;
-            if (op == ETokenType.Or) return EvaluateOr(stack);
-            if (op == ETokenType.And) return EvaluateAnd(stack);
+            if (op == ETokenType.Or) return EvaluateOr(rt);
+            if (op == ETokenType.And) return EvaluateAnd(rt);
 
-            TuValue left = Left.Evaluate(stack);
-            TuValue right = Right.Evaluate(stack);
+            TuValue left = Left.Evaluate(rt);
+            TuValue right = Right.Evaluate(rt);
 
             if (left.type == EDataType.Numeric &&
                 right.type == EDataType.Numeric)

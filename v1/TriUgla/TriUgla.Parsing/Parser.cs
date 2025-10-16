@@ -19,7 +19,8 @@ namespace TriUgla.Parsing
 
         public NodeExprProgram Parse()
         {
-            return new NodeExprProgram(new Token(), ParseStatements());
+            Token t = new Token();
+            return new NodeExprProgram(t, new NodeStmtBlock(t, ParseStatements()));
         }
 
         List<NodeBase> ParseStatements()
@@ -123,6 +124,18 @@ namespace TriUgla.Parsing
                     case ETokenType.Abort:
                         statements.Add(new NodeStmtAbort(Consume()));
                         MaybeEOX();
+                        break;
+
+                    case ETokenType.Return:
+                        Token tkReturn = Consume();
+                        Consume(ETokenType.OpenParen);
+                        NodeExprBase? returnExpr = null;
+                        if (!TryConsume(ETokenType.CloseParen, out _))
+                        {
+                            returnExpr = ParseExpression();
+                            Consume(ETokenType.CloseParen);
+                        }
+                        statements.Add(new NodeStmtReturn(tkReturn, returnExpr));
                         break;
 
                     case ETokenType.Break:

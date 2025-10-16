@@ -1,33 +1,24 @@
 ﻿using TriUgla.Parsing.Data;
+using TriUgla.Parsing.Nodes.Statements;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
     public sealed class NodeExprProgram : NodeExprBase
     {
-        public NodeExprProgram(Token token, IEnumerable<NodeBase> statements) : base(token)
+        public NodeExprProgram(Token token, NodeStmtBlock block) : base(token)
         {
-            Statements = statements.ToList();
+            Statements = block;
         }
 
-        public IReadOnlyList<NodeBase> Statements { get; }
+        public NodeStmtBlock Statements { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            stack.OpenScope();
+            rt.OpenScope();
+            rt.Global.Declare(new Token(ETokenType.IdentifierLiteral, -1, -1, "Pi"), new TuValue(3.1415926535897932));
 
-            stack.Global.Declare(new Token(ETokenType.IdentifierLiteral, -1, -1, "Pi"), new TuValue(3.1415926535897932));
-
-            TuValue result = TuValue.Nothing;
-            foreach (NodeBase item in Statements)
-            {
-                TuValue value = item.Evaluate(stack);
-                if (value.type != EDataType.Nothing)
-                {
-                    result = value;
-                }
-            }
-            return result;
+            return Statements.Evaluate(rt);
         }
     }
 }

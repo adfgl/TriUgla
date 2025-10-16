@@ -20,9 +20,9 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public Token EndMacro { get; }
 
-        protected override TuValue EvaluateInvariant(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
-            TuValue nameValue = Name.Evaluate(stack);
+            TuValue nameValue = Name.Evaluate(rt);
             if (nameValue.type != EDataType.Text)
             {
                 throw new RunTimeException(
@@ -38,13 +38,13 @@ namespace TriUgla.Parsing.Nodes.Statements
                     Name.Token);
             }
 
-            if (stack.Current.Macros.ContainsKey(macroName))
+            if (rt.Current.Macros.ContainsKey(macroName))
             {
                 throw new CompileTimeException(
                     $"Macro '{macroName}' is already defined.",
                     Token);
             }
-            stack.Current.Macros[macroName] = Body;
+            rt.Current.Macros[macroName] = Body;
             return TuValue.Nothing;
         }
     }
