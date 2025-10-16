@@ -107,7 +107,7 @@ namespace TriUgla.Parsing.Data
 
         public bool AsBoolean()
         {
-            if (type == EDataType.Real) return numeric > 0;
+            if (type == EDataType.Real || type == EDataType.Integer) return numeric > 0;
             if (obj is not null) return true;
             throw new InvalidCastException();
         }
@@ -176,5 +176,22 @@ namespace TriUgla.Parsing.Data
 
         public static bool operator ==(TuValue left, TuValue right) => left.Equals(right);
         public static bool operator !=(TuValue left, TuValue right) => !left.Equals(right);
+
+        public static TuValue operator -(TuValue value)
+        {
+            switch (value.type)
+            {
+                case EDataType.Real:
+                    return new TuValue(-value.AsNumeric());
+
+                case EDataType.Integer:
+                    return new TuValue(-(int)value.AsNumeric());
+
+                default:
+                    throw new InvalidOperationException(
+                        $"Unary '-' is not defined for type {value.type}.");
+            }
+        }
+
     }
 }

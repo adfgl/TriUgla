@@ -16,6 +16,48 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public Token Operation => Token;
         public NodeExprBase Expression { get; }
 
+        TuValue EvaluateIncrement(TuRuntime rt)
+        {
+            ETokenType op = Operation.type;
+            if (op != ETokenType.PlusPlus && op != ETokenType.MinusMinus)
+            {
+                throw new Exception();
+            }
+
+            if (Expression is not NodeExprIdentifier id)
+            {
+                throw new CompileTimeException(
+                    $"Prefix '{Operation.value}' requires an identifier.",
+                    Operation);
+            }
+
+            id.DeclareIfMissing = false;
+            TuValue value = id.Evaluate(rt);
+            Variable v = id.Variable!;
+            if (!value.type.IsNumeric())
+            {
+                throw new CompileTimeException(
+                    $"Prefix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{value.type}'.",
+                    id.Token);
+            }
+
+            double old = value.AsNumeric();
+            double next = op == ETokenType.PlusPlus ? old + 1 : old - 1;
+
+            TuValue toAssign;
+            if (value.type == EDataType.Integer)
+            {
+                toAssign = new TuValue((int)next);
+            }
+            else
+            {
+                toAssign = new TuValue(next);
+            }
+
+            v.Assign(toAssign);
+            return v.Value;
+        }
+
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             ETokenType op = Operation.type;
@@ -23,90 +65,27 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue value;
             if (op == ETokenType.PlusPlus || op == ETokenType.MinusMinus)
             {
-                if (Expression is not NodeExprIdentifier id)
-                {
-                    throw new CompileTimeException(
-                        $"Prefix '{Operation.value}' requires an identifier.",
-                        Operation);
-                }
-
-                value = id.Evaluate(rt);
-                if (value.type != EDataType.Real)
-                {
-                    throw new Exception($"Postfix {Operation.value} requires numeric variable");
-                }
-
-                Variable v = id.Variable!;
-                TuValue curVal = v.Value;
-
-                if (curVal.type == EDataType.Nothing)
-                {
-                    throw new CompileTimeException(
-                        $"Variable '{v.Name}' is uninitialized; cannot apply '{Operation.value}'.",
-                        id.Token);
-                }
-
-                if (curVal.type != EDataType.Real)
-                {
-                    throw new CompileTimeException(
-                        $"Prefix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{curVal.type}'.",
-                        id.Token);
-                }
-
-                double cur = curVal.AsNumeric();
-                double next = op == ETokenType.PlusPlus ? cur + 1 : cur - 1;
-                v.Assign(new TuValue(next));
-                return v.Value;
+                return EvaluateIncrement(rt);
             }
 
             value = Expression.Evaluate(rt);
-
-            if (value.type == EDataType.Nothing)
-            {
-                throw new RunTimeException(
-                    $"Operand of prefix '{Operation.value}' evaluated to 'Nothing'.",
-                    Expression.Token);
-            }
-
             if (op == ETokenType.Not)
             {
-                if (value.type != EDataType.Real)
-                {
-                    throw new RunTimeException(
-                        $"Prefix '{Token.value}' requires operand to evaluate to numeric/boolean, but got '{value.type}'.",
-                        Expression.Token);
-                }
-
                 return new TuValue(!value.AsBoolean());
             }
 
-            if (op == ETokenType.Plus)
+            if (op == ETokenType.Plus || op == ETokenType.Minus)
             {
-                if (value.type != EDataType.Real)
+                if (!value.type.IsNumeric())
                 {
-                    ThrowNonNumericUnary("+", value, Expression);
+                    throw new RunTimeException(
+               $"Prefix '{Token.value}' requires operand to evaluate to numeric, but got '{value.type}'.",
+               Expression.Token);
                 }
-                return value;
+                return op == ETokenType.Plus ? value : -value;
             }
 
-            if (op == ETokenType.Minus)
-            {
-                if (value.type != EDataType.Real)
-                {
-                    ThrowNonNumericUnary("-", value, Expression);
-                }
-                return new TuValue(-value.AsNumeric());
-            }
-
-            throw new CompileTimeException(
-            $"Unsupported unary operation '{Operation.value}'.", Operation);
-        }
-
-        static void ThrowNonNumericUnary(string opLexeme, in TuValue v, NodeBase expr)
-        {
-            throw new RunTimeException(
-                $"Prefix '{opLexeme}' requires operand to evaluate to numeric, but got '{v.type}'.",
-                expr.Token);
+            throw new CompileTimeException($"Unsupported unary operation '{Operation.value}'.", Operation);
         }
     }
 }
