@@ -43,7 +43,7 @@ namespace TriUgla.Parsing
 
                     case ETokenType.Identifier:
                         NodeExprBase exp = ParseExpression();
-                        if (exp is NodeExprAssignment or NodeExprAssignmentCompound)
+                        if (exp is NodeExprAssignment or NodeExprAssignmentCompound or NodeExprPostfixUnary or NodeExprPrefixUnary)
                         {
                             statements.Add(new NodeStmtExpression(token, exp));
                         }

@@ -88,11 +88,6 @@ namespace TriUgla.Parsing.Nodes.Expressions
         {
             ETokenType op = Operation.type;
 
-            if (op == ETokenType.Slash)
-            {
-                CheckDivisionByZero(Right, right);
-            }
-
             double l = left.AsNumeric();
             double r = right.AsNumeric();
 
@@ -111,6 +106,10 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
             if (!double.IsNaN(dbl))
             {
+                if (left.type == EDataType.Integer && right.type == EDataType.Integer)
+                {
+                    return new TuValue((int)dbl);
+                }
                 return new TuValue(dbl);
             }
 

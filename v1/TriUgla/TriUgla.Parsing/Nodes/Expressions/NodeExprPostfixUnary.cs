@@ -33,29 +33,33 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     Operation);
             }
 
+            id.DeclareIfMissing = false;
             TuValue value = id.Evaluate(rt);
             Variable v = id.Variable!;
-
-            TuValue curVal = v.Value;
-            if (curVal.type == EDataType.Nothing)
+            if (!value.type.IsNumeric())
             {
                 throw new CompileTimeException(
-                    $"Variable '{v.Name}' is uninitialized; cannot apply '{Operation.value}'.",
+                    $"Postfix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{value.type}'.",
                     id.Token);
             }
 
-            if (curVal.type != EDataType.Real)
-            {
-                throw new CompileTimeException(
-                    $"Postfix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{curVal.type}'.",
-                    id.Token);
-            }
-
-            double old = curVal.AsNumeric();
+            double old = value.AsNumeric();
             double next = op == ETokenType.PlusPlus ? old + 1 : old - 1;
 
-            v.Assign(new TuValue(next));
-            return new TuValue(old);
+            TuValue toAssign, toReturn;
+            if (value.type == EDataType.Integer)
+            {
+                toAssign = new TuValue((int)next);
+                toReturn = new TuValue((int)old);
+            }
+            else
+            {
+                toAssign = new TuValue(next);
+                toReturn = new TuValue(old);
+            }
+
+            v.Assign(toAssign);
+            return toReturn;
 
         }
     }

@@ -91,9 +91,14 @@ namespace TriUgla.Parsing.Data
             throw new InvalidCastException();
         }
 
+        public override string ToString()
+        {
+            return $"[{type}] {AsString()}";
+        }
+
         public string AsString()
         {
-            if (type == EDataType.Real) return numeric.ToString(CultureInfo.InvariantCulture);
+            if (type == EDataType.Real) return numeric.ToString("0.0#################", CultureInfo.InvariantCulture);
             if (type == EDataType.Integer) return ((int)numeric).ToString();
             if (obj is not null) return obj.ToString() ?? string.Empty;
             if (type == EDataType.Nothing) return string.Empty;
@@ -133,8 +138,6 @@ namespace TriUgla.Parsing.Data
             }
             throw new InvalidCastException();
         }
-
-        public override string ToString() => AsString();
 
         public TuValue Copy()
         {
