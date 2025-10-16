@@ -1,6 +1,6 @@
 ﻿namespace TriUgla.Parsing.Data.Geometry
 {
-    public class TuPoint : TuObject
+    public class TuPoint3 : TuObject
     {
         public int Id { get; set; }
         public double X { get; set; }
@@ -15,7 +15,7 @@
 
         public override TuObject Clone()
         {
-            return new TuPoint()
+            return new TuPoint3()
             {
                 Id = Id,
                 X = X,

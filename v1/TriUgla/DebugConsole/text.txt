@@ -1,9 +1,3 @@
 a = { "hello", "world"}
 
-For word In a 
-	Print(word)
-EndFor
 
-For word In a 
-	Print(word)
-EndFor
