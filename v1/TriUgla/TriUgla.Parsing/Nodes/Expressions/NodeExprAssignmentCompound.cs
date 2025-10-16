@@ -179,7 +179,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return curDbl;
         }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             TuValue value = Expression.Evaluate(stack);
             if (Assignee is NodeExprIdentifier id)

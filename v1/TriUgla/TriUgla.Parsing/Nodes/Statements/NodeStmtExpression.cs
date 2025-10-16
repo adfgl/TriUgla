@@ -8,16 +8,18 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public sealed class NodeStmtBreak : NodeStmtBase
+    public class NodeStmtExpression : NodeStmtBase
     {
-        public NodeStmtBreak(Token token) : base(token)
+        public NodeStmtExpression(Token token, NodeExprBase expr) : base(token)
         {
+            Expr = expr;
         }
+
+        public NodeExprBase Expr { get; }
 
         protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
-            stack.Flow.SignalBreak();
-            return TuValue.Nothing;
+            return Expr.Evaluate(stack);
         }
     }
 }

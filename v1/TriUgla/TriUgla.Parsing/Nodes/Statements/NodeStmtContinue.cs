@@ -9,7 +9,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         {
         }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             stack.Flow.SignalContinue();
             return TuValue.Nothing;

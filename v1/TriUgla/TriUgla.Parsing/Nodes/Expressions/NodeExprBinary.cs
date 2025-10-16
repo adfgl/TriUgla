@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Left} {Token.value} {Right}";
         }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             ETokenType op = Operation.type;
             if (op == ETokenType.Or) return EvaluateOr(stack);

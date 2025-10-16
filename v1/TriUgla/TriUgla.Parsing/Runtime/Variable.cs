@@ -35,14 +35,16 @@ namespace TriUgla.Parsing.Runtime
                     Identifier);
             }
 
-            if (!TuValue.Compatible(Value.type, value.type))
+            if (Value.type != EDataType.Nothing)
             {
-                throw new RunTimeException(
-                    $"Type mismatch assigning to '{Identifier}': " +
-                    $"existing type {Value.type}, attempted {value.type}.",
-                    Identifier);
+                if (!TuValue.Compatible(Value.type, value.type))
+                {
+                    throw new RunTimeException(
+                        $"Type mismatch assigning to '{Identifier}': " +
+                        $"existing type {Value.type}, attempted {value.type}.",
+                        Identifier);
+                }
             }
-
             Value = value;
         }
 

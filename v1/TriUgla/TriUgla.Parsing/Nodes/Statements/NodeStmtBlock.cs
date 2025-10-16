@@ -15,7 +15,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public IReadOnlyList<NodeBase> Statements { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             TuValue last = TuValue.Nothing;
 

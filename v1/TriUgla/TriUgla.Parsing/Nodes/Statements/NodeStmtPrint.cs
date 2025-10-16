@@ -12,7 +12,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public NodeBase? Arg { get; set; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             string msg = string.Empty;
             if (Arg != null)

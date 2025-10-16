@@ -1,7 +1,4 @@
-﻿using System.Linq.Expressions;
-using TriUgla.Parsing.Data;
-using TriUgla.Parsing.Exceptions;
-using TriUgla.Parsing.Nodes.Expressions;
+﻿using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes
@@ -10,6 +7,11 @@ namespace TriUgla.Parsing.Nodes
     {
         protected NodeExprBase(Token token) : base(token)
         {
+        }
+
+        public override TuValue Evaluate(TuRuntime rt)
+        {
+            return EvaluateInvariant(rt);
         }
     }
 }

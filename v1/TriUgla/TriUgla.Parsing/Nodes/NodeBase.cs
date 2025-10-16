@@ -14,9 +14,9 @@ namespace TriUgla.Parsing.Nodes
 
         public Token Token { get; }
 
-        public virtual TuValue Evaluate(TuRuntime rt) => Eval(rt);
+        public abstract TuValue Evaluate(TuRuntime rt);
 
-        protected abstract TuValue Eval(TuRuntime stack);
+        protected abstract TuValue EvaluateInvariant(TuRuntime stack);
 
         public static string ToOrdinal(int n)
         {

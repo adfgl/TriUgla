@@ -20,7 +20,7 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public NodeExprBase Name { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             TuValue nameValue = Name.Evaluate(stack);
             if (nameValue.type != EDataType.Text)

@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public Token Start => Token;
         public Token End { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             var flow = stack.Flow;
 

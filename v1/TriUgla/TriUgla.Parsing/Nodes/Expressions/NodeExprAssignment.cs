@@ -17,13 +17,13 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public NodeExprBase Assignee { get; }
         public NodeExprBase Expression { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             if (Assignee is NodeExprIdentifier id)
             {
+                TuValue value = Expression.Evaluate(stack);
                 id.DeclareIfMissing = true;
                 TuValue current = id.Evaluate(stack);
-                TuValue value = Expression.Evaluate(stack);
                 id.Variable!.Assign(value);
                 return id.Variable.Value;
             }

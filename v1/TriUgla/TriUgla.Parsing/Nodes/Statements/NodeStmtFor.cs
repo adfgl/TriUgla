@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public IReadOnlyList<NodeExprBase> Args { get; }
         public NodeStmtBlock Block { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             if (Args.Count is not (2 or 3))
                 throw new Exception("for expects 2 or 3 arguments: from, to[, by].");

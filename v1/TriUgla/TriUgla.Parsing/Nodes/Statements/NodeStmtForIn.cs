@@ -23,7 +23,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public NodeExprBase Range { get; }
         public NodeStmtBlock Block { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             NodeExprIdentifier? id = Counter as NodeExprIdentifier;
             if (id is null)

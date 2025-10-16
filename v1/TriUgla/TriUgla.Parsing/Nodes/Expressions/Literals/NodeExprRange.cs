@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         public Token Start => Token;
         public Token End { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             if (_value.type != EDataType.Nothing)
             {

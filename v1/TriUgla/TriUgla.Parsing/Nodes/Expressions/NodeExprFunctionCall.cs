@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Token.value}({Args.Count})";
         }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             string name = Token.value;
 

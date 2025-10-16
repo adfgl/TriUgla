@@ -18,7 +18,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public int Index { get; private set; }
         public TuTuple? Tuple { get; private set; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             TuValue tuple = TupleExp.Evaluate(stack);
             if (tuple.type != EDataType.Tuple)

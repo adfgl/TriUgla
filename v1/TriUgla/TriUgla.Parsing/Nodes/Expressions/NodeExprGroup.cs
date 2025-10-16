@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public NodeExprBase Expression { get; }
         public Token Close { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             TuValue value = Expression.Evaluate(stack);
             if (value.type == EDataType.Nothing)

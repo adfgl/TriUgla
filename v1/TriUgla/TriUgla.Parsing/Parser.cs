@@ -25,7 +25,7 @@ namespace TriUgla.Parsing
         List<NodeBase> ParseStatements()
         {
             List<NodeBase> statements = new List<NodeBase>();
-
+            
             Token token;
             while ((token = Peek()).type != ETokenType.EOF)
             {
@@ -38,6 +38,18 @@ namespace TriUgla.Parsing
                     case ETokenType.MultiLineComment:
                     case ETokenType.LineBreak:
                         Consume();
+                        break;
+
+                    case ETokenType.IdentifierLiteral:
+                        NodeExprBase exp = ParseExpression();
+                        if (exp is NodeExprAssignment or NodeExprAssignmentCompound)
+                        {
+                            statements.Add(new NodeStmtExpression(token, exp));
+                        }
+                        else
+                        {
+                            throw new CompileTimeException($"Unexpected '{token.value}'", token);
+                        }
                         break;
 
                     case ETokenType.Print:
@@ -132,8 +144,7 @@ namespace TriUgla.Parsing
                         break;
 
                     default:
-                        statements.Add(ParseExpression());
-                        break;
+                        throw new CompileTimeException($"Unexpected '{token.value}'", token);
                 }
             }
             return statements;
@@ -541,7 +552,7 @@ namespace TriUgla.Parsing
             Token token = Peek();
             if (token.type != type)
             {
-                throw new CompileTimeException($"Unexpected token: Expected {type} but got {token.type} ({token.value}).", token);
+                throw new CompileTimeException($"Unexpected token: Expected '{type}' but got '{token.type}' ({token.value}).", token);
             }
             return Consume();
         }

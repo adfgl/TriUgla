@@ -11,7 +11,7 @@ namespace TriUgla.Parsing.Nodes
 
         public override TuValue Evaluate(TuRuntime rt)
         {
-            base.Evaluate(rt);
+            EvaluateInvariant(rt);
             return TuValue.Nothing;
         }
     }

@@ -12,7 +12,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         public IReadOnlyList<NodeBase> Statements { get; }
 
-        protected override TuValue Eval(TuRuntime stack)
+        protected override TuValue EvaluateInvariant(TuRuntime stack)
         {
             stack.OpenScope();
 
