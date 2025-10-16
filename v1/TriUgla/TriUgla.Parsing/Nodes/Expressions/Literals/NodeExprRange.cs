@@ -6,6 +6,8 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public sealed class NodeExprRange : NodeExprLiteralBase
     {
+        TuValue _value = TuValue.Nothing;
+
         public NodeExprRange(Token start, IEnumerable<NodeBase> args, Token end) : base(start)
         {
             Args = args.ToArray();
@@ -19,6 +21,11 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 
         protected override TuValue Eval(TuRuntime stack)
         {
+            if (_value.type != EDataType.Nothing)
+            {
+                return _value;
+            }
+
             if (Args.Count != 2 && Args.Count != 3)
             {
                 throw new CompileTimeException(
@@ -26,11 +33,17 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     Token);
             }
 
+            bool allCompileTimeKnown = true;
             TuValue[] values = new TuValue[3];
             values[2] = new TuValue(1);
             for (int i = 0; i < Args.Count; i++)
             {
                 NodeBase arg = Args[i];
+                if (allCompileTimeKnown && arg is not NodeExprLiteralBase)
+                {
+                    allCompileTimeKnown = false;
+                }
+
                 TuValue v = arg.Evaluate(stack);
 
                 string argStr = i switch
@@ -79,7 +92,14 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     $"Range step {b} does not progress from {f} to {t}. Use a negative step.",
                     Args.Count == 3 ? Args[2].Token : Token);
             }
-            return new TuValue(new TuRange(f, t, b));
+
+            TuRange rng = new TuRange(f, t, b);
+            if (allCompileTimeKnown)
+            {
+                _value = new TuValue(rng);
+                return _value;
+            }
+            return new TuValue(rng);
         }
 
         public override string ToString()

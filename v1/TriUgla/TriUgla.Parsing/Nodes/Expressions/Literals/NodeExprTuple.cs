@@ -6,6 +6,8 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
     public sealed class NodeExprTuple : NodeExprLiteralBase
     {
+        TuValue _value = TuValue.Nothing;
+
         public NodeExprTuple(Token open, IEnumerable<NodeExprBase> args, Token close) : base(open)
         {
             Args = args.ToArray();
@@ -18,10 +20,21 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 
         protected override TuValue Eval(TuRuntime stack)
         {
+            if (_value.type != EDataType.Nothing)
+            {
+                return _value;
+            }
+
+            bool allCompileTimeKnown = true;
             TuTuple values = new TuTuple(Args.Count);
             for (int i = 0; i < Args.Count; i++)
             {
                 NodeBase item = Args[i];
+                if (allCompileTimeKnown && item is not NodeExprLiteralBase)
+                {
+                    allCompileTimeKnown = false;
+                }
+
                 TuValue v = item.Evaluate(stack);
                 if (!TuValue.Compatible(values.Type, v.type))
                 {
@@ -46,6 +59,12 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                             $"but expression evaluated to '{v.type}'.",
                             item.Token);
                 }
+            }
+
+            if (allCompileTimeKnown)
+            {
+                _value = new TuValue(values);
+                return _value;
             }
             return new TuValue(values);
         }
