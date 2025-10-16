@@ -44,7 +44,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     id.Token);
             }
 
-            if (curVal.type != EDataType.Numeric)
+            if (curVal.type != EDataType.Real)
             {
                 throw new CompileTimeException(
                     $"Postfix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{curVal.type}'.",

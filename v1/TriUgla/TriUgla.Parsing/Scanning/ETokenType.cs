@@ -11,7 +11,7 @@ namespace TriUgla.Parsing.Scanning
         Comment, MultiLineComment, 
         LineBreak, EOF,
 
-        NumericLiteral, StringLiteral, IdentifierLiteral,
+        Numeric, String, Identifier,
 
         Minus, Plus, Star, Slash, Modulo, Power, 
         MinusEqual, PlusEqual, StarEqual, SlashEqual, ModuloEqual, PowerEqual,

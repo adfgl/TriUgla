@@ -31,7 +31,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 }
 
                 value = id.Evaluate(rt);
-                if (value.type != EDataType.Numeric)
+                if (value.type != EDataType.Real)
                 {
                     throw new Exception($"Postfix {Operation.value} requires numeric variable");
                 }
@@ -46,7 +46,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                         id.Token);
                 }
 
-                if (curVal.type != EDataType.Numeric)
+                if (curVal.type != EDataType.Real)
                 {
                     throw new CompileTimeException(
                         $"Prefix '{Operation.value}' requires a numeric variable, but '{v.Name}' has type '{curVal.type}'.",
@@ -70,7 +70,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
             if (op == ETokenType.Not)
             {
-                if (value.type != EDataType.Numeric)
+                if (value.type != EDataType.Real)
                 {
                     throw new RunTimeException(
                         $"Prefix '{Token.value}' requires operand to evaluate to numeric/boolean, but got '{value.type}'.",
@@ -82,7 +82,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
             if (op == ETokenType.Plus)
             {
-                if (value.type != EDataType.Numeric)
+                if (value.type != EDataType.Real)
                 {
                     ThrowNonNumericUnary("+", value, Expression);
                 }
@@ -91,7 +91,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
             if (op == ETokenType.Minus)
             {
-                if (value.type != EDataType.Numeric)
+                if (value.type != EDataType.Real)
                 {
                     ThrowNonNumericUnary("-", value, Expression);
                 }

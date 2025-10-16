@@ -53,7 +53,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     _ => "by"
                 };
 
-                if (v.type != EDataType.Numeric)
+                if (v.type != EDataType.Real)
                 {
                     string msg = $"Range '{argStr}' must be numeric.";
                     if (arg is NodeExprLiteralBase)

@@ -30,10 +30,14 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue left = Left.Evaluate(rt);
             TuValue right = Right.Evaluate(rt);
 
-            if (left.type == EDataType.Numeric &&
-                right.type == EDataType.Numeric)
+            if (left.type.IsNumeric() && right.type.IsNumeric())
             {
-                return EvaluateNumericNumeric(left, right);
+                TuValue result = EvaluateNumericNumeric(left, right);
+                if (left.type == EDataType.Real || right.type == EDataType.Real)
+                {
+                    return new TuValue(result.AsNumeric());
+                }
+                return result;
             }
 
             if (op == ETokenType.Plus && (left.type == EDataType.Text || right.type == EDataType.Text))
@@ -57,7 +61,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue value = node.Evaluate(stack);
             if (value.type == EDataType.Nothing)
             {
-                throw new RunTimeException($"Should evaluate to '{EDataType.Numeric}' but got '{EDataType.Nothing}'", node.Token);
+                throw new RunTimeException($"Should evaluate to '{EDataType.Real}' but got '{EDataType.Nothing}'", node.Token);
             }
             return value;
         }

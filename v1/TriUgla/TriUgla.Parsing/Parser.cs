@@ -41,7 +41,7 @@ namespace TriUgla.Parsing
                         Consume();
                         break;
 
-                    case ETokenType.IdentifierLiteral:
+                    case ETokenType.Identifier:
                         NodeExprBase exp = ParseExpression();
                         if (exp is NodeExprAssignment or NodeExprAssignmentCompound)
                         {
@@ -390,11 +390,11 @@ namespace TriUgla.Parsing
                 case ETokenType.Hash:
                     {
                         Token hash = Consume();
-                        if (Peek().type == ETokenType.IdentifierLiteral
+                        if (Peek().type == ETokenType.Identifier
                             || Peek().type == ETokenType.OpenParen
                             || Peek().type == ETokenType.OpenCurly
-                            || Peek().type == ETokenType.StringLiteral
-                            || Peek().type == ETokenType.NumericLiteral)
+                            || Peek().type == ETokenType.String
+                            || Peek().type == ETokenType.Numeric)
                         {
                             NodeExprBase exp = ParsePostfixExpression(); 
                             return new NodeExprLengthOf(hash, exp);
@@ -402,7 +402,7 @@ namespace TriUgla.Parsing
                         break;
                     }
 
-                case ETokenType.IdentifierLiteral:
+                case ETokenType.Identifier:
                     Token id = Consume();
                     if (Peek(0).type == ETokenType.OpenSquare &&
                         Peek(1).type == ETokenType.CloseSquare)
@@ -413,10 +413,10 @@ namespace TriUgla.Parsing
                     }
                     return new NodeExprIdentifier(id);
 
-                case ETokenType.NumericLiteral:
+                case ETokenType.Numeric:
                     return new NodeExprNumeric(Consume());
 
-                case ETokenType.StringLiteral:
+                case ETokenType.String:
                     return new NodeExprString(Consume());
 
                 case ETokenType.OpenCurly:

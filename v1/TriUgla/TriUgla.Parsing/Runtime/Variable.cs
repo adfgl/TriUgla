@@ -35,17 +35,23 @@ namespace TriUgla.Parsing.Runtime
                     Identifier);
             }
 
-            if (Value.type != EDataType.Nothing)
+            EDataType type = Value.type;
+            if (type == EDataType.Nothing || type == value.type)
             {
-                if (!TuValue.Compatible(Value.type, value.type))
-                {
-                    throw new RunTimeException(
-                        $"Type mismatch assigning to '{Identifier}': " +
-                        $"existing type {Value.type}, attempted {value.type}.",
-                        Identifier);
-                }
+                Value = value;
+                return;
             }
-            Value = value;
+
+            if (type == EDataType.Real && value.type == EDataType.Integer)
+            {
+                Value = new TuValue(value.AsNumeric());
+                return;
+            }
+
+            throw new RunTimeException(
+                        $"Type mismatch assigning to '{Identifier}': " +
+                        $"existing type {type}, attempted {value.type}.",
+                        Identifier);
         }
 
         public override string ToString()

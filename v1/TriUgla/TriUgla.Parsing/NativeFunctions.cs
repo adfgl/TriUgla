@@ -99,16 +99,20 @@ namespace TriUgla.Parsing
     [Flags]
     public enum EArgKind
     {
-        Any = 0,   
-        Numeric = 1 << 0,
-        String = 1 << 1,
-        Tuple = 1 << 2,
-        Range = 1 << 3,
+        Any = 0,
 
-        // convenience combos
+        Integer = 1 << 0,
+        Real = 1 << 1,
+        String = 1 << 2,
+        Tuple = 1 << 3,
+        Range = 1 << 4,
+
+        // Logical groupings
+        Numeric = Integer | Real,
         Scalar = Numeric | String,
         Iterable = Tuple | Range
     }
+
 
     public class ArgSpec
     {
@@ -136,7 +140,7 @@ namespace TriUgla.Parsing
 
             EArgKind actual = value.type switch
             {
-                EDataType.Numeric => EArgKind.Numeric,
+                EDataType.Real => EArgKind.Numeric,
                 EDataType.Text => EArgKind.String,
                 EDataType.Tuple => EArgKind.Tuple,
                 EDataType.Range => EArgKind.Range,

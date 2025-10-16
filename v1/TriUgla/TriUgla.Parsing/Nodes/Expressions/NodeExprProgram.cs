@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             rt.OpenScope();
-            rt.Global.Declare(new Token(ETokenType.IdentifierLiteral, -1, -1, "Pi"), new TuValue(3.1415926535897932));
+            rt.Global.Declare(new Token(ETokenType.Identifier, -1, -1, "Pi"), new TuValue(3.1415926535897932));
 
             return Statements.Evaluate(rt);
         }

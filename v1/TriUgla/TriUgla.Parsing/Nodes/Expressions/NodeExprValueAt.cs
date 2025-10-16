@@ -31,7 +31,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuTuple tpl = tuple.AsTuple()!;
 
             TuValue index = IndexExp.Evaluate(rt);
-            if (index.type != EDataType.Numeric)
+            if (index.type != EDataType.Real)
             {
                 string msg = $"Tuple index must be numeric, but expression evaluated to '{index.type}'.";
                 if (IndexExp is NodeExprLiteralBase)

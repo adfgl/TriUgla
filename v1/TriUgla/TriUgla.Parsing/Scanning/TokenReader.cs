@@ -128,7 +128,7 @@ namespace TriUgla.Parsing.Scanning
             int len = _pos - start;
             string text = _src.Substring(start, len);
 
-            ETokenType type = ETokenType.IdentifierLiteral;
+            ETokenType type = ETokenType.Identifier;
             if (Keywords.Source.TryGetValue(text, out ETokenType keyword))
             {
                 type = keyword;
@@ -159,7 +159,7 @@ namespace TriUgla.Parsing.Scanning
 
             int len = _pos - start;
             string lexeme = _src.Substring(start, len);
-            return new Token(ETokenType.NumericLiteral, line, col, lexeme);
+            return new Token(ETokenType.Numeric, line, col, lexeme);
         }
 
         Token ReadString()
@@ -247,7 +247,7 @@ namespace TriUgla.Parsing.Scanning
             }
 
             string cooked = sb.ToString();
-            return new Token(ETokenType.StringLiteral, line, col, cooked);
+            return new Token(ETokenType.String, line, col, cooked);
 
             static int HexVal(char ch)
             {

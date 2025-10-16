@@ -17,7 +17,11 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
             if (_value.type == EDataType.Nothing)
             {
                 string value = Token.value;
-                if (double.TryParse(value, out double d))
+                if (int.TryParse(value, out int i))
+                {
+                    _value = new TuValue(i);
+                }
+                else if (double.TryParse(value, out double d))
                 {
                     _value = new TuValue(d);
                 }

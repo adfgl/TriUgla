@@ -44,7 +44,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue newValue;
             switch (value.type)
             {
-                case EDataType.Numeric:
+                case EDataType.Real:
                     double curDbl = curr.AsNumeric();
                     double newDbl = EvalNumeric(curDbl, value.AsNumeric());
                     newValue = new TuValue(newDbl);
@@ -87,8 +87,8 @@ namespace TriUgla.Parsing.Nodes.Expressions
             ETokenType op = Token.type;
             switch (curr.type)
             {
-                case EDataType.Numeric:
-                    if (value.type != EDataType.Numeric)
+                case EDataType.Real:
+                    if (value.type != EDataType.Real)
                     {
                         throw new Exception();
                     }
@@ -115,7 +115,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     break;
 
                 case EDataType.Tuple:
-                    if (value.type != EDataType.Numeric &&
+                    if (value.type != EDataType.Real &&
                         value.type != EDataType.Range &&
                         value.type != EDataType.Tuple)
                     {

@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.Globalization;
-using System.Runtime.CompilerServices;
-using TriUgla.Parsing.Data.Geometry;
+﻿using System.Globalization;
 
 namespace TriUgla.Parsing.Data
 {
@@ -16,8 +13,9 @@ namespace TriUgla.Parsing.Data
         public static bool Compatible(EDataType t1, EDataType t2)
         {
             if (t2 == EDataType.Nothing) return false;
-            return t1 == EDataType.Nothing || t1 == t2;
+            return t1 == EDataType.Nothing || t1 == t2 || (t1 == EDataType.Real && t2 == EDataType.Integer);
         }
+
 
         TuValue(EDataType type, double numeric, TuObject? obj)
         {
@@ -28,21 +26,21 @@ namespace TriUgla.Parsing.Data
 
         public TuValue(bool b)
         {
-            type = EDataType.Numeric;
+            type = EDataType.Real;
             numeric = b ? 1 : 0;
             obj = null;
         }
 
         public TuValue(int n)
         {
-            type = EDataType.Numeric;
+            type = EDataType.Integer;
             numeric = n;
             obj = null;
         }
 
         public TuValue(double n)
         {
-            type = EDataType.Numeric;
+            type = EDataType.Real;
             numeric = n;
             obj = null;
         }
@@ -77,7 +75,13 @@ namespace TriUgla.Parsing.Data
 
         public double AsNumeric()
         {
-            if (type == EDataType.Numeric) return numeric;
+            if (type == EDataType.Real || type == EDataType.Integer) return numeric;
+            throw new InvalidCastException();
+        }
+
+        public int AsInteger()
+        {
+            if (type == EDataType.Integer) return (int)numeric;
             throw new InvalidCastException();
         }
 
@@ -89,7 +93,8 @@ namespace TriUgla.Parsing.Data
 
         public string AsString()
         {
-            if (type == EDataType.Numeric) return numeric.ToString(CultureInfo.InvariantCulture);
+            if (type == EDataType.Real) return numeric.ToString(CultureInfo.InvariantCulture);
+            if (type == EDataType.Integer) return ((int)numeric).ToString();
             if (obj is not null) return obj.ToString() ?? string.Empty;
             if (type == EDataType.Nothing) return string.Empty;
             throw new InvalidCastException();
@@ -97,7 +102,7 @@ namespace TriUgla.Parsing.Data
 
         public bool AsBoolean()
         {
-            if (type == EDataType.Numeric) return numeric > 0;
+            if (type == EDataType.Real) return numeric > 0;
             if (obj is not null) return true;
             throw new InvalidCastException();
         }
@@ -111,7 +116,7 @@ namespace TriUgla.Parsing.Data
         public TuTuple AsTuple()
         {
             if (type == EDataType.Tuple && obj is TuTuple t) return t;
-            if (type == EDataType.Numeric)
+            if (type == EDataType.Real)
             {
                 TuTuple tpl = new TuTuple();
                 tpl.Add(this);
@@ -133,7 +138,7 @@ namespace TriUgla.Parsing.Data
 
         public TuValue Copy()
         {
-            if (type == EDataType.Numeric || obj is null)
+            if (type == EDataType.Real || obj is null)
                 return this;
             return new TuValue(type, numeric, obj.Clone());
         }
@@ -144,7 +149,7 @@ namespace TriUgla.Parsing.Data
 
             return type switch
             {
-                EDataType.Numeric => numeric.Equals(other.numeric),
+                EDataType.Real => numeric.Equals(other.numeric),
                 EDataType.Text or EDataType.Range or EDataType.Tuple
                     => Equals(obj, other.obj),
                 EDataType.Nothing => true,
@@ -161,7 +166,7 @@ namespace TriUgla.Parsing.Data
         {
             return type switch
             {
-                EDataType.Numeric => HashCode.Combine(type, numeric),
+                EDataType.Real => HashCode.Combine(type, numeric),
                 _ => HashCode.Combine(type, obj),
             };
         }

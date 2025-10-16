@@ -46,7 +46,8 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 
                 switch (v.type)
                 {
-                    case EDataType.Numeric:
+                    case EDataType.Real:
+                    case EDataType.Integer:
                     case EDataType.Text:
                     case EDataType.Range:
                     case EDataType.Tuple:
