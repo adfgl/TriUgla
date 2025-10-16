@@ -9,7 +9,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         {
         }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             stack.Budget.FullStop();
             return TuValue.Nothing;

@@ -9,7 +9,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         {
         }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             return new TuValue(Token.value);
         }

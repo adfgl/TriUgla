@@ -21,14 +21,14 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Left} {Token.value} {Right}";
         }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             ETokenType op = Operation.type;
             if (op == ETokenType.Or) return EvaluateOr(stack);
             if (op == ETokenType.And) return EvaluateAnd(stack);
 
-            TuValue left = Left.Eval(stack);
-            TuValue right = Right.Eval(stack);
+            TuValue left = Left.Evaluate(stack);
+            TuValue right = Right.Evaluate(stack);
 
             if (left.type == EDataType.Numeric &&
                 right.type == EDataType.Numeric)
@@ -36,7 +36,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 return EvaluateNumericNumeric(left, right);
             }
 
-            if (op == ETokenType.Plus && (left.type == EDataType.String || right.type == EDataType.String))
+            if (op == ETokenType.Plus && (left.type == EDataType.Text || right.type == EDataType.Text))
             {
                 return new TuValue(left.AsString() + right.AsString());
             }
@@ -65,7 +65,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
 
         TuValue CheckForNothing(TuRuntime stack, NodeBase node)
         {
-            TuValue value = node.Eval(stack);
+            TuValue value = node.Evaluate(stack);
             if (value.type == EDataType.Nothing)
             {
                 throw new RunTimeException($"Should evaluate to '{EDataType.Numeric}' but got '{EDataType.Nothing}'", node.Token);

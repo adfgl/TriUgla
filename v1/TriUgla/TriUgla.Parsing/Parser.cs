@@ -155,11 +155,17 @@ namespace TriUgla.Parsing
                 || t.type == ETokenType.StarEqual
                 || t.type == ETokenType.SlashEqual)
             {
-                Token op = Consume();                     // =, +=, -=, *=, /=
-                NodeBase right = ParseAssignmentExpression(); // right-assoc
-                return new NodeExprAssignment(left, op, right);
+                Token op = Consume();
+                NodeExprBase right = ParseAssignmentExpression();
+                if (op.type == ETokenType.Equal)
+                {
+                    return new NodeExprAssignment(left, op, right);
+                }
+                else
+                {
+                    return new NodeExprAssignmentCompound(left, op, right);
+                }
             }
-
             return left;
         }
 

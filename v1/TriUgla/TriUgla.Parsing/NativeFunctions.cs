@@ -66,7 +66,6 @@ namespace TriUgla.Parsing
 
         private void RegisterDefaults()
         {
-            // Math
             Register(new NativeAbs());
             Register(new NativeAcos());
             Register(new NativeAsin());
@@ -138,7 +137,7 @@ namespace TriUgla.Parsing
             EArgKind actual = value.type switch
             {
                 EDataType.Numeric => EArgKind.Numeric,
-                EDataType.String => EArgKind.String,
+                EDataType.Text => EArgKind.String,
                 EDataType.Tuple => EArgKind.Tuple,
                 EDataType.Range => EArgKind.Range,
                 _ => EArgKind.Any

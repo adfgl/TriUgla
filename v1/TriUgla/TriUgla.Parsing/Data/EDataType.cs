@@ -4,7 +4,7 @@
     {
         Nothing,
         Numeric,
-        String,
+        Text,
         Range,
         Tuple,
         Point,

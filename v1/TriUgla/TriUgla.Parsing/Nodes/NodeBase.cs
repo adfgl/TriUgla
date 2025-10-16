@@ -14,13 +14,13 @@ namespace TriUgla.Parsing.Nodes
 
         public Token Token { get; }
 
-        public virtual TuValue Eval(TuRuntime rt)
+        public virtual TuValue Evaluate(TuRuntime rt)
         {
-            TuValue value = Evaluate(rt);
+            TuValue value = Eval(rt);
             return value;
         }
 
-        protected abstract TuValue Evaluate(TuRuntime stack);
+        protected abstract TuValue Eval(TuRuntime stack);
 
         public static string ToOrdinal(int n)
         {

@@ -14,7 +14,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         {
         }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             stack.Flow.SignalBreak();
             return TuValue.Nothing;

@@ -15,7 +15,7 @@ namespace TriUgla.Parsing
             stack.Budget.SetStepBudget(long.MaxValue);
 
             var program = parser.Parse();
-            TuValue result = program.Eval(stack);
+            TuValue result = program.Evaluate(stack);
 
             if (stack.Budget.Aborted)
             {

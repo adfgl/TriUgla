@@ -20,10 +20,10 @@ namespace TriUgla.Parsing.Nodes.Statements
 
         public NodeExprBase Name { get; }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
-            TuValue nameValue = Name.Eval(stack);
-            if (nameValue.type != EDataType.String)
+            TuValue nameValue = Name.Evaluate(stack);
+            if (nameValue.type != EDataType.Text)
             {
                 if (Name is NodeExprIdentifier id)
                 {
@@ -51,7 +51,7 @@ namespace TriUgla.Parsing.Nodes.Statements
                     $"Macro '{macroName}' is not defined.",
                     Token);
             }
-            return body.Eval(stack);
+            return body.Evaluate(stack);
         }
     }
 }

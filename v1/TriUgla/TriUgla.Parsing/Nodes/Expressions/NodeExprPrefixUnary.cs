@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public Token Operation => Token;
         public NodeExprBase Expression { get; }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             ETokenType op = Operation.type;
 
@@ -30,7 +30,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                         Operation);
                 }
 
-                value = id.Eval(stack);
+                value = id.Evaluate(stack);
                 if (value.type != EDataType.Numeric)
                 {
                     throw new Exception($"Postfix {Operation.value} requires numeric variable");
@@ -66,7 +66,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 return v.Value;
             }
 
-            value = Expression.Eval(stack);
+            value = Expression.Evaluate(stack);
 
             if (value.type == EDataType.Nothing)
             {

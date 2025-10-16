@@ -9,9 +9,9 @@ namespace TriUgla.Parsing.Nodes
         {
         }
 
-        public override TuValue Eval(TuRuntime rt)
+        public override TuValue Evaluate(TuRuntime rt)
         {
-            base.Eval(rt);
+            base.Evaluate(rt);
             return TuValue.Nothing;
         }
     }

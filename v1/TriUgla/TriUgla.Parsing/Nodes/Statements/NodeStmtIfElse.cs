@@ -17,7 +17,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         public Token Start => Token;
         public Token End { get; }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             var flow = stack.Flow;
 
@@ -25,9 +25,9 @@ namespace TriUgla.Parsing.Nodes.Statements
             {
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
 
-                if (cond.Eval(stack).AsBoolean())
+                if (cond.Evaluate(stack).AsBoolean())
                 {
-                    block.Eval(stack);
+                    block.Evaluate(stack);
                     return TuValue.Nothing; 
                 }
             }
@@ -37,7 +37,7 @@ namespace TriUgla.Parsing.Nodes.Statements
                 return TuValue.Nothing;
             }
 
-            ElseBlock.Eval(stack);
+            ElseBlock.Evaluate(stack);
             return TuValue.Nothing;
         }
 

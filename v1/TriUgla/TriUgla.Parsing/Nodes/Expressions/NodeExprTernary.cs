@@ -20,21 +20,21 @@ namespace TriUgla.Parsing.Nodes.Expressions
         public Token Colon { get; }
         public NodeExprBase ElseExp { get; }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             TuValue result;
 
-            TuValue ifValue = IfExp.Eval(stack);
+            TuValue ifValue = IfExp.Evaluate(stack);
             CheckResult(ifValue, IfExp);
 
             bool condition = ifValue.AsBoolean();
             if (ifValue.AsBoolean())
             {
-                result = ThenExp.Eval(stack);
+                result = ThenExp.Evaluate(stack);
             }
             else
             {
-                result = ElseExp.Eval(stack);
+                result = ElseExp.Evaluate(stack);
             }
 
             CheckResult(result, condition ? ThenExp : ElseExp);

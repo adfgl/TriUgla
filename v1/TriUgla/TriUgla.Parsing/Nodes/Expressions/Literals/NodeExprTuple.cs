@@ -16,13 +16,13 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         public IReadOnlyList<NodeExprBase> Args { get; }
         public Token Close { get; }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             List<double> values = new List<double>(Args.Count);
             for (int i = 0; i < Args.Count; i++)
             {
                 NodeBase item = Args[i];
-                TuValue v = item.Eval(stack);
+                TuValue v = item.Evaluate(stack);
 
                 switch (v.type)
                 {

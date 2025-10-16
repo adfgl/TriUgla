@@ -19,7 +19,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             return $"{Token.value}({Args.Count})";
         }
 
-        protected override TuValue Evaluate(TuRuntime stack)
+        protected override TuValue Eval(TuRuntime stack)
         {
             string name = Token.value;
 
@@ -33,7 +33,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     allCompileTimeKnown = false;
                 }
 
-                args[i] = arg.Eval(stack);
+                args[i] = arg.Evaluate(stack);
             }
 
             if (!stack.Functions.TryGet(name, out NativeFunction fun))

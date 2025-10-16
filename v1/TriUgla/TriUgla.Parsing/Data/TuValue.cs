@@ -41,8 +41,14 @@ namespace TriUgla.Parsing.Data
 
         public TuValue(string s)
         {
-            type = EDataType.String;
+            type = EDataType.Text;
             obj = new TuText(s);
+        }
+
+        public TuValue(TuText text)
+        {
+            type = EDataType.Text;
+            obj = text;
         }
 
         public TuValue(TuRange range)
@@ -63,7 +69,7 @@ namespace TriUgla.Parsing.Data
             obj = point;
         }
 
-        public TuPoint? AsPoint()
+        public TuPoint AsPoint()
         {
             if (type == EDataType.Point)
             {
@@ -81,6 +87,15 @@ namespace TriUgla.Parsing.Data
             throw new InvalidCastException();
         }
 
+        public TuText AsText()
+        {
+            if (type == EDataType.Text)
+            {
+                return obj as TuText;
+            }
+            throw new InvalidCastException();
+        }
+
         public string AsString()
         {
             if (type == EDataType.Numeric)
@@ -88,7 +103,7 @@ namespace TriUgla.Parsing.Data
                 return numeric.ToString(CultureInfo.InvariantCulture);
             }
 
-            if (type == EDataType.String || 
+            if (type == EDataType.Text || 
                 type == EDataType.Range || 
                 type == EDataType.Tuple || 
                 type == EDataType.Point)
@@ -109,7 +124,7 @@ namespace TriUgla.Parsing.Data
                 return numeric > 0;
             }
 
-            if (type == EDataType.String || type == EDataType.Range || type == EDataType.Tuple)
+            if (type == EDataType.Text || type == EDataType.Range || type == EDataType.Tuple)
             {
                 return obj is not null;
             }
@@ -117,7 +132,7 @@ namespace TriUgla.Parsing.Data
             throw new InvalidCastException();
         }
 
-        public TuRange? AsRange()
+        public TuRange AsRange()
         {
             if (type == EDataType.Range)
             {
@@ -127,7 +142,7 @@ namespace TriUgla.Parsing.Data
             throw new InvalidCastException();
         }
 
-        public TuTuple? AsTuple()
+        public TuTuple AsTuple()
         {
             if (type == EDataType.Tuple)
             {
