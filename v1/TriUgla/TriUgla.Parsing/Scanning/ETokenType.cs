@@ -21,7 +21,7 @@ namespace TriUgla.Parsing.Scanning
         OpenCurly, CloseCurly,
         OpenSquare, CloseSquare,
 
-        Equal,
+        Equal, Tilda,
 
         Colon, SemiColon, Comma, Dot, Hash,
 

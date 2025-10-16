@@ -294,6 +294,7 @@ namespace TriUgla.Parsing.Scanning
 
             type = a switch
             {
+                '~' => ETokenType.Tilda,
                 '?' => ETokenType.Question,
                 '#' => ETokenType.Hash,
                 '=' => ETokenType.Equal,

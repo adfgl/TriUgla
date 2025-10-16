@@ -2,6 +2,10 @@ a = { { 0:10:2.5 } }
 
 b = "hello world"
 
+a~{0} = 3;
+NameOf(a~{0})
+
 Print(b)
+Print(#a)
 Print(#b)
 Print(NameOf(a))

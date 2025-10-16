@@ -400,6 +400,43 @@ namespace TriUgla.Parsing
             }
         }
 
+        NodeExprLengthOf ParseHash()
+        {
+            Token hash = Consume();
+            NodeExprBase exp = ParsePostfixExpression();
+            return new NodeExprLengthOf(hash, exp);
+        }
+
+        NodeExprIdentifier ParseIdentifier()
+        {
+            Token id = Consume();
+
+            bool isTuple = false;
+            if (Peek(0).type == ETokenType.OpenSquare &&
+              Peek(1).type == ETokenType.CloseSquare)
+            {
+                Consume(ETokenType.OpenSquare);
+                Consume(ETokenType.CloseSquare);
+                isTuple = true;
+            }
+
+            NodeExprBase? index = null;
+            if (TryConsume(ETokenType.Tilda, out _))
+            {
+                Token open = Consume(ETokenType.OpenCurly);
+                if (TryConsume(ETokenType.CloseCurly, out _))
+                {
+                    throw new CompileTimeException("Missing index", open);
+                }
+                else
+                {
+                    index = ParseExpression();
+                    Consume(ETokenType.CloseCurly);
+                }
+            }
+            return new NodeExprIdentifier(id, isTuple, index);
+        }
+
         NodeExprBase ParseSimplePrimaryExpression()
         {
             Token token = Peek();
@@ -414,30 +451,10 @@ namespace TriUgla.Parsing
                     return new NodeExprFunctionCall(token, args);
 
                 case ETokenType.Hash:
-                    {
-                        Token hash = Consume();
-                        if (Peek().type == ETokenType.Identifier
-                            || Peek().type == ETokenType.OpenParen
-                            || Peek().type == ETokenType.OpenCurly
-                            || Peek().type == ETokenType.String
-                            || Peek().type == ETokenType.Numeric)
-                        {
-                            NodeExprBase exp = ParsePostfixExpression(); 
-                            return new NodeExprLengthOf(hash, exp);
-                        }
-                        break;
-                    }
+                    return ParseHash();
 
                 case ETokenType.Identifier:
-                    Token id = Consume();
-                    if (Peek(0).type == ETokenType.OpenSquare &&
-                        Peek(1).type == ETokenType.CloseSquare)
-                    {
-                        Consume(ETokenType.OpenSquare);
-                        Consume(ETokenType.CloseSquare);
-                        return new NodeExprIdentifierTuple(id);
-                    }
-                    return new NodeExprIdentifier(id);
+                    return ParseIdentifier();
 
                 case ETokenType.Numeric:
                     return new NodeExprNumeric(Consume());

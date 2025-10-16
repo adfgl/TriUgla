@@ -9,9 +9,14 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
     {
         Variable? _variable = null;
 
-        public NodeExprIdentifier(Token token) : base(token)
+        public NodeExprIdentifier(Token token, bool isTuple, NodeExprBase? index) : base(token)
         {
+            IsTuple = isTuple;
+            Index = index;
         }
+
+        public bool IsTuple { get; }
+        public NodeExprBase? Index { get; }
 
         public Variable? Variable => _variable;
         public bool DeclareIfMissing { get; set; } = false;
