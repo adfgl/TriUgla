@@ -177,6 +177,26 @@ namespace TriUgla.Parsing.Data
         public static bool operator ==(TuValue left, TuValue right) => left.Equals(right);
         public static bool operator !=(TuValue left, TuValue right) => !left.Equals(right);
 
+        public static TuValue operator +(TuValue left, TuValue right)
+        {
+            if (left.type == EDataType.Text || right.type == EDataType.Text)
+            {
+                return new TuValue(left.AsString() +  right.AsString());
+            }
+
+            if (left.type.IsNumeric() && right.type.IsNumeric())
+            {
+                double result = left.AsNumeric() + right.AsNumeric();
+                if (left.type == EDataType.Numeric || right.type == EDataType.Numeric)
+                {
+                    return new TuValue(result);
+                }
+                return new TuValue((int)result);
+            }
+
+            throw new InvalidOperationException();
+        }
+
         public static TuValue operator -(TuValue value)
         {
             switch (value.type)

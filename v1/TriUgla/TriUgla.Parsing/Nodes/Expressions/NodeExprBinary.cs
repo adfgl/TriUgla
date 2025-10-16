@@ -40,18 +40,15 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 return result;
             }
 
-            if (op == ETokenType.Plus && (left.type == EDataType.Text || right.type == EDataType.Text))
-            {
-                return new TuValue(left.AsString() + right.AsString());
-            }
+            if (op == ETokenType.Plus) return left + right;
 
             if (op == ETokenType.EqualEqual)
             {
-                return new TuValue(left.AsString() == right.AsString());
+                return new TuValue(left == right);
             }
             if (op == ETokenType.NotEqual)
             {
-                return new TuValue(left.AsString() != right.AsString());
+                return new TuValue(left != right);
             }
             throw new Exception($"Unsupported binary operation '{Token.value}'.");
         }
