@@ -13,7 +13,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprAssignmentCompound : NodeExprBase
+    public sealed class NodeExprAssignmentCompound : NodeExprBase
     {
         public NodeExprAssignmentCompound(NodeExprBase id, Token op, NodeExprBase expr) : base(op)
         {

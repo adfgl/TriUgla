@@ -4,7 +4,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprBinary : NodeExprBase
+    public sealed class NodeExprBinary : NodeExprBase
     {
         public NodeExprBinary(NodeExprBase left, Token op, NodeExprBase right) : base(op)
         {

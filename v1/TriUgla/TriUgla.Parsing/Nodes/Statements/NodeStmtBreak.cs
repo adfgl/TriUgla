@@ -8,7 +8,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtBreak : NodeStmtBase
+    public sealed class NodeStmtBreak : NodeStmtBase
     {
         public NodeStmtBreak(Token token) : base(token)
         {

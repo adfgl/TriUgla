@@ -3,7 +3,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprProgram : NodeExprBase
+    public sealed class NodeExprProgram : NodeExprBase
     {
         public NodeExprProgram(Token token, IEnumerable<NodeBase> statements) : base(token)
         {

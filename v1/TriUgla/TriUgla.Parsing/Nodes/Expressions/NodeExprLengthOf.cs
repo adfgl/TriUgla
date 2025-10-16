@@ -5,7 +5,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprLengthOf : NodeExprBase
+    public sealed class NodeExprLengthOf : NodeExprBase
     {
         public NodeExprLengthOf(Token token, NodeExprBase tpl) : base(token)
         {

@@ -4,7 +4,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
-    public class NodeExprRange : NodeExprLiteralBase
+    public sealed class NodeExprRange : NodeExprLiteralBase
     {
         public NodeExprRange(Token start, IEnumerable<NodeBase> args, Token end) : base(start)
         {

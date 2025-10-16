@@ -3,7 +3,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtIfElse : NodeStmtBase
+    public sealed class NodeStmtIfElse : NodeStmtBase
     {
         public NodeStmtIfElse(Token start, IEnumerable<(NodeBase condition, NodeStmtBlock block)> ifBlocks, NodeStmtBlock? elseBlock, Token end) : base(start)
         {

@@ -6,7 +6,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtForIn : NodeStmtBase
+    public sealed class NodeStmtForIn : NodeStmtBase
     {
         public NodeStmtForIn(Token start, NodeExprBase id, NodeExprBase range, NodeStmtBlock block, Token end) : base(start)
         {

@@ -3,7 +3,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtPrint : NodeStmtBase
+    public sealed class NodeStmtPrint : NodeStmtBase
     {
         public NodeStmtPrint(Token token, NodeBase? arg) : base(token)
         {

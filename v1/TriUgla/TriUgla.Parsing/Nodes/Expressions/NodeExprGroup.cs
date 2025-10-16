@@ -5,7 +5,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprGroup : NodeExprBase
+    public sealed class NodeExprGroup : NodeExprBase
     {
         public NodeExprGroup(Token open, NodeExprBase exp, Token close) : base(open)
         {

@@ -11,7 +11,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtMacroCall : NodeStmtBase
+    public sealed class NodeStmtMacroCall : NodeStmtBase
     {
         public NodeStmtMacroCall(Token token, NodeExprBase name) : base(token)
         {

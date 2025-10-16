@@ -6,7 +6,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions
 {
-    public class NodeExprPrefixUnary : NodeExprBase
+    public sealed class NodeExprPrefixUnary : NodeExprBase
     {
         public NodeExprPrefixUnary(Token op, NodeExprBase exp) : base(op)
         {

@@ -3,7 +3,7 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Statements
 {
-    public class NodeStmtAbort : NodeStmtBase
+    public sealed class NodeStmtAbort : NodeStmtBase
     {
         public NodeStmtAbort(Token token) : base(token)
         {

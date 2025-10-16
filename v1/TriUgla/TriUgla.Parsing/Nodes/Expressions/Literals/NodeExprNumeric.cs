@@ -4,17 +4,10 @@ using TriUgla.Parsing.Scanning;
 
 namespace TriUgla.Parsing.Nodes.Expressions.Literals
 {
-    public class NodeExprNumeric : NodeExprLiteralBase
+    public sealed class NodeExprNumeric : NodeExprLiteralBase
     {
         public NodeExprNumeric(Token token) : base(token)
         {
-        }
-
-
-
-        public override string ToString()
-        {
-            return Token.value;
         }
 
         protected override TuValue Eval(TuRuntime stack)
