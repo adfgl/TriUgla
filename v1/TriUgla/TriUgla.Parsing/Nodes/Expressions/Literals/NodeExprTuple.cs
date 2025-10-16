@@ -18,22 +18,26 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
 
         protected override TuValue Eval(TuRuntime stack)
         {
-            List<double> values = new List<double>(Args.Count);
+            TuTuple values = new TuTuple(Args.Count);
             for (int i = 0; i < Args.Count; i++)
             {
                 NodeBase item = Args[i];
                 TuValue v = item.Evaluate(stack);
+                if (!TuValue.Compatible(values.Type, v.type))
+                {
+                    throw new RunTimeException(
+                        $"Tuple element {ToOrdinal(i + 1)} must be numeric, range, or tuple, " +
+                        $"but expression evaluated to '{v.type}'.",
+                        item.Token);
+                }
 
                 switch (v.type)
                 {
                     case EDataType.Numeric:
-                        values.Add(v.AsNumeric());
-                        break;
-
+                    case EDataType.Text:
                     case EDataType.Range:
                     case EDataType.Tuple:
-                        var tpl = v.AsTuple()!;
-                        values.AddRange(tpl); // flattens nested range/tuple
+                        values.Add(v); 
                         break;
 
                     default:
@@ -43,7 +47,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                             item.Token);
                 }
             }
-            return new TuValue(new TuTuple(values));
+            return new TuValue(values);
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using TriUgla.Parsing.Data;
 using TriUgla.Parsing.Exceptions;
 using TriUgla.Parsing.Nodes.Expressions.Literals;
@@ -38,9 +39,39 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 throw new RunTimeException($"Expected '{curr.type}' but got '{value.type}'", Expression.Token);
             }
 
-            double curDbl = curr.AsNumeric();
-            double newDbl = EvalNumeric(curDbl, value.AsNumeric());
-            tpl.Values[valueAt.Index] = newDbl;
+            ETokenType op = Token.type;
+
+            TuValue newValue;
+            switch (value.type)
+            {
+                case EDataType.Numeric:
+                    double curDbl = curr.AsNumeric();
+                    double newDbl = EvalNumeric(curDbl, value.AsNumeric());
+                    newValue = new TuValue(newDbl);
+                    break;
+
+                case EDataType.Text:
+                    TuText txt = curr.AsText();
+                    if (op == ETokenType.PlusEqual)
+                    {
+                        txt = txt.Add(value.AsString());
+                    }
+                    else if (op == ETokenType.MinusEqual)
+                    {
+                        txt = txt.Remove(value.AsString());
+                    }
+                    else
+                    {
+                        throw new RunTimeException($"", Token);
+                    }
+                    newValue = new TuValue(txt);
+                    break;
+
+                default:
+                    throw new RunTimeException($"", Token);
+            }
+
+            tpl[valueAt.Index] = newValue;
             return new TuValue(tpl);
         }
 
@@ -70,11 +101,11 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     TuText txt = curr.AsText();
                     if (op == ETokenType.PlusEqual)
                     {
-                        txt.Content += value.AsString();
+                        txt = txt.Add(value.AsString());
                     }
                     else if (op == ETokenType.MinusEqual)
                     {
-                        txt.Content = txt.Content.Replace(value.AsString(), "");
+                        txt = txt.Remove(value.AsString());
                     }
                     else
                     {
@@ -92,25 +123,13 @@ namespace TriUgla.Parsing.Nodes.Expressions
                     }
 
                     TuTuple curTpl = curr.AsTuple();
-                    TuTuple newTpl = value.AsTuple();
                     if (op == ETokenType.PlusEqual)
                     {
-                        curTpl.Values.AddRange(newTpl);
+                        curTpl.Add(value);
                     }
                     else if (op == ETokenType.MinusEqual)
                     {
-                        for (int i = curTpl.Values.Count - 1; i >= 0; i--)
-                        {
-                            double v = curTpl.Values[i];
-                            foreach (double other in newTpl)
-                            {
-                                if (other == v)
-                                {
-                                    curTpl.Values.RemoveAt(i);
-                                    break;
-                                }
-                            }
-                        }
+                        curTpl.Remove(value);
                     }
                     else
                     {
@@ -122,7 +141,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 default:
                     throw new RunTimeException($"Invalid operation for type '{vrbl.Value.type}'", vrbl.Identifier);
             }
-            vrbl.Assign(value);
+            vrbl.Assign(newValue);
             return vrbl.Value;
         }
 

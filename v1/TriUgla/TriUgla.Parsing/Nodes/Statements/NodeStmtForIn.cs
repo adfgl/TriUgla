@@ -36,7 +36,7 @@ namespace TriUgla.Parsing.Nodes.Statements
             Variable counter = stack.Current.Get(id.Name)!;
 
             TuValue list = Range.Evaluate(stack);
-            IEnumerable<double> iterator = list.type switch
+            IEnumerable<TuValue> iterator = list.type switch
             {
                 EDataType.Range => list.AsRange()!,
                 EDataType.Tuple => list.AsTuple()!,
@@ -46,11 +46,11 @@ namespace TriUgla.Parsing.Nodes.Statements
             var flow = stack.Flow;
             flow.EnterLoop();
 
-            foreach (var item in iterator)
+            foreach (TuValue item in iterator)
             {
                 if (!stack.Budget.Tick() || flow.HasReturn) break;
 
-                counter.Assign(new TuValue(item));
+                counter.Assign(item);
 
                 Block.Evaluate(stack);
 

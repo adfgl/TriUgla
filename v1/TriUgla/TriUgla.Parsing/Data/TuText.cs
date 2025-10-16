@@ -13,7 +13,19 @@ namespace TriUgla.Parsing.Data
             Content = content;
         }
 
-        public string Content { get; set; }
+        public string Content { get; private set; }
+
+        public TuText Add(string text)
+        {
+            Content += text;
+            return this;
+        }
+
+        public TuText Remove(string text)
+        {
+            Content = Content.Replace(text, "");
+            return this;    
+        }
 
         public override string ToString()
         {

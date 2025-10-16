@@ -2,7 +2,7 @@
 
 namespace TriUgla.Parsing.Data
 {
-    public class TuRange : TuObject, IEnumerable<double>
+    public class TuRange : TuObject, IEnumerable<TuValue>
     {
         readonly double _from, _to, _by;
         double _current;
@@ -49,11 +49,11 @@ namespace TriUgla.Parsing.Data
             return true;
         }
 
-        public IEnumerator<double> GetEnumerator()
+        public IEnumerator<TuValue> GetEnumerator()
         {
             while (Next())
             {
-                yield return _current;
+                yield return new TuValue(_current);
             }
         }
 

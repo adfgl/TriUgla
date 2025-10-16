@@ -61,17 +61,16 @@ namespace TriUgla.Parsing.Nodes.Expressions
                 
             int i = (int)idxNum;
 
-            List<double> t = tpl.Values;
-            if (i < 0 || i >= t.Count)
+            if (i < 0 || i >= tpl.Count)
             {
                 throw new RunTimeException(
-                    $"Tuple index {i} is out of range (valid range: 0–{t.Count - 1}).",
+                    $"Tuple index {i} is out of range (valid range: 0–{tpl.Count - 1}).",
                     IndexExp.Token);
             }
 
             Index = i;
             Tuple = tpl;
-            return new TuValue(t[i]);
+            return tpl[i];
         }
     }
 }

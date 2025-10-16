@@ -34,7 +34,7 @@ namespace TriUgla.Parsing.Runtime
                     Identifier);
             }
 
-            if (Value.type != EDataType.Nothing && Value.type != value.type)
+            if (!TuValue.Compatible(Value.type, value.type))
             {
                 throw new RunTimeException(
                     $"Type mismatch assigning to '{Identifier}': " +

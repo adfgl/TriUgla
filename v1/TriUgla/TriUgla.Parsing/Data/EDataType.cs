@@ -7,6 +7,5 @@
         Text,
         Range,
         Tuple,
-        Point,
     }
 }

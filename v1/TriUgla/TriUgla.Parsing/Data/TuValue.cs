@@ -5,14 +5,19 @@ using TriUgla.Parsing.Data.Geometry;
 
 namespace TriUgla.Parsing.Data
 {
-    [DebuggerDisplay("{ToString()}")]
-    public readonly struct TuValue 
+    public readonly struct TuValue : IEquatable<TuValue>
     {
         public static readonly TuValue Nothing = new TuValue(EDataType.Nothing, double.NaN, null);
 
         public readonly EDataType type;
         readonly double numeric;
-        readonly TuObject? obj = null;
+        readonly TuObject? obj;
+
+        public static bool Compatible(EDataType t1, EDataType t2)
+        {
+            if (t2 == EDataType.Nothing) return false;
+            return t1 == EDataType.Nothing || t1 == t2;
+        }
 
         TuValue(EDataType type, double numeric, TuObject? obj)
         {
@@ -25,155 +30,143 @@ namespace TriUgla.Parsing.Data
         {
             type = EDataType.Numeric;
             numeric = b ? 1 : 0;
+            obj = null;
         }
 
         public TuValue(int n)
         {
             type = EDataType.Numeric;
             numeric = n;
+            obj = null;
         }
 
         public TuValue(double n)
         {
             type = EDataType.Numeric;
             numeric = n;
+            obj = null;
         }
 
         public TuValue(string s)
         {
             type = EDataType.Text;
             obj = new TuText(s);
+            numeric = double.NaN;
         }
 
         public TuValue(TuText text)
         {
             type = EDataType.Text;
             obj = text;
+            numeric = double.NaN;
         }
 
         public TuValue(TuRange range)
         {
             type = EDataType.Range;
             obj = range;
+            numeric = double.NaN;
         }
 
         public TuValue(TuTuple tuple)
         {
             type = EDataType.Tuple;
             obj = tuple;
-        }
-
-        public TuValue(TuPoint point)
-        {
-            type = EDataType.Point;
-            obj = point;
-        }
-
-        public TuPoint AsPoint()
-        {
-            if (type == EDataType.Point)
-            {
-                return obj as TuPoint;
-            }
-            throw new InvalidCastException();
+            numeric = double.NaN;
         }
 
         public double AsNumeric()
         {
-            if (type == EDataType.Numeric)
-            {
-                return numeric;
-            }
+            if (type == EDataType.Numeric) return numeric;
             throw new InvalidCastException();
         }
 
         public TuText AsText()
         {
-            if (type == EDataType.Text)
-            {
-                return obj as TuText;
-            }
+            if (type == EDataType.Text && obj is TuText t) return t;
             throw new InvalidCastException();
         }
 
         public string AsString()
         {
-            if (type == EDataType.Numeric)
-            {
-                return numeric.ToString(CultureInfo.InvariantCulture);
-            }
-
-            if (type == EDataType.Text || 
-                type == EDataType.Range || 
-                type == EDataType.Tuple || 
-                type == EDataType.Point)
-            {
-                if (obj is null) return "";
-                return obj.ToString();
-            }
-
+            if (type == EDataType.Numeric) return numeric.ToString(CultureInfo.InvariantCulture);
+            if (obj is not null) return obj.ToString() ?? string.Empty;
             if (type == EDataType.Nothing) return string.Empty;
-
             throw new InvalidCastException();
         }
-        
+
         public bool AsBoolean()
         {
-            if (type == EDataType.Numeric)
-            {
-                return numeric > 0;
-            }
-
-            if (type == EDataType.Text || type == EDataType.Range || type == EDataType.Tuple)
-            {
-                return obj is not null;
-            }
-
+            if (type == EDataType.Numeric) return numeric > 0;
+            if (obj is not null) return true;
             throw new InvalidCastException();
         }
 
         public TuRange AsRange()
         {
-            if (type == EDataType.Range)
-            {
-                return obj as TuRange;
-            }
-
+            if (type == EDataType.Range && obj is TuRange r) return r;
             throw new InvalidCastException();
         }
 
         public TuTuple AsTuple()
         {
-            if (type == EDataType.Tuple)
-            {
-                return obj as TuTuple;
-            }
-
+            if (type == EDataType.Tuple && obj is TuTuple t) return t;
             if (type == EDataType.Numeric)
             {
-                return new TuTuple([numeric]);
+                TuTuple tpl = new TuTuple();
+                tpl.Add(this);
+                return tpl;
             }
-
-            if (type == EDataType.Range)
+            if (type == EDataType.Range && obj is TuRange range)
             {
-                return new TuTuple(obj as TuRange);
+                TuTuple tpl = new TuTuple();
+                foreach (var dbl in range)
+                {
+                    tpl.Add(dbl);
+                }
+                return tpl;
             }
-
             throw new InvalidCastException();
         }
 
-        public override string ToString()
-        {
-            return AsString();
-        }
+        public override string ToString() => AsString();
 
         public TuValue Copy()
         {
             if (type == EDataType.Numeric || obj is null)
                 return this;
-
-            var cloned = obj.Clone();
-            return new TuValue(type, numeric, cloned);
+            return new TuValue(type, numeric, obj.Clone());
         }
+
+        public bool Equals(TuValue other)
+        {
+            if (type != other.type) return false;
+
+            return type switch
+            {
+                EDataType.Numeric => numeric.Equals(other.numeric),
+                EDataType.Text or EDataType.Range or EDataType.Tuple
+                    => Equals(obj, other.obj),
+                EDataType.Nothing => true,
+                _ => false
+            };
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is TuValue value && Equals(value);
+        }
+
+        public override int GetHashCode()
+        {
+            return type switch
+            {
+                EDataType.Numeric => HashCode.Combine(type, numeric),
+                _ => HashCode.Combine(type, obj),
+            };
+        }
+
+        public static bool operator ==(TuValue left, TuValue right) => left.Equals(right);
+        public static bool operator !=(TuValue left, TuValue right) => !left.Equals(right);
     }
 }
