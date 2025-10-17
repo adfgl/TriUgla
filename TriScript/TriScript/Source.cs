@@ -1,4 +1,6 @@
-﻿namespace TriScript.Scanning
+﻿using TriScript.Scanning;
+
+namespace TriScript
 {
     public class Source
     {

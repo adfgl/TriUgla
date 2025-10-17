@@ -10,12 +10,14 @@ namespace TriScript.Scanning
         int _bufferStart = 0;
         int _bufferCount = 0;
 
-        public Scanner(TokenReader reader)
+        TokenReader _reader;
+
+        public Scanner(Source source)
         {
-            Reader = reader;
+            _reader = new TokenReader(source);
         }
 
-        public TokenReader Reader { get; set; }
+        public Source Source => _reader.Source;
 
         public List<Token> ReadAll(DiagnosticBag? diagnostic)
         {
@@ -42,7 +44,7 @@ namespace TriScript.Scanning
                 _bufferCount--;
                 return token;
             }
-            return Reader.Read(diagnostic);
+            return _reader.Read(diagnostic);
         }
 
         public Token Peek(DiagnosticBag? diagnostic, int offset = 0)
@@ -60,7 +62,7 @@ namespace TriScript.Scanning
                     insertIndex -= LOOKAHEAD_SIZE; 
                 }
 
-                Token token = Reader.Read(diagnostic);
+                Token token = _reader.Read(diagnostic);
                 _lookaheadBuffer[insertIndex] = token;
                 _bufferCount++;
 

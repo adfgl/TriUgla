@@ -30,7 +30,157 @@ namespace TriScript.Scanning
             if (ch == '\n') return ReadNewline();
             if (IsDigit(ch) || (ch == '.' && IsDigit(Peek(1)))) return ReadNumber();
             if (IsIdentStart(ch)) return ReadIdentifier();
-            return ReadUnknown(diagnostic);
+            return ReadOperatorOrPunct(diagnostic);
+        }
+
+        Token ReadOperatorOrPunct(DiagnosticBag? diagnostic)
+        {
+            int line = _line, col = _col, pos = _pos;
+
+            ETokenType type;
+            switch (Peek())
+            {
+                case '.':
+                    type = ETokenType.Dot;
+                    Advance();
+                    break;
+
+                case ',':
+                    type = ETokenType.Comma;
+                    Advance();
+                    break;
+
+                case ':':
+                    type = ETokenType.Colon;
+                    Advance();
+                    break;
+
+                case ';':
+                    type = ETokenType.SemiColon;
+                    Advance();
+                    break;
+
+                case '|':
+                    type = ETokenType.Bar;
+                    Advance();
+                    if (Peek() == '|')
+                    {
+                        type = ETokenType.Or;
+                        Advance();
+                    }
+                    break;
+
+                case '&':
+                    type = ETokenType.Amp;
+                    Advance();
+                    if (Peek() == '&')
+                    {
+                        type = ETokenType.And;
+                        Advance();
+                    }
+                    break;
+
+                case '>':
+                    type = ETokenType.Greater;
+                    Advance();
+                    if (Peek() == '=')
+                    {
+                        type = ETokenType.GreaterEqual;
+                        Advance();
+                    }
+                    break;
+
+                case '<':
+                    type = ETokenType.Less;
+                    Advance();
+                    if (Peek() == '=')
+                    {
+                        type = ETokenType.LessEqaul;
+                        Advance();
+                    }
+                    break;
+
+                case '!':
+                    type = ETokenType.Not;
+                    Advance();
+                    if (Peek() == '=')
+                    {
+                        type = ETokenType.NotEqual;
+                        Advance();
+                    }
+                    break;
+
+                case '=':
+                    type = ETokenType.Assign;
+                    Advance();
+                    if (Peek() == '=')
+                    {
+                        type = ETokenType.Equal;
+                        Advance();
+                    }
+                    break;
+
+                case '*':
+                    type = ETokenType.Star;
+                    Advance();
+                    break;
+
+                case '/':
+                    type = ETokenType.Slash;
+                    Advance();
+                    break;
+
+                case '+':
+                    type = ETokenType.Plus;
+                    Advance();
+                    if (Peek() == '+')
+                    {
+                        type = ETokenType.PlusPlus;
+                        Advance();
+                    }
+                    break;
+
+                case '-':
+                    type = ETokenType.Minus;
+                    Advance();
+                    if (Peek() == '-')
+                    {
+                        type = ETokenType.MinusMinus;
+                        Advance();
+                    }
+                    break;
+
+                case '(':
+                    type = ETokenType.OpenParen;
+                    Advance();
+                    break;
+                case '[':
+                    type = ETokenType.OpenSquare;
+                    Advance();
+                    break;
+                case '{':
+                    type = ETokenType.OpenCurly;
+                    Advance();
+                    break;
+
+                case ')':
+                    type = ETokenType.CloseParen;
+                    Advance();
+                    break;
+                case ']':
+                    type = ETokenType.CloseSquare;
+                    Advance();
+                    break;
+                case '}':
+                    type = ETokenType.CloseCurly;
+                    Advance();
+                    break;
+
+                default:
+                    return ReadUnknown(diagnostic);
+            }
+
+            return new Token(type, line, col, new TextSpan(_pos, pos - _pos));
         }
 
         Token ReadUnknown(DiagnosticBag? diagnostic)
@@ -70,6 +220,8 @@ namespace TriScript.Scanning
             if (!IsIdentStart(Advance())) throw new Exception();
             while (IsIdentPart(Peek())) Advance();
             TextSpan span = new TextSpan(start, _pos - start);
+            string value = Source.GetString(span);
+
             return new Token(ETokenType.LiteralId, line, col, span);
         }
 

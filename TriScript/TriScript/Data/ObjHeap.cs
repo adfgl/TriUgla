@@ -1,26 +1,28 @@
-﻿namespace TriScript
+﻿namespace TriScript.Data
 {
     using System;
     using System.Collections.Generic;
-    using TriScript.Data;
 
     public class ObjHeap
     {
         sealed class Entry
         {
-            public Obj Obj;
-            public int RefCount;
+            public Obj Obj { get; set; }
+            public int RefCount { get; set; }
             public Entry(Obj obj, int rc) { Obj = obj; RefCount = rc; }
         }
 
-        readonly Dictionary<uint, Entry> _map = new();
+        readonly Dictionary<uint, Entry> _map = new Dictionary<uint, Entry>();
         uint _nextId = 1; // 0 is Pointer.Null
 
         public int Count => _map.Count;
 
         public Pointer Allocate(Obj obj)
         {
-            if (obj is null) throw new ArgumentNullException(nameof(obj));
+            if (obj is null)
+            {
+                throw new ArgumentNullException(nameof(obj));
+            }
             uint id = _nextId++;
             _map[id] = new Entry(obj, rc: 1);
             return new Pointer(id);
@@ -47,7 +49,7 @@
             if (n <= 0) throw new ArgumentOutOfRangeException(nameof(n));
             if (_map.TryGetValue(p.id, out var e))
             {
-                checked { e.RefCount += n; } // will throw on overflow
+                e.RefCount += n;
                 return true;
             }
             return false;

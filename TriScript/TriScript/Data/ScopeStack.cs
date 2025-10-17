@@ -1,24 +1,12 @@
-﻿using TriScript.Data;
-using TriScript.Diagnostics;
-
-namespace TriScript
+﻿namespace TriScript.Data
 {
-    public class Executor
+    public class ScopeStack
     {
-        readonly DiagnosticBag _diagnostic = new DiagnosticBag();
         readonly Stack<Scope> _scopes = new Stack<Scope>();
-        readonly ObjHeap _heap = new ObjHeap();
-        readonly Source _source;
-
-        public Executor(Source source)
-        {
-            _source = source;
-        }
+        int _loopDepth = 0;
 
         public IReadOnlyCollection<Scope> Scopes => _scopes;
-        public ObjHeap Heap => _heap;
-        public DiagnosticBag Diagnostic => _diagnostic;
-        public Source Source => _source;
+        public int LoopDepth => _loopDepth;
 
         public Scope CurrentScope
         {
@@ -48,6 +36,7 @@ namespace TriScript
         {
             Scope scope = new Scope(_scopes.Count == 0 ? null : _scopes.Peek());
             _scopes.Push(scope);
+            _loopDepth++;
             return scope;
         }
 
@@ -58,6 +47,7 @@ namespace TriScript
                 return;
             }
             _scopes.Pop();
+            _loopDepth--;
         }
     }
 }

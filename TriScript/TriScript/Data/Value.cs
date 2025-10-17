@@ -5,6 +5,8 @@ namespace TriScript.Data
     [StructLayout(LayoutKind.Explicit, Size = 8)]
     public readonly struct Value : IEquatable<Value>
     {
+        public static Value Nothing = new Value();
+
         [FieldOffset(0)] public readonly EDataType type;
         [FieldOffset(4)] readonly double number;
         [FieldOffset(4)] readonly Pointer pointer;
@@ -16,6 +18,8 @@ namespace TriScript.Data
             EDataType.Pointer => pointer.ToString(),
             _ => $"<{type}>"
         };
+
+        public bool IsNothing() => type == EDataType.None;
 
         public Value(int value)
         {
