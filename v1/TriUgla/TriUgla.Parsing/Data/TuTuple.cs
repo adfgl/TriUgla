@@ -31,7 +31,7 @@ namespace TriUgla.Parsing.Data
 
         public void Remove(TuValue value)
         {
-            if (value.type == EDataType.Tuple ||
+            if (value.type == EDataType.List ||
                 value.type == EDataType.Range)
             {
                 TuTuple values = value.AsTuple();

@@ -23,7 +23,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             TuValue nameValue = Name.Evaluate(rt);
-            if (nameValue.type != EDataType.Text)
+            if (nameValue.type != EDataType.String)
             {
                 throw new RunTimeException(
                     $"Macro definition expects a string name, but the expression evaluated to '{nameValue.type}'.",

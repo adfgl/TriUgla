@@ -39,8 +39,8 @@ namespace TriUgla.Parsing.Nodes.Statements
             IEnumerable<TuValue> iterator = list.type switch
             {
                 EDataType.Range => list.AsRange()!,
-                EDataType.Tuple => list.AsTuple()!,
-                _ => throw new RunTimeException($"For-loop expects {EDataType.Range} or {EDataType.Tuple} but got {list.type}.", Range.Token),
+                EDataType.List => list.AsTuple()!,
+                _ => throw new RunTimeException($"For-loop expects {EDataType.Range} or {EDataType.List} but got {list.type}.", Range.Token),
             };
 
             var flow = rt.Flow;

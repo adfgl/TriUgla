@@ -16,7 +16,7 @@ namespace TriUgla.Parsing.Data
             _to = to;
             _by = by;
 
-            if (by.type == EDataType.Real && from.type == EDataType.Integer)
+            if (by.type == EDataType.Float && from.type == EDataType.Integer)
             {
                 _from = new TuValue(by.AsNumeric());
             }

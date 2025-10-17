@@ -8,12 +8,16 @@ namespace TriUgla.Parsing.Scanning
 
         NameOf, Exists, Get, Set,
 
-        Print, Abort, Return, NativeFunction,
+        Integer, Float, String, List,
+        Matrix, Vector,
+
+        Print, Abort, Return, Test,
+        NativeFunction,
         Error,
         Comment, MultiLineComment, 
         LineBreak, EOF,
 
-        Numeric, String, Identifier,
+        NumericLiteral, StringLiteral, SymbolLiteral, Identifier,
 
         Minus, Plus, Star, Slash, Modulo, Power, 
         MinusEqual, PlusEqual, StarEqual, SlashEqual, ModuloEqual, PowerEqual,

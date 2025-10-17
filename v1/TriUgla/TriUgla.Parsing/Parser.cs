@@ -68,6 +68,38 @@ namespace TriUgla.Parsing
             return new NodeStmtIfElse(tkIf, elifs, elseBlock, Consume(ETokenType.EndIf));
         }
 
+        NodeStmtTest ParseTest()
+        {
+            Token tkn = Consume(ETokenType.Test);
+
+            List<NodeExprBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
+
+            if (args.Count == 1)
+            {
+                return new NodeStmtTest(tkn, args[0], null);
+            }
+
+            if (args.Count == 2)
+            {
+                return new NodeStmtTest(tkn, args[0], args[1]);
+            }
+
+            throw new CompileTimeException("Expected 2 or 3 args", tkn);
+        }
+
+        NodeStmtReturn ParseReturn()
+        {
+            Token tkReturn = Consume(ETokenType.Return);
+            Consume(ETokenType.OpenParen);
+            NodeExprBase? returnExpr = null;
+            if (!TryConsume(ETokenType.CloseParen, out _))
+            {
+                returnExpr = ParseExpression();
+                Consume(ETokenType.CloseParen);
+            }
+            return new NodeStmtReturn(tkReturn, returnExpr);
+        }
+
         List<NodeBase> ParseStatements()
         {
             List<NodeBase> statements = new List<NodeBase>();
@@ -136,15 +168,11 @@ namespace TriUgla.Parsing
                         break;
 
                     case ETokenType.Return:
-                        Token tkReturn = Consume();
-                        Consume(ETokenType.OpenParen);
-                        NodeExprBase? returnExpr = null;
-                        if (!TryConsume(ETokenType.CloseParen, out _))
-                        {
-                            returnExpr = ParseExpression();
-                            Consume(ETokenType.CloseParen);
-                        }
-                        statements.Add(new NodeStmtReturn(tkReturn, returnExpr));
+                        statements.Add(ParseReturn());
+                        break;
+
+                    case ETokenType.Test:
+                        statements.Add(ParseTest());
                         break;
 
                     case ETokenType.Break:
@@ -450,6 +478,15 @@ namespace TriUgla.Parsing
                 case ETokenType.NameOf:
                     return ParseNameOf();
 
+                case ETokenType.Integer:
+                case ETokenType.String:
+                case ETokenType.Float:
+                    var type = Consume();
+                    Consume(ETokenType.OpenParen);
+                    var expr = ParseExpression();
+                    Consume(ETokenType.CloseParen);
+                    return new NodeExprCast(type, expr);
+
                 case ETokenType.NativeFunction:
                     Consume();
                     List<NodeExprBase> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
@@ -461,10 +498,10 @@ namespace TriUgla.Parsing
                 case ETokenType.Identifier:
                     return ParseIdentifier();
 
-                case ETokenType.Numeric:
+                case ETokenType.NumericLiteral:
                     return new NodeExprNumeric(Consume());
 
-                case ETokenType.String:
+                case ETokenType.StringLiteral:
                     return new NodeExprString(Consume());
 
                 case ETokenType.OpenCurly:

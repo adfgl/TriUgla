@@ -8,27 +8,36 @@ namespace TriUgla.Parsing
 
         static readonly Dictionary<string, ETokenType> _keywords = new Dictionary<string, ETokenType>()
         {
-            { "Print", ETokenType.Print },
-            { "Abort", ETokenType.Abort },
-            { "Return", ETokenType.Return },
+            { "print", ETokenType.Print },
+            { "abort", ETokenType.Abort },
+            { "return", ETokenType.Return },
+            { "test", ETokenType.Test },
 
-            { "NameOf", ETokenType.NameOf },
-            { "Exists", ETokenType.Exists },
-            { "Get", ETokenType.Get },
-            { "Set", ETokenType.Set },
+            { "matrix", ETokenType.Matrix },
+            { "vector", ETokenType.Vector },
 
-            { "If", ETokenType.If },
-            { "Else", ETokenType.Else },
-            { "ElseIf", ETokenType.ElseIf },
-            { "EndIf", ETokenType.EndIf },
+            { "integer", ETokenType.Integer },
+            { "float", ETokenType.Float },
+            { "string", ETokenType.String },
+            { "list", ETokenType.List },
 
-            { "For", ETokenType.For },
-            { "In", ETokenType.In },
-            { "EndFor", ETokenType.EndFor },
+            { "nameof", ETokenType.NameOf },
+            { "exists", ETokenType.Exists },
+            { "get", ETokenType.Get },
+            { "set", ETokenType.Set },
 
-            { "Macro", ETokenType.Macro },
-            { "EndMacro", ETokenType.EndMacro },
-            { "Call", ETokenType.Call },
+            { "if", ETokenType.If },
+            { "else", ETokenType.Else },
+            { "elif", ETokenType.ElseIf },
+            { "endif", ETokenType.EndIf },
+
+            { "for", ETokenType.For },
+            { "in", ETokenType.In },
+            { "endfor", ETokenType.EndFor },
+
+            { "macro", ETokenType.Macro },
+            { "endmacro", ETokenType.EndMacro },
+            { "call", ETokenType.Call },
 
             { "and", ETokenType.And },
             { "or", ETokenType.Or },

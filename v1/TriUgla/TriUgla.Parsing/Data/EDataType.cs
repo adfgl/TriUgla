@@ -6,16 +6,16 @@
         Nothing = 0,
 
         Integer = 1 << 0,
-        Real = 1 << 1,
-        Text = 1 << 2,
+        Float = 1 << 1,
+        String = 1 << 2,
         Range = 1 << 3,
-        Tuple = 1 << 4,
+        List = 1 << 4,
         Reference = 1 << 5,
 
-        Numeric = Integer | Real,
-        Scalar = Numeric | Text,
-        Iterable = Range | Tuple,
+        Numeric = Integer | Float,
+        Scalar = Numeric | String,
+        Iterable = Range | List,
 
-        Any = Integer | Real | Text | Range | Tuple
+        Any = Integer | Float | String | Range | List
     }
 }

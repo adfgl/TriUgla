@@ -57,7 +57,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
             }
 
             TuValue value = _variable.Value;
-            if (IsTuple && value.type != EDataType.Nothing && value.type != EDataType.Tuple)
+            if (IsTuple && value.type != EDataType.Nothing && value.type != EDataType.List)
             {
                 throw new CompileTimeException("Expected tuple", Token);
             }

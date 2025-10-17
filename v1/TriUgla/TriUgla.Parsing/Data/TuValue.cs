@@ -10,12 +10,6 @@ namespace TriUgla.Parsing.Data
         readonly double numeric;
         readonly TuObject? obj;
 
-        public static bool Compatible(EDataType t1, EDataType t2)
-        {
-            if (t2 == EDataType.Nothing) return false;
-            return t1 == EDataType.Nothing || t1 == t2 || (t1 == EDataType.Real && t2 == EDataType.Integer);
-        }
-
         TuValue(EDataType type, double numeric, TuObject? obj)
         {
             this.type = type;
@@ -25,13 +19,13 @@ namespace TriUgla.Parsing.Data
 
         public TuValue(bool b)
         {
-            type = EDataType.Real;
+            type = EDataType.Float;
             numeric = b ? 1 : 0;
             obj = null;
         }
         public bool AsBoolean()
         {
-            if (type == EDataType.Real || type == EDataType.Integer) return numeric > 0;
+            if (type == EDataType.Float || type == EDataType.Integer) return numeric > 0;
             if (obj is not null) return true;
             throw new InvalidCastException();
         }
@@ -50,31 +44,31 @@ namespace TriUgla.Parsing.Data
 
         public TuValue(double n)
         {
-            type = EDataType.Real;
+            type = EDataType.Float;
             numeric = n;
             obj = null;
         }
         public double AsNumeric()
         {
-            if (type == EDataType.Real || type == EDataType.Integer) return numeric;
+            if (type == EDataType.Float || type == EDataType.Integer) return numeric;
             throw new InvalidCastException();
         }
 
         public TuValue(string s)
         {
-            type = EDataType.Text;
+            type = EDataType.String;
             obj = new TuText(s);
             numeric = double.NaN;
         }
         public TuText AsText()
         {
-            if (type == EDataType.Text && obj is TuText t) return t;
+            if (type == EDataType.String && obj is TuText t) return t;
             throw new InvalidCastException();
         }
 
         public TuValue(TuText text)
         {
-            type = EDataType.Text;
+            type = EDataType.String;
             obj = text;
             numeric = double.NaN;
         }
@@ -93,14 +87,14 @@ namespace TriUgla.Parsing.Data
 
         public TuValue(TuTuple tuple)
         {
-            type = EDataType.Tuple;
+            type = EDataType.List;
             obj = tuple;
             numeric = double.NaN;
         }
         public TuTuple AsTuple()
         {
-            if (type == EDataType.Tuple && obj is TuTuple t) return t;
-            if (type.IsNumeric())
+            if (type == EDataType.List && obj is TuTuple t) return t;
+            if (type.IsNumeric() || type == EDataType.String)
             {
                 TuTuple tpl = new TuTuple();
                 tpl.Add(this);
@@ -112,15 +106,6 @@ namespace TriUgla.Parsing.Data
                 foreach (var dbl in range)
                 {
                     tpl.Add(dbl);
-                }
-                return tpl;
-            }
-            if (type == EDataType.Text)
-            {
-                TuTuple tpl = new TuTuple();
-                foreach (char dbl in AsText().Content)
-                {
-                    tpl.Add(new TuValue($"{dbl}"));
                 }
                 return tpl;
             }
@@ -145,22 +130,16 @@ namespace TriUgla.Parsing.Data
 
         public string AsString()
         {
-            if (type == EDataType.Real) return numeric.ToString("0.0#################", CultureInfo.InvariantCulture);
+            if (type == EDataType.Float) return numeric.ToString("0.0#################", CultureInfo.InvariantCulture);
             if (type == EDataType.Integer) return ((int)numeric).ToString();
             if (obj is not null) return obj.ToString() ?? string.Empty;
             if (type == EDataType.Nothing) return string.Empty;
             throw new InvalidCastException();
         }
 
-        
-
-     
-
-   
-
         public TuValue Copy()
         {
-            if (type == EDataType.Real || obj is null)
+            if (type == EDataType.Float || obj is null)
                 return this;
             return new TuValue(type, numeric, obj.Clone());
         }
@@ -184,7 +163,7 @@ namespace TriUgla.Parsing.Data
         {
             return type switch
             {
-                EDataType.Real => HashCode.Combine(type, numeric),
+                EDataType.Float => HashCode.Combine(type, numeric),
                 _ => HashCode.Combine(type, obj),
             };
         }
@@ -198,7 +177,7 @@ namespace TriUgla.Parsing.Data
                 throw new InvalidOperationException();
 
             double result = op(left.AsNumeric(), right.AsNumeric());
-            return (left.type == EDataType.Real || right.type == EDataType.Real)
+            return (left.type == EDataType.Float || right.type == EDataType.Float)
                 ? new TuValue(result)
                 : new TuValue((int)result);
         }
@@ -212,7 +191,7 @@ namespace TriUgla.Parsing.Data
 
         public static TuValue operator +(TuValue left, TuValue right)
         {
-            if (left.type == EDataType.Text || right.type == EDataType.Text)
+            if (left.type == EDataType.String || right.type == EDataType.String)
                 return new TuValue(left.AsString() + right.AsString());
             return NumericOp(left, right, (a, b) => a + b);
         }

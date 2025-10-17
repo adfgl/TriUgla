@@ -15,11 +15,11 @@ namespace TriUgla.Parsing
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsReal(this EDataType type)
-            => (type & EDataType.Real) != 0;
+            => (type & EDataType.Float) != 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsText(this EDataType type)
-            => (type & EDataType.Text) != 0;
+            => (type & EDataType.String) != 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsIterable(this EDataType type)

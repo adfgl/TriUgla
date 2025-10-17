@@ -44,13 +44,13 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
                     {
                         type = v.type;
                     }
-                    else if (type == EDataType.Real && v.type == EDataType.Integer)
+                    else if (type == EDataType.Float && v.type == EDataType.Integer)
                     {
                         set = new TuValue(v.AsNumeric());
                     }
-                    else if (type == EDataType.Integer && v.type == EDataType.Real)
+                    else if (type == EDataType.Integer && v.type == EDataType.Float)
                     {
-                        type = EDataType.Real;
+                        type = EDataType.Float;
                         set = new TuValue(v.AsNumeric());
                         for (int j = 0; j < i; j++)
                         {

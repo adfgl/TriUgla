@@ -19,11 +19,11 @@ namespace TriUgla.Parsing.Nodes.Expressions
             TuValue value = Tuple.Evaluate(rt);
 
             int count;
-            if (value.type == EDataType.Tuple)
+            if (value.type == EDataType.List)
             {
                 count = value.AsTuple().Values.Count;
             }
-            else if (value.type == EDataType.Text)
+            else if (value.type == EDataType.String)
             {
                 count = value.AsText().Content.Length;
             }

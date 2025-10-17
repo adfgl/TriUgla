@@ -27,7 +27,7 @@ namespace TriUgla.Parsing.Scanning
             if (ch == '/' && Peek(1) == '*') return ReadMultiLineComment();
             if (IsDigit(ch) || (ch == '.' && IsDigit(Peek(1)))) return ReadNumber();
             if (IsIdentStart(ch)) return ReadIdentifier();
-            if (ch == '"') return ReadString();
+            if (ch == '\"' || ch == '\'') return ReadString(ch);
 
             return ReadOperatorOrPunct();
         }
@@ -159,10 +159,10 @@ namespace TriUgla.Parsing.Scanning
 
             int len = _pos - start;
             string lexeme = _src.Substring(start, len);
-            return new Token(ETokenType.Numeric, line, col, lexeme);
+            return new Token(ETokenType.NumericLiteral, line, col, lexeme);
         }
 
-        Token ReadString()
+        Token ReadString(char quates)
         {
             int line = _line, col = _col;
             int startPos = _pos;     // at opening "
@@ -174,7 +174,7 @@ namespace TriUgla.Parsing.Scanning
             {
                 char c = Peek();
                 if (c == EOF) break;            // unterminated -> return what we have
-                if (c == '"') { Advance(); break; } // consume closing ", done
+                if (c == quates) { Advance(); break; } // consume closing ", done
                 if (c == '\n' || c == '\r')
                 {   // stop at EOL for safety (treat as unterminated)
                     break;
@@ -247,17 +247,16 @@ namespace TriUgla.Parsing.Scanning
             }
 
             string cooked = sb.ToString();
-            return new Token(ETokenType.String, line, col, cooked);
-
-            static int HexVal(char ch)
-            {
-                if (ch >= '0' && ch <= '9') return ch - '0';
-                if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
-                if (ch >= 'A' && ch <= 'F') return 10 + (ch - 'A');
-                return -1;
-            }
+            return new Token(ETokenType.StringLiteral, line, col, cooked);
         }
 
+        static int HexVal(char ch)
+        {
+            if (ch >= '0' && ch <= '9') return ch - '0';
+            if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
+            if (ch >= 'A' && ch <= 'F') return 10 + (ch - 'A');
+            return -1;
+        }
 
         Token ReadOperatorOrPunct()
         {

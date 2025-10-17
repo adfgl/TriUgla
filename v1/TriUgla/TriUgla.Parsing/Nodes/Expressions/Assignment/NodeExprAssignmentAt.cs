@@ -25,7 +25,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Assignment
             TuValue current = At.Evaluate(rt);
             TuValue value = Expression.Evaluate(rt);
 
-            if (current.type == EDataType.Real &&
+            if (current.type == EDataType.Float &&
                 value.type == EDataType.Integer)
             {
                 value = new TuValue((int)value.AsNumeric());

@@ -33,7 +33,7 @@ namespace TriUgla.Parsing.Nodes
 
         public static void CheckDivisionByZero(NodeBase node, TuValue value)
         {
-            if (value.type != EDataType.Real)
+            if (value.type != EDataType.Float)
             {
                 throw new Exception("Node must be evaluated to numeric at this point.");
             }

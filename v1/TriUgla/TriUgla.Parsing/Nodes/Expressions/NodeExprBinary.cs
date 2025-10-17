@@ -32,7 +32,7 @@ namespace TriUgla.Parsing.Nodes.Expressions
             if (op == ETokenType.EqualEqual) return new TuValue(left == right);
             if (op == ETokenType.NotEqual) return new TuValue(left != right);
 
-            if (left.type == EDataType.Text || right.type == EDataType.Text)
+            if (left.type == EDataType.String || right.type == EDataType.String)
             {
                 return left + right;
             }

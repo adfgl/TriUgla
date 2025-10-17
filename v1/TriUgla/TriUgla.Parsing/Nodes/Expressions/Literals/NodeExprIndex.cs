@@ -20,7 +20,7 @@ namespace TriUgla.Parsing.Nodes.Expressions.Literals
         protected override TuValue EvaluateInvariant(TuRuntime rt)
         {
             TuValue tuple = TupleExp.Evaluate(rt);
-            if (tuple.type != EDataType.Tuple)
+            if (tuple.type != EDataType.List)
             {
                 throw new RunTimeException(
                     $"Cannot index expression of type '{tuple.type}'. Only tuples ({{...}}) support indexing.",

@@ -42,7 +42,7 @@ namespace TriUgla.Parsing.Runtime
                 return;
             }
 
-            if (type == EDataType.Real && value.type == EDataType.Integer)
+            if (type == EDataType.Float && value.type == EDataType.Integer)
             {
                 Value = new TuValue(value.AsNumeric());
                 return;

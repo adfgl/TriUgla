@@ -61,7 +61,7 @@ namespace TriUgla.Parsing.Nodes.Statements
                 double v = cur.type switch
                 {
                     EDataType.Nothing => 0.0,
-                    EDataType.Real => cur.AsNumeric(),
+                    EDataType.Float => cur.AsNumeric(),
                     _ => throw new Exception("'from' must be numeric.")
                 };
                 return (v, id.Variable);
@@ -70,7 +70,7 @@ namespace TriUgla.Parsing.Nodes.Statements
             if (node is NodeExprAssignment a && a.Assignee is NodeExprIdentifier tgt)
             {
                 TuValue cur = a.Evaluate(st);
-                if (cur.type != EDataType.Real) throw new Exception("'from' assignment must be numeric.");
+                if (cur.type != EDataType.Float) throw new Exception("'from' assignment must be numeric.");
                 return (cur.AsNumeric(), tgt.Variable);
             }
 
@@ -92,7 +92,7 @@ namespace TriUgla.Parsing.Nodes.Statements
         {
             if (node is null) return def;
             TuValue v = node.Evaluate(st);
-            if (v.type != EDataType.Real) throw new Exception($"'{name}' must be numeric.");
+            if (v.type != EDataType.Float) throw new Exception($"'{name}' must be numeric.");
             return v.AsNumeric();
         }
 
