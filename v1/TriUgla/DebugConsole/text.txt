@@ -1,24 +1,2 @@
-print("### Declaration ###")
 
-integer = 1
-real = 1.0
-string = "Hello world"
-c~{integer} = "compound"
-
-list_empty = {}
-list_integer = {1, 2}
-list_real = {1., 2.}
-list_string = {"hello", "there"}
-
-print(integer)
-print(real)
-print(string)
-print(c_1)
-
-print(list_empty)
-print(list_integer)
-print(list_real)
-print(list_string)
-
-test(#list_empty == 0, "list is not empty")
-test(list_integer[0] == 1)
+m = matrix<3, 3>

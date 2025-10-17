@@ -31,25 +31,6 @@ namespace TriUgla.Parsing.Nodes
             };
         }
 
-        public static void CheckDivisionByZero(NodeBase node, TuValue value)
-        {
-            if (value.type != EDataType.Float)
-            {
-                throw new Exception("Node must be evaluated to numeric at this point.");
-            }
-
-            if (value.AsNumeric() != 0) return;
-
-            if (node is NodeExprLiteralBase)
-            {
-                throw CompileTimeException.DivisionByZero(node.Token);
-            }
-            else
-            {
-                throw RunTimeException.DivisionByZero(node.Token);
-            }
-        }
-
         public static bool ValidIdentifier(string id, out string reason)
         {
             if (string.IsNullOrEmpty(id))

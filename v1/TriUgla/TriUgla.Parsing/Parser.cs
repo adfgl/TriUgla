@@ -470,6 +470,14 @@ namespace TriUgla.Parsing
             return new NodeExprIdentifier(id, isTuple, index);
         }
 
+        NodeExprBase ParseMatrix()
+        {
+            Token mat = Consume(ETokenType.Matrix);
+            List<NodeExprBase> args = ParseArguments(ETokenType.Less, ETokenType.Greater, ETokenType.Comma);
+
+            return null;
+        }
+
         NodeExprBase ParseSimplePrimaryExpression()
         {
             Token token = Peek();

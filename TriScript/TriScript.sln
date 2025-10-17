@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36301.6 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TriScript", "TriScript\TriScript.csproj", "{4A14AC34-5F18-4605-8140-1C49B3F5D3DD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DebugConsole", "DebugConsole\DebugConsole.csproj", "{D883ED26-783C-4FF8-AF83-42D12869262A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4A14AC34-5F18-4605-8140-1C49B3F5D3DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A14AC34-5F18-4605-8140-1C49B3F5D3DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A14AC34-5F18-4605-8140-1C49B3F5D3DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A14AC34-5F18-4605-8140-1C49B3F5D3DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D883ED26-783C-4FF8-AF83-42D12869262A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D883ED26-783C-4FF8-AF83-42D12869262A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D883ED26-783C-4FF8-AF83-42D12869262A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D883ED26-783C-4FF8-AF83-42D12869262A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DE4B8FFB-44CA-456D-BC88-6A71806E467E}
+	EndGlobalSection
+EndGlobal
