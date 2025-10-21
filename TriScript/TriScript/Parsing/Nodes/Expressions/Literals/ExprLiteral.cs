@@ -7,7 +7,7 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
     {
         protected ExprLiteral(Token token)
         {
-
+            Token = token;
         }
 
         public Token Token {get; }

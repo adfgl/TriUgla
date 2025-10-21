@@ -1,11 +1,12 @@
 ﻿using TriScript.Data;
 using TriScript.Diagnostics;
+using TriScript.Parsing;
+using TriScript.Parsing.Nodes;
 
 namespace TriScript
 {
     public class Executor
     {
-        readonly DiagnosticBag _diagnostic = new DiagnosticBag();
         readonly Stack<Scope> _scopes = new Stack<Scope>();
         readonly ObjHeap _heap = new ObjHeap();
         readonly Source _source;
@@ -17,7 +18,6 @@ namespace TriScript
 
         public IReadOnlyCollection<Scope> Scopes => _scopes;
         public ObjHeap Heap => _heap;
-        public DiagnosticBag Diagnostic => _diagnostic;
         public Source Source => _source;
 
         public Scope CurrentScope
@@ -62,7 +62,20 @@ namespace TriScript
 
         public void Run()
         {
+            DiagnosticBag diagnos = new DiagnosticBag();
+            Parser parser = new Parser(_source, diagnos);
 
+            TriProgram program = parser.Parse();
+
+            foreach (Diagnostic item in diagnos.Items)
+            {
+                Console.WriteLine(item);
+            }
+
+            if (!diagnos.HasErrors)
+            {
+                program.Evaluate(this);
+            }
         }
     }
 }

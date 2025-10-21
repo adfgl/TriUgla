@@ -7,6 +7,8 @@ namespace DebugConsole
         static void Main(string[] args)
         {
             Source source = new Source(File.ReadAllText(@"test.txt"));
+            Executor exe = new Executor(source);
+            exe.Run();
         }
     }
 }

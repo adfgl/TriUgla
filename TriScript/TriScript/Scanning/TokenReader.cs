@@ -240,6 +240,7 @@ namespace TriScript.Scanning
                 char ch = Peek();
                 if (ch == EOF) break;
                 if (ch == quates) break;
+                Advance();
             }
 
             TextSpan span = new TextSpan(start, _pos - start);

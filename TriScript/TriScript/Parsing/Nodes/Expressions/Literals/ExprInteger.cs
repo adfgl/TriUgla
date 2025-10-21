@@ -5,7 +5,10 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
 {
     public sealed class ExprInteger : ExprLiteral
     {
-        public ExprInteger(Token token) : base(token) { }
+        public ExprInteger(Token token) : base(token)
+        {
+
+        }
 
         public override Value Evaluate(Executor ex)
         {

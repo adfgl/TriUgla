@@ -17,12 +17,11 @@ namespace TriScript.Data
         List = 1 << 6,
         Tuple = 1 << 7,
         Range = 1 << 8,
-        Vector = 1 << 9,
-        Matrix  = 1 << 10,
+        Matrix  = 1 << 9,
 
         Numeric = Integer | Real,
-        Any = Integer | Real | String | Boolean | Character | List | Tuple | Range | Vector | Matrix,
-        Object = String | List | Tuple | Range | Vector | Matrix
+        Any = Integer | Real | String | Boolean | Character | List | Tuple | Range | Matrix,
+        Object = String | List | Tuple | Range | Matrix
     }
 
     public static class DataTypeEx

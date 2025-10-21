@@ -16,6 +16,6 @@ namespace TriScript.Diagnostics
         }
 
         public override string ToString()
-            => $"{severity}: {message} @{span.start}..{span.start + span.length}";
+            => $"{severity}: {message} {span.start}..{span.start + span.length}";
     }
 }

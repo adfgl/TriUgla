@@ -12,7 +12,7 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
             Cols = cols;
             RowRecors = rowRecors;
         }
-        
+
         public Expr Rows { get; }
         public Expr Cols { get; }
         public IReadOnlyList<Expr> RowRecors { get; }
