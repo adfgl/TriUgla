@@ -11,9 +11,9 @@ namespace TriScript.Parsing.Nodes.Statements
 
         public StmtBlock Body { get; }
 
-        public override void Evaluate(Executor ex)
+        public override void Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            Body.Evaluate(ex);
+            Body.Evaluate(source, stack, heap);
         }
     }
 }

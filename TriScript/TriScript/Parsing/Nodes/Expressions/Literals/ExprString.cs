@@ -4,20 +4,18 @@ using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes.Expressions.Literals
 {
-    public sealed class ExprString : Expr
+    public sealed class ExprString : ExprLiteral
     {
-        public ExprString(Token value)
+        public ExprString(Token value) 
+            : base(value, EDataType.String)
         {
-            Token = value;
         }
 
-        public Token Token { get; }
-
-        public override Value Evaluate(Executor ex)
+        public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            string content = ex.Source.GetString(Token.span);
+            string content = source.GetString(Token.span);
             ObjString str = new ObjString(content);
-            Pointer ptr = ex.Heap.Allocate(str);
+            Pointer ptr = heap.Allocate(str);
             return new Value(ptr);
         }
     }

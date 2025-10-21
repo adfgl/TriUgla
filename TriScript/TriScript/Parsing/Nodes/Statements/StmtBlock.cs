@@ -11,14 +11,14 @@ namespace TriScript.Parsing.Nodes.Statements
 
         public IReadOnlyList<Stmt> Statements { get; }
 
-        public override void Evaluate(Executor rt)
+        public override void Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            rt.OpenScope();
+            stack.OpenScope();
             foreach (var node in Statements)
             {
-                node.Evaluate(rt);
+                node.Evaluate(source, stack, heap);
             }
-            rt.CloseScope();
+            stack.CloseScope();
         }
     }
 }

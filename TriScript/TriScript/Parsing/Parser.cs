@@ -14,7 +14,7 @@ namespace TriScript.Parsing
     {
         readonly Scanner _scanner;
         readonly DiagnosticBag _diagnostics;
-        readonly ScopeStack _scope = new ScopeStack();
+        readonly ScopeStack _stack = new ScopeStack();
 
         public Parser(Source source, DiagnosticBag diagnostic)
         {
@@ -78,12 +78,23 @@ namespace TriScript.Parsing
                         Consume();
                         break;
 
+                    case ETokenType.Print:
+                        statements.Add(Print());
+                        break;
+
                     default:
                         statements.Add(Statement());
                         break;
                 }
             }
             return statements;
+        }
+
+        Stmt Print()
+        {
+            Consume(ETokenType.Print);
+            List<Expr> args = Arguments();
+            return new StmtPrint(args);
         }
 
         Stmt Statement()
@@ -93,9 +104,9 @@ namespace TriScript.Parsing
 
         StmtBlock Block()
         {
-            _scope.OpenScope();
+            _stack.OpenScope();
             List<Stmt> stmts = ParseStatements();
-            _scope.CloseScope(); 
+            _stack.CloseScope(); 
             return new StmtBlock(stmts);
         }
 
@@ -203,41 +214,66 @@ namespace TriScript.Parsing
 
         Expr Assignment()
         {
-            Token id = Consume(ETokenType.LiteralIdentifier);
-            string name = Source.GetString(id.span);
+            Token tknId = Consume(ETokenType.LiteralIdentifier);
+            string name = Source.GetString(tknId.span);
 
             List<Expr> args = [];
             if (Peek().type == ETokenType.OpenSquare)
             {
-                args = ParseArguments(ETokenType.OpenSquare, ETokenType.CloseSquare);
+                args = Arguments(ETokenType.OpenSquare, ETokenType.CloseSquare);
             }
 
-            bool fetched = _scope.CurrentScope.TryGet(name, out Variable var);
+            bool fetched = _stack.Current.TryGet(name, out Variable var);
 
             if (Peek().type == ETokenType.Assign)
             {
                 Consume();
 
                 Expr value = Expression();
-
                 if (!fetched)
                 {
                     var = new Variable(name);
-                    _scope.CurrentScope.Declare(var);
-
-                    if (args.Count == 0)
-                    {
-                        return new ExprAssignment(id, value);
-                    }
-                    return new ExprAssignmentByIndex(id, args, value);
+                    _stack.Current.Declare(var);
                 }
+
+                if (fetched)
+                {
+                    if (value is ExprLiteral lit && var.Value.type != lit.Type)
+                    {
+                        if (var.Value.type != EDataType.Real && lit.Type != EDataType.Integer)
+                        {
+                            _diagnostics.Report(ESeverity.Error, $"Cannot assign variable '{name}' of type '{var.Value.type}' to '{lit.Type}' explicitly.", lit.Token.span);
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception();
+                    }
+                }
+                else
+                {
+                    if (value is ExprLiteral lit)
+                    {
+                        var.Value = new Value(lit.Type);
+                    }
+                    else
+                    {
+                        throw new Exception();
+                    }
+                }
+
+                if (args.Count == 0)
+                {
+                    return new ExprAssignment(tknId, value);
+                }
+                return new ExprAssignmentByIndex(tknId, args, value);
             }
 
             if (!fetched)
             {
-                _diagnostics.Report(ESeverity.Error, $"Use of unassigned variable '{name}'.", id.span);
+                _diagnostics.Report(ESeverity.Error, $"Use of unassigned variable '{name}'.", tknId.span);
             }
-            return new ExprIdentifier(id);
+            return new ExprIdentifier(tknId, EDataType.None);
         }
 
         Expr Number()
@@ -263,6 +299,10 @@ namespace TriScript.Parsing
             switch (token.type)
             {
                 case ETokenType.LiteralIdentifier:
+                    if (Peek(1).type == ETokenType.OpenParen)
+                    {
+                        return Call();
+                    }
                     return Assignment();
 
                 case ETokenType.True:
@@ -278,14 +318,7 @@ namespace TriScript.Parsing
                 case ETokenType.LiteralNemeric:
                     return Number();
 
-                case ETokenType.OpenCurly:
-                    return Matrix();
-
                 case ETokenType.OpenParen:
-                    if (_scanner.Previous.type == ETokenType.LiteralIdentifier)
-                    {
-                        return Call();
-                    }
                     return Group();
             }
 
@@ -295,124 +328,10 @@ namespace TriScript.Parsing
             return new ExprError();
         }
 
-        ExprMatrix Matrix()
-        {
-            Token open = Consume(ETokenType.OpenCurly);
-            SkipTrivia();
-
-            List<List<Expr>> rows = new List<List<Expr>>();
-
-            if (Peek().type == ETokenType.CloseCurly)
-            {
-                _diagnostics.Report(ESeverity.Error, "Empty matrix is not allowed.", Peek().span);
-                Consume(ETokenType.CloseCurly);
-                return new ExprMatrix(open, null, null, []);
-            }
-
-            while (true)
-            {
-                List<Expr> row = MatrixRow();
-                if (row.Count == 0)
-                {
-                    _diagnostics.Report(ESeverity.Error, "Matrix row cannot be empty.", _scanner.Previous.span);
-                }
-                rows.Add(row);
-
-                SkipTrivia();
-
-                if (Match(ETokenType.SemiColon))
-                {
-                    SkipTrivia();
-                    if (Peek().type == ETokenType.CloseCurly)
-                    {
-                        // trailing ';' before '}' allowed
-                        break;
-                    }
-                    // else: another row expected, continue loop
-                    continue;
-                }
-                // No ';' → must be closing '}' (end of matrix)
-                break;
-            }
-
-            Consume(ETokenType.CloseCurly);
-
-            int cols = rows[0].Count;
-            for (int r = 1; r < rows.Count; r++)
-            {
-                if (rows[r].Count != cols)
-                {
-                    _diagnostics.Report(
-                        ESeverity.Error,
-                        $"All matrix rows must have the same number of elements. Row 0 has {cols}, row {r} has {rows[r].Count}.",
-                        _scanner.Previous.span);
-                    break; // avoid cascades
-                }
-            }
-
-            List<Expr> args = new List<Expr>(rows.Count * rows[0].Count);
-            foreach (List<Expr> row in rows)
-            {
-                foreach (Expr value in row)
-                {
-                    args.Add(value);
-
-                    if (value is ExprIdentifier id)
-                    {
-                        string idStr = Source.GetString(id.Token.span);
-                        if (!_scope.CurrentScope.TryGet(idStr, out _))
-                        {
-                            // not declared
-                        }
-                    }
-                    else if (value is ExprInteger or ExprReal)
-                    {
-                        args.Add(value);
-                    }
-                    else
-                    {
-                        // not allowed
-                    }
-                }
-            }
-            return null;
-        }
-
-        List<Expr> MatrixRow()
-        {
-            var elems = new List<Expr>(8);
-
-            while (true)
-            {
-                SkipTrivia();
-
-                // Stop row at row/Matrix terminators (don't require a trailing separator)
-                var t = Peek().type;
-                if (t == ETokenType.SemiColon || t == ETokenType.CloseCurly)
-                    break;
-
-                // Parse an element expression
-                elems.Add(Expression());
-                SkipTrivia();
-
-                // Optional comma between elements
-                if (Match(ETokenType.Comma))
-                {
-                    // allow comma + whitespace; next loop iteration decides if row ends
-                    continue;
-                }
-
-                // If next is a terminator we’ll break at the top of the loop.
-                // Otherwise, whitespace-separated elements are allowed → continue.
-            }
-            return elems;
-        }
-
         ExprCall Call()
         {
             Token collee = Consume(ETokenType.LiteralIdentifier);
-            List<Expr> args = ParseArguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
-
+            List<Expr> args = Arguments(ETokenType.OpenParen, ETokenType.CloseParen, ETokenType.Comma);
             return new ExprCall(collee, args);  
         }
 
@@ -424,7 +343,7 @@ namespace TriScript.Parsing
             return new ExprGroup(open, group, close);
         }
 
-        List<Expr> ParseArguments(
+        List<Expr> Arguments(
             ETokenType open = ETokenType.OpenParen,
             ETokenType close = ETokenType.CloseParen,
             ETokenType separator = ETokenType.Comma)

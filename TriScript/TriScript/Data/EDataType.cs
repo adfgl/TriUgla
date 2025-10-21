@@ -14,14 +14,10 @@ namespace TriScript.Data
         Character = 1 << 4,
 
         String = 1 << 5,
-        List = 1 << 6,
-        Tuple = 1 << 7,
-        Range = 1 << 8,
-        Matrix  = 1 << 9,
 
         Numeric = Integer | Real,
-        Any = Integer | Real | String | Boolean | Character | List | Tuple | Range | Matrix,
-        Object = String | List | Tuple | Range | Matrix
+        Any = Integer | Real | String | Boolean | Character,
+        Object = String
     }
 
     public static class DataTypeEx

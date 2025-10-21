@@ -1,4 +1,5 @@
-﻿using TriScript.Parsing.Nodes.Statements;
+﻿using TriScript.Data;
+using TriScript.Parsing.Nodes.Statements;
 
 namespace TriScript.Parsing.Nodes
 {
@@ -11,9 +12,9 @@ namespace TriScript.Parsing.Nodes
 
         public StmtBlock Block { get; }
 
-        public override void Evaluate(Executor ex)
+        public override void Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            Block.Evaluate(ex);
+            Block.Evaluate(source, stack, heap);
         }
     }
 }

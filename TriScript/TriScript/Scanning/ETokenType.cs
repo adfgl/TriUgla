@@ -11,6 +11,8 @@
 
         Break, Continue,
 
+        Print,
+
         DotProduct, CrossProduct,
 
         LineBreak, 

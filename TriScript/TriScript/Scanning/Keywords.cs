@@ -4,6 +4,8 @@
     {
         readonly static Dictionary<string, ETokenType> _source = new Dictionary<string, ETokenType>()
         {
+            { "print", ETokenType.Print },
+
             { "true", ETokenType.True },
             { "false" , ETokenType.False },
 

@@ -5,15 +5,15 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
 {
     public sealed class ExprInteger : ExprLiteral
     {
-        public ExprInteger(Token token) : base(token)
+        public ExprInteger(Token token)
+            : base(token, EDataType.Integer)
         {
 
         }
 
-        public override Value Evaluate(Executor ex)
+        public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            string lexeme = ex.Source.GetString(Token.span);
-            return new Value(int.Parse(lexeme));
+            return new Value(int.Parse(source.GetString(Token.span)));
         }
     }
 }

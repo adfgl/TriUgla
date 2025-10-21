@@ -1,7 +1,9 @@
-﻿namespace TriScript.Parsing.Nodes
+﻿using TriScript.Data;
+
+namespace TriScript.Parsing.Nodes
 {
     public abstract class Stmt
     {
-        public abstract void Evaluate(Executor ex);
+        public abstract void Evaluate(Source source, ScopeStack stack, ObjHeap heap);
     }
 }

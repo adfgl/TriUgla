@@ -7,7 +7,7 @@
             Content = value;
         }
 
-        public string Content { get; }
+        public string Content { get; set; }
 
         public override string ToString()
         {

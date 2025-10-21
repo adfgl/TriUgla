@@ -8,7 +8,7 @@
         public IReadOnlyCollection<Scope> Scopes => _scopes;
         public int LoopDepth => _loopDepth;
 
-        public Scope CurrentScope
+        public Scope Current
         {
             get
             {

@@ -25,6 +25,11 @@ namespace TriScript.Data
 
         public bool IsNothing() => type == EDataType.None;
 
+        public Value(EDataType type)
+        {
+            this.type = type;
+        }
+
         public Value(int value)
         {
             type = EDataType.Integer;

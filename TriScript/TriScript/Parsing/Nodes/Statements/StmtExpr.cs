@@ -1,4 +1,6 @@
-﻿namespace TriScript.Parsing.Nodes.Statements
+﻿using TriScript.Data;
+
+namespace TriScript.Parsing.Nodes.Statements
 {
     public class StmtExpr : Stmt
     {
@@ -9,9 +11,9 @@
 
         public Expr Expr { get; }
 
-        public override void Evaluate(Executor ex)
+        public override void Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            Expr.Evaluate(ex);
+            Expr.Evaluate(source, stack, heap);
         }
     }
 }

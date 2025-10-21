@@ -15,16 +15,16 @@ namespace TriScript.Parsing.Nodes.Expressions
         public Token Target { get; }
         public Expr Value { get; }
 
-        public override Value Evaluate(Executor rt)
+        public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            string name = rt.Source.GetString(Target.span);
-            if (!rt.CurrentScope.TryGet(name, out Variable var))
+            string name = source.GetString(Target.span);
+            if (!stack.Current.TryGet(name, out Variable var))
             {
                 var = new Variable(name);
-                rt.CurrentScope.Declare(var);
+                stack.Current.Declare(var);
             }
 
-            Value value = Value.Evaluate(rt);
+            Value value = Value.Evaluate(source, stack, heap);
             var.Value = value;
             return value;
         }

@@ -14,7 +14,7 @@ namespace TriScript.Parsing.Nodes.Expressions
         public Expr Expr { get; }
         public Token Operator { get; }
 
-        public override Value Evaluate(Executor ex)
+        public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
             throw new NotImplementedException();
         }

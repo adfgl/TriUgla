@@ -14,15 +14,15 @@ namespace TriScript.Parsing.Nodes.Expressions
         public Token Collee { get; }
         public IReadOnlyList<Expr> Arguments { get; }
 
-        public override Value Evaluate(Executor ex)
+        public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            string name = ex.Source.GetString(Collee.span);
+            string name = source.GetString(Collee.span);
 
             int numArgs = Arguments.Count;
             Value[] args = new Value[numArgs];
             for (int i = 0; i < numArgs; i++)
             {
-                args[i] = Arguments[i].Evaluate(ex);
+                args[i] = Arguments[i].Evaluate(source, stack, heap);
             }
 
             throw new NotImplementedException();

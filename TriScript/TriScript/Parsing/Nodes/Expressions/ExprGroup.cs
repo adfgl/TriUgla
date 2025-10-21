@@ -16,6 +16,7 @@ namespace TriScript.Parsing.Nodes.Expressions
         public Expr Expr { get; }
         public Token Close { get; }
 
-        public override Value Evaluate(Executor ex) => Expr.Evaluate(ex);
+        public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap) 
+            => Expr.Evaluate(source, stack, heap);
     }
 }
