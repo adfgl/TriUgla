@@ -10,13 +10,8 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
         public override Value Evaluate(Executor ex)
         {
             TextSpan span = Token.span;
-            string content = ex.Source.GetString(span);
-
-            if (ex.CurrentScope.TryGet(content, out Variable value))
-            {
-                return value.Value;
-            }
-            throw new Exception();
+            string id = ex.Source.GetString(span);
+            return ex.CurrentScope.Get(id).Value;
         }
     }
 }

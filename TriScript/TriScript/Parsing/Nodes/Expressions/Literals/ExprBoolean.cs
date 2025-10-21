@@ -9,20 +9,7 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
 
         public override Value Evaluate(Executor ex)
         {
-            bool result;
-            if (Token.type == ETokenType.True)
-            {
-                result = true;
-            }
-            else if (Token.type == ETokenType.False)
-            {
-                result = false;
-            }
-            else
-            {
-                throw new ArgumentException();
-            }
-            return new Value(result);
+            return new Value(Token.type == ETokenType.True);
         }
     }
 }

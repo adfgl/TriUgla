@@ -51,6 +51,15 @@
             return variable;
         }
 
+        public Variable Get(string name)
+        {
+            if (Resolve(name, out Scope scope))
+            {
+                return scope._variables[name];
+            }
+            throw new Exception();
+        }
+
         public bool TryGet(string name, out Variable variable)
         {
             if (Resolve(name, out Scope scope))

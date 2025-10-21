@@ -14,7 +14,13 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
 
         public override Value Evaluate(Executor ex)
         {
-            throw new NotImplementedException();
+            int size = Elements.Count;
+            Value[] values = new Value[size];
+            for (int i = 0; i < size; i++)
+            {
+                values[i] = Elements[i].Evaluate(ex);
+            }
+            return new Value();
         }
     }
 }
