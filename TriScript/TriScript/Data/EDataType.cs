@@ -4,19 +4,25 @@ using System.Runtime.CompilerServices;
 namespace TriScript.Data
 {
     [Flags]
-    public enum EDataType : byte
+    public enum EDataType : ushort
     {
         None = 0,
         Integer = 1 << 0,
-        Float = 1 << 1,
+        Real = 1 << 1,
         Pointer = 1 << 2,
+        Boolean = 1 << 3,
+        Character = 1 << 4,
 
-        String = 1 << 3,
-        List = 1 << 4,
+        String = 1 << 5,
+        List = 1 << 6,
+        Tuple = 1 << 7,
+        Range = 1 << 8,
+        Vector = 1 << 9,
+        Matrix  = 1 << 10,
 
-        Numeric = Integer | Float,
-        Any = Integer | Float | String,
-        Object = String | List,
+        Numeric = Integer | Real,
+        Any = Integer | Real | String | Boolean | Character | List | Tuple | Range | Vector | Matrix,
+        Object = String | List | Tuple | Range | Vector | Matrix
     }
 
     public static class DataTypeEx
@@ -31,7 +37,7 @@ namespace TriScript.Data
         public static bool IsInteger(this EDataType type) => (type & EDataType.Integer) != 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsReal(this EDataType type) => (type & EDataType.Float) != 0;
+        public static bool IsReal(this EDataType type) => (type & EDataType.Real) != 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsText(this EDataType type) => (type & EDataType.String) != 0;

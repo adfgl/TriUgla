@@ -28,6 +28,8 @@ namespace TriScript.Scanning
 
             if (ch == EOF) return ReadEndOfFile();
             if (ch == '\n') return ReadNewline();
+            if (ch == '\"') return ReadString(ETokenType.LiteralString, ch);
+            if (ch == '\'') return ReadString(ETokenType.LiteralSymbol, ch);
             if (IsDigit(ch) || (ch == '.' && IsDigit(Peek(1)))) return ReadNumber();
             if (IsIdentStart(ch)) return ReadIdentifier();
             return ReadOperatorOrPunct(diagnostic);
@@ -222,7 +224,27 @@ namespace TriScript.Scanning
             TextSpan span = new TextSpan(start, _pos - start);
             string value = Source.GetString(span);
 
-            return new Token(ETokenType.LiteralId, line, col, span);
+            if (!Keywords.Source.TryGetValue(value, out ETokenType type))
+            {
+                type = ETokenType.LiteralIdentifier;
+            }
+            return new Token(type, line, col, span);
+        }
+
+        Token ReadString(ETokenType type, char quates)
+        {
+            int line = _line, col = _col, start = _pos;
+            Advance();
+            while (true)
+            {
+                char ch = Peek();
+                if (ch == EOF) break;
+                if (ch == quates) break;
+            }
+
+            TextSpan span = new TextSpan(start, _pos - start);
+            Advance();
+            return new Token(type, line, col, span);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

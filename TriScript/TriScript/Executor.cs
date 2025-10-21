@@ -59,5 +59,10 @@ namespace TriScript
             }
             _scopes.Pop();
         }
+
+        public void Run()
+        {
+
+        }
     }
 }

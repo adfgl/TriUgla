@@ -4,18 +4,29 @@
     {
         Undefined,
 
+        True, False,
+
+        For, In,
+        If, Elif, Else, Then,
+
+        Break, Continue,
+
+        DotProduct, CrossProduct,
+
         LineBreak, 
         EndOfFile,
 
         LiteralNemeric, 
         LiteralString,
-        LiteralId,
+        LiteralSymbol,
+        LiteralIdentifier,
 
         Plus, 
         Minus,
         Star,
         Slash,
 
+        Is,
         Not,
         Or,
         And,

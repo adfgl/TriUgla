@@ -1,4 +1,4 @@
-﻿namespace TriScript.Data
+﻿namespace TriScript.Data.Objects
 {
     public abstract class Obj
     {

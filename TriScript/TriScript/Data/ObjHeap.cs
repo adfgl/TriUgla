@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using TriScript.Data.Objects;
 
     public class ObjHeap
     {
@@ -13,19 +14,29 @@
         }
 
         readonly Dictionary<uint, Entry> _map = new Dictionary<uint, Entry>();
+        readonly Dictionary<string, Pointer> _stringCache = new Dictionary<string, Pointer>();
+        
         uint _nextId = 1; // 0 is Pointer.Null
 
         public int Count => _map.Count;
 
         public Pointer Allocate(Obj obj)
         {
-            if (obj is null)
+            bool isString = obj.Type == EDataType.String;
+            if (isString && _stringCache.TryGetValue(((ObjString)obj).Content, out Pointer ptr))
             {
-                throw new ArgumentNullException(nameof(obj));
+                return ptr;
             }
+
             uint id = _nextId++;
             _map[id] = new Entry(obj, rc: 1);
-            return new Pointer(id);
+            ptr = new Pointer(id);
+
+            if (isString)
+            {
+                _stringCache[((ObjString)obj).Content] = ptr;
+            }
+            return ptr;
         }
 
         public bool TryGet(Pointer p, out Obj? obj)

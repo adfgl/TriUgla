@@ -1,6 +1,4 @@
-﻿using TriScript.Data;
-
-namespace TriScript.Parsing.Nodes.Statements
+﻿namespace TriScript.Parsing.Nodes.Statements
 {
     public class StmtExpr : Stmt
     {

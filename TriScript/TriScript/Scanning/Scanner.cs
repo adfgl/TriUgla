@@ -32,19 +32,31 @@ namespace TriScript.Scanning
             return tokens;
         }
 
+        Token _previous = new Token();
+
+        public Token Previous => _previous;
+
         public Token Consume(DiagnosticBag? diagnostic)
         {
+            Token token;
             if (_bufferCount > 0)
             {
-                Token token = _lookaheadBuffer[_bufferStart++];
+                token = _lookaheadBuffer[_bufferStart++];
                 if (_bufferStart == LOOKAHEAD_SIZE)
                 {
                     _bufferStart = 0;
                 }
                 _bufferCount--;
+
+                _previous = token;
                 return token;
             }
-            return _reader.Read(diagnostic);
+            else
+            {
+                token = _reader.Read(diagnostic);
+            }
+            _previous = token;
+            return token;
         }
 
         public Token Peek(DiagnosticBag? diagnostic, int offset = 0)

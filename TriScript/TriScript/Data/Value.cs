@@ -8,13 +8,17 @@ namespace TriScript.Data
         public static Value Nothing = new Value();
 
         [FieldOffset(0)] public readonly EDataType type;
-        [FieldOffset(4)] readonly double number;
-        [FieldOffset(4)] readonly Pointer pointer;
+        [FieldOffset(4)] public readonly double real;
+        [FieldOffset(4)] public readonly int integer;
+        [FieldOffset(4)] public readonly bool boolean;
+        [FieldOffset(4)] public readonly char character;
+        [FieldOffset(4)] public readonly Pointer pointer;
 
         public override string ToString() => type switch
         {
-            EDataType.Integer => ((int)number).ToString(),
-            EDataType.Float => number.ToString("G"),
+            EDataType.Integer => integer.ToString(),
+            EDataType.Boolean => boolean.ToString(),
+            EDataType.Real => real.ToString("G"),
             EDataType.Pointer => pointer.ToString(),
             _ => $"<{type}>"
         };
@@ -24,46 +28,31 @@ namespace TriScript.Data
         public Value(int value)
         {
             type = EDataType.Integer;
-            number = value;
-        }
-        public int AsInteger()
-        {
-            if (type.IsNumeric()) return (int)number;
-            throw new InvalidCastException();
+            integer = value;
         }
 
         public Value(double value)
         {
-            type = EDataType.Float;
-            number = value;
-        }
-        public double AsDouble()
-        {
-            if (type.IsNumeric()) return number;
-            throw new InvalidCastException();
+            type = EDataType.Real;
+            real = value;
         }
 
         public Value(bool value)
         {
-            type = EDataType.Integer;
-            number = value ? 1 : 0;
+            type = EDataType.Boolean;
+            boolean = value;
         }
-        public bool AsBoolean()
+
+        public Value(char ch)
         {
-            if (type.IsNumeric()) return number != 0;
-            if (type == EDataType.Pointer) return !pointer.IsNull;
-            throw new InvalidCastException();
+            type = EDataType.Character;
+            character = ch;
         }
 
         public Value(Pointer value)
         {
             type = EDataType.Pointer;
             pointer = value;
-        }
-        public Pointer AsPointer()
-        {
-            if (type == EDataType.Pointer) return pointer;
-            throw new InvalidCastException();
         }
 
         public bool Equals(Value other)
@@ -72,15 +61,15 @@ namespace TriScript.Data
             {
                 return type switch
                 {
-                    EDataType.Integer => number == other.number,
-                    EDataType.Float => number == other.number,
+                    EDataType.Integer => real == other.real,
+                    EDataType.Real => real == other.real,
                     EDataType.Pointer => pointer.Equals(other.pointer),
                     _ => false
                 };
             }
             if (type.IsNumeric() && other.type.IsNumeric())
             {
-                return number == other.number;
+                return real == other.real;
             }
             return false;
         }
@@ -89,8 +78,8 @@ namespace TriScript.Data
 
         public override int GetHashCode() => type switch
         {
-            EDataType.Integer => HashCode.Combine(type, number),
-            EDataType.Float => HashCode.Combine(type, number),
+            EDataType.Integer => HashCode.Combine(type, real),
+            EDataType.Real => HashCode.Combine(type, real),
             EDataType.Pointer => HashCode.Combine(type, pointer),
             _ => type.GetHashCode()
         };
