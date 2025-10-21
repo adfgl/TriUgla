@@ -3,9 +3,9 @@ using TriScript.Data;
 
 namespace TriScript.Parsing.Nodes.Expressions
 {
-    public class NodeExprAssignment : NodeExprBase
+    public class ExprAssignment : Expr
     {
-        public NodeExprAssignment()
+        public ExprAssignment()
         {
             
         }

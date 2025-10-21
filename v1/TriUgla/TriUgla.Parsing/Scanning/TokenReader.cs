@@ -123,6 +123,7 @@ namespace TriUgla.Parsing.Scanning
         Token ReadIdentifier()
         {
             int line = _line, col = _col, start = _pos;
+            Advance();
             while (IsIdentPart(Peek())) Advance();
             int len = _pos - start;
             string text = _src.Substring(start, len);

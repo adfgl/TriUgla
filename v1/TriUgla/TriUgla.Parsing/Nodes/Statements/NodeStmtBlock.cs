@@ -26,8 +26,8 @@ namespace TriUgla.Parsing.Nodes.Statements
             {
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
 
-                var v = node.Evaluate(stack);
-                if (v.type != EDataType.Nothing) last = v;
+                    var v = node.Evaluate(stack);
+                    if (v.type != EDataType.Nothing) last = v;
 
                 if (!stack.Budget.Tick() || flow.HasReturn || flow.IsBreak || flow.IsContinue) break;
             }
