@@ -5,16 +5,19 @@ namespace TriScript.Parsing.Nodes
 {
     public class TriProgram : Stmt
     {
-        public TriProgram(StmtBlock block)
+        public TriProgram(List<Stmt> block)
         {
             Block = block;
         }
 
-        public StmtBlock Block { get; }
+        public IReadOnlyList<Stmt> Block { get; }
 
         public override void Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            Block.Evaluate(source, stack, heap);
+            foreach (Stmt stmt in Block)
+            {
+                stmt.Evaluate(source, stack, heap);
+            }
         }
     }
 }

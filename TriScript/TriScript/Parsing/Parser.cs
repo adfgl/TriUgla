@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using TriScript.Data;
 using TriScript.Diagnostics;
@@ -29,7 +30,7 @@ namespace TriScript.Parsing
 
         public TriProgram Parse()
         {
-            return new TriProgram(Block());
+            return new TriProgram(ParseStatements());
         }
 
         Token Consume() => _scanner.Consume(_diagnostics);
@@ -80,34 +81,92 @@ namespace TriScript.Parsing
                         Consume();
                         break;
 
+                    case ETokenType.If:
+                        statements.Add(IfElse());
+                        break;
+
+                    case ETokenType.CloseCurly:
+                        return statements;
+
                     case ETokenType.Print:
                         statements.Add(Print());
                         break;
 
                     default:
-                        statements.Add(Statement());
+                        statements.Add(new StmtExpr(Expression()));
                         break;
                 }
             }
             return statements;
         }
 
-        Stmt Print()
+        StmtIfElse IfElse()
+        {
+            List<(Expr, StmtBlock)> branches = new List<(Expr, StmtBlock)>(4);
+            StmtBlock? elseBlock = null;
+
+            Token ifTok = Consume(ETokenType.If);
+            Expr cond = Expression();
+
+            // Static check: condition must be Bool
+            EDataType condType = cond.PreviewType(_source, _stack, _diagnostics);
+            if (condType != EDataType.Boolean && condType != EDataType.None)
+            {
+                _diagnostics.Report(
+                    ESeverity.Error,
+                    $"If-condition must be Bool, got {condType}.",
+                    cond.Token.span);
+            }
+
+            branches.Add((cond, Block()));
+            while (Match(ETokenType.Else))
+            {
+                if (Match(ETokenType.If))
+                {
+                    Expr elifCond = Expression();
+
+                    EDataType elifType = elifCond.PreviewType(_source, _stack, _diagnostics);
+                    if (elifType != EDataType.Boolean && elifType != EDataType.None)
+                    {
+                        _diagnostics.Report(
+                            ESeverity.Error,
+                            $"Else-if condition must be Bool, got {elifType}.",
+                            elifCond.Token.span);
+                    }
+                    branches.Add((elifCond, Block()));
+                    continue;
+                }
+                elseBlock = Block();
+                break; 
+            }
+
+            return new StmtIfElse(branches, elseBlock);
+        }
+
+        StmtPrint Print()
         {
             Consume(ETokenType.Print);
             List<Expr> args = Arguments();
             return new StmtPrint(args);
         }
 
-        Stmt Statement()
-        {
-            return new StmtExpr(Expression());
-        }
-
         StmtBlock Block()
         {
+            SkipTrivia();
+            Consume(ETokenType.OpenCurly);
             _stack.OpenScope();
-            List<Stmt> stmts = ParseStatements();
+            List<Stmt> stmts = new List<Stmt>();
+            while (true)
+            {
+                ETokenType t = Peek().type;
+                if (t == ETokenType.CloseCurly || t == ETokenType.EndOfFile)
+                {
+                    break;
+                }
+                stmts.AddRange(ParseStatements());
+            }
+            Consume(ETokenType.CloseCurly);
+
             _stack.CloseScope(); 
             return new StmtBlock(stmts);
         }
@@ -264,7 +323,6 @@ namespace TriScript.Parsing
                 return new ExprAssignment(tknId, value);
             }
 
-            // No '=' — plain identifier expression
             if (!fetched)
             {
                 _diagnostics.Report(ESeverity.Error, $"Use of unassigned variable '{name}'.", tknId.span);
@@ -412,9 +470,7 @@ namespace TriScript.Parsing
                 switch (Peek().type)
                 {
                     case ETokenType.If:
-                    case ETokenType.Elif:
                     case ETokenType.Else:
-                    case ETokenType.Then:
                     case ETokenType.For:
                     case ETokenType.Break:
                     case ETokenType.Continue:

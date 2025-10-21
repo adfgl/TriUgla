@@ -1,2 +1,6 @@
-x = 2 + "12" + true
-print(x)
+if 2 == 3 
+{
+	print("yes")
+} else {
+print("no")
+}

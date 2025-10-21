@@ -233,8 +233,9 @@ namespace TriScript.Scanning
 
         Token ReadString(ETokenType type, char quates)
         {
-            int line = _line, col = _col, start = _pos;
             Advance();
+            int line = _line, col = _col, start = _pos;
+
             while (true)
             {
                 char ch = Peek();

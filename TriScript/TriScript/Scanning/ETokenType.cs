@@ -7,7 +7,7 @@
         True, False,
 
         For, In,
-        If, Elif, Else, Then,
+        If, Else, 
 
         Break, Continue,
 

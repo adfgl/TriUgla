@@ -13,9 +13,7 @@
             { "in", ETokenType.In },
 
             { "if" , ETokenType.If },
-            { "elif" , ETokenType.Elif },
             { "else" , ETokenType.Else },
-            { "then" , ETokenType.Then },
 
             { "dot", ETokenType.DotProduct },
             { "cross", ETokenType.CrossProduct },
