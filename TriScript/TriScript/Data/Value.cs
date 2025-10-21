@@ -25,9 +25,34 @@ namespace TriScript.Data
 
         public bool IsNothing() => type == EDataType.None;
 
+        public double AsDouble()
+        {
+            if (type == EDataType.Integer) return integer;
+            if (type == EDataType.Real) return real;
+            throw new InvalidCastException();
+        }
+
         public Value(EDataType type)
         {
             this.type = type;
+            switch (type)
+            {
+                case EDataType.Integer:
+                    integer = 0;
+                    break;
+                case EDataType.Real:
+                    real = 0.0;
+                    break;
+                case EDataType.Boolean:
+                    boolean = false;
+                    break;
+                case EDataType.Character:
+                    character = '\0';
+                    break;
+                default:
+                    pointer = Pointer.Null;
+                    break;
+            }
         }
 
         public Value(int value)

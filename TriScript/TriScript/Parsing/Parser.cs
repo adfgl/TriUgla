@@ -12,13 +12,15 @@ namespace TriScript.Parsing
 {
     public class Parser
     {
+        readonly Source _source;
         readonly Scanner _scanner;
         readonly DiagnosticBag _diagnostics;
         readonly ScopeStack _stack = new ScopeStack();
 
         public Parser(Source source, DiagnosticBag diagnostic)
         {
-            _scanner = new Scanner(source);
+            _source = source;
+            _scanner = new Scanner(_source);
             _diagnostics = diagnostic;
         }
 
@@ -217,64 +219,62 @@ namespace TriScript.Parsing
             Token tknId = Consume(ETokenType.LiteralIdentifier);
             string name = Source.GetString(tknId.span);
 
-            List<Expr> args = [];
-            if (Peek().type == ETokenType.OpenSquare)
-            {
-                args = Arguments(ETokenType.OpenSquare, ETokenType.CloseSquare);
-            }
-
             bool fetched = _stack.Current.TryGet(name, out Variable var);
 
             if (Peek().type == ETokenType.Assign)
             {
-                Consume();
+                Consume(); // '='
 
                 Expr value = Expression();
+
                 if (!fetched)
                 {
                     var = new Variable(name);
                     _stack.Current.Declare(var);
                 }
 
-                if (fetched)
+                // Preview the RHS type ONCE
+                EDataType rhsType = value.PreviewType(_source, _stack, _diagnostics);
+
+                if (rhsType == EDataType.None)
                 {
-                    if (value is ExprLiteral lit && var.Value.type != lit.Type)
-                    {
-                        if (var.Value.type != EDataType.Real && lit.Type != EDataType.Integer)
-                        {
-                            _diagnostics.Report(ESeverity.Error, $"Cannot assign variable '{name}' of type '{var.Value.type}' to '{lit.Type}' explicitly.", lit.Token.span);
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception();
-                    }
+                    _diagnostics.Report(
+                        ESeverity.Error,
+                        $"Cannot infer the type of the right-hand side for '{name}'.",
+                        value.Token.span);
                 }
                 else
                 {
-                    if (value is ExprLiteral lit)
+                    EDataType current = var.Value.type;
+
+                    if (current == EDataType.None)
                     {
-                        var.Value = new Value(lit.Type);
+                        // First assignment declares the type
+                        var.Value = new Value(rhsType);
                     }
-                    else
+                    else if (!CanImplicitlyConvert(rhsType, current))
                     {
-                        throw new Exception();
+                        _diagnostics.Report(
+                            ESeverity.Error,
+                            $"Cannot assign '{rhsType}' to variable '{name}' of type '{current}'.",
+                            value.Token.span);
                     }
                 }
 
-                if (args.Count == 0)
-                {
-                    return new ExprAssignment(tknId, value);
-                }
-                return new ExprAssignmentByIndex(tknId, args, value);
+                return new ExprAssignment(tknId, value);
             }
 
+            // No '=' — plain identifier expression
             if (!fetched)
             {
                 _diagnostics.Report(ESeverity.Error, $"Use of unassigned variable '{name}'.", tknId.span);
             }
-            return new ExprIdentifier(tknId, EDataType.None);
+
+            return new ExprIdentifier(tknId);
         }
+
+        public static bool CanImplicitlyConvert(EDataType from, EDataType to)
+            => from == to || (from == EDataType.Integer && to == EDataType.Real);
 
         Expr Number()
         {
@@ -325,7 +325,7 @@ namespace TriScript.Parsing
             Consume();
             _diagnostics.Report(ESeverity.Error, $"Unexpected token.", token.span);
             Synchronize();
-            return new ExprError();
+            return new ExprError(token);
         }
 
         ExprCall Call()

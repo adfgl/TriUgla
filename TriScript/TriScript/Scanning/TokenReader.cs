@@ -182,7 +182,7 @@ namespace TriScript.Scanning
                     return ReadUnknown(diagnostic);
             }
 
-            return new Token(type, line, col, new TextSpan(_pos, pos - _pos));
+            return new Token(type, line, col, new TextSpan(pos, _pos - pos));
         }
 
         Token ReadUnknown(DiagnosticBag? diagnostic)
