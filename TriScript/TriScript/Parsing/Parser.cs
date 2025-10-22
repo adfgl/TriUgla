@@ -32,10 +32,10 @@ namespace TriScript.Parsing
         public DiagnosticBag Diagnostics => _diagnostics;
         public Source Source => _scanner.Source;
 
-        public TriProgram Parse()
+        public StmtProgram Parse()
         {
             _stack.OpenScope();
-            var prog =  new TriProgram(ParseStatements());
+            StmtProgram prog =  new StmtProgram(new StmtBlock(ParseStatements()));
             _stack.CloseScope();
             return prog;
         }
@@ -114,16 +114,16 @@ namespace TriScript.Parsing
         #region EXPRESSION 
         Expr Expression()
         {
-            Expr expr = Or(); 
+            Expr expr = Or();
 
-            if (Peek().type == ETokenType.OpenSquare)
+            while (Peek().type == ETokenType.OpenSquare)
             {
                 Consume(ETokenType.OpenSquare);
-                var uAst = ParseUnitExpression();
+                var uAst = ParseUExpr();
                 Consume(ETokenType.CloseSquare);
 
-                var uEval = uAst.Evaluate(_unitReg, _diagnostics);
-                expr = new ExprWithUnit(expr, uEval); // wrap as cast
+                UnitEval uEval = uAst.Evaluate(_unitReg, _diagnostics);
+                expr = new ExprWithUnit(expr, uEval);
             }
 
             return expr;
@@ -256,38 +256,27 @@ namespace TriScript.Parsing
         #endregion EXPRESSION
 
         #region UNIT EXPRESSION
-        UnitExpr ParseUnitExpression() => ParseUExpr();
-
         UnitExpr ParseUExpr()
         {
             UnitExpr left = ParseUTerm();
-
             while (true)
             {
                 var t = Peek();
-
                 if (t.type == ETokenType.Star || t.type == ETokenType.Slash)
                 {
-                    var op = Consume();                    // * or /
+                    var op = Consume();
                     var right = ParseUTerm();
                     left = new UnitBinary(left, op, right);
                     continue;
                 }
-
-                // forbid '+' / '-' anywhere in unit expr (except after '^' handled below)
                 if (t.type == ETokenType.Plus || t.type == ETokenType.Minus)
                 {
-                    Consume();
-                    _diagnostics.Report(
-                        ESeverity.Error,
-                        "Units cannot be added or subtracted. Use '*' or '/' for compound units; '+'/'-' are only allowed as exponent signs after '^'.",
-                        t.span);
-                    continue; // attempt to recover
+                    var bad = Consume();
+                    _diagnostics.Report(ESeverity.Error, "Units cannot use '+' or '-' (except as exponent sign).", bad.span);
+                    continue;
                 }
-
                 break;
             }
-
             return left;
         }
 
@@ -295,15 +284,12 @@ namespace TriScript.Parsing
         {
             UnitExpr node = ParseUPrimary();
 
-            if (Peek().type == ETokenType.Pow) // '^'
+            if (Peek().type == ETokenType.Pow)
             {
                 var caret = Consume(ETokenType.Pow);
-                int exp = ParseUnitSignedInt(); // reads optional +/-, then integer
-                                                // encode exponent as UnitSymbol with text like "-2"
-                var tok = _scanner.Previous; // span nearby is fine
-                node = new UnitBinary(node, caret, new UnitSymbol(tok, exp.ToString()));
+                int exp = ParseUnitSignedInt();
+                node = new UnitBinary(node, caret, new UnitInt(_scanner.Previous, exp));
             }
-
             return node;
         }
 
@@ -326,36 +312,34 @@ namespace TriScript.Parsing
                 return new UnitSymbol(id, name);
             }
 
-            // explicit ban on unary +/-
-            if (t.type == ETokenType.Plus || t.type == ETokenType.Minus)
+            // allow '1' for unity, so [1/m] works
+            if (t.type == ETokenType.LiteralNemeric)
             {
-                var bad = Consume();
-                _diagnostics.Report(
-                    ESeverity.Error,
-                    "Unary '+' or '-' is not allowed in unit expressions. Use '^' with a signed integer for exponents (e.g., m^-2).",
-                    bad.span);
-                return ParseUPrimary(); // recover
+                var num = Consume(ETokenType.LiteralNemeric);
+                string s = Source.GetString(num.span);
+                if (s == "1") return new UnitSymbol(num, "1");
+
+                _diagnostics.Report(ESeverity.Error, "Only '1' is allowed as a number in unit expressions.", num.span);
+                return new UnitSymbol(num, "1"); // recover
             }
 
-            // error recovery
             Consume();
-            _diagnostics.Report(ESeverity.Error, "Expected unit symbol or '(' in unit expression.", t.span);
-            return new UnitSymbol(t, "??");
+            _diagnostics.Report(ESeverity.Error, "Expected unit symbol, '1', or '(' in unit expression.", t.span);
+            return new UnitSymbol(t, "1");
         }
 
-        // ^( +|- )? <int>
         int ParseUnitSignedInt()
         {
             int sign = 1;
-            if (Peek().type == ETokenType.Plus) { Consume(); }
+            if (Peek().type == ETokenType.Plus) Consume();
             else if (Peek().type == ETokenType.Minus) { Consume(); sign = -1; }
 
-            Token num = Consume(ETokenType.LiteralNemeric);
-            string s = Source.GetString(num.span);
+            var tok = Consume(ETokenType.LiteralNemeric);
+            string s = Source.GetString(tok.span);
             if (!int.TryParse(s, System.Globalization.NumberStyles.Integer,
                 System.Globalization.CultureInfo.InvariantCulture, out int val))
             {
-                _diagnostics.Report(ESeverity.Error, "Expected integer exponent after '^'.", num.span);
+                _diagnostics.Report(ESeverity.Error, "Expected integer exponent after '^'.", tok.span);
                 return 1;
             }
             return sign * val;
@@ -426,17 +410,17 @@ namespace TriScript.Parsing
         {
             Token numeric = Consume(ETokenType.LiteralNemeric);
             string lexeme = Source.GetString(numeric.span);
-            if (int.TryParse(lexeme, out _))
+            if (int.TryParse(lexeme, out int integer))
             {
-                return new ExprNumeric(numeric, true);
+                return new ExprNumeric(numeric, new Value(integer));
             }
-            else if (double.TryParse(lexeme, out _))
+            else if (double.TryParse(lexeme, out double real))
             {
-                return new ExprNumeric(numeric, false);
+                return new ExprNumeric(numeric, new Value(real));
             }
 
             _diagnostics.Report(ESeverity.Error, $"Unable to parse numeric.", numeric.span);
-            return new ExprNumeric(numeric, false);
+            return new ExprNumeric(numeric, new Value(Double.NaN));
         }
 
         ExprCall Call()

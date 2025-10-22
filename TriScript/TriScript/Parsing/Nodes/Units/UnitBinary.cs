@@ -20,27 +20,45 @@ namespace TriScript.Parsing.Nodes.Units
 
         public override UnitEval Evaluate(UnitRegistry reg, DiagnosticBag diag)
         {
-            var L = Left.Evaluate(reg, diag);
-            var R = Right.Evaluate(reg, diag);
-
             switch (Op.type)
             {
+                case ETokenType.Pow:
+                    {
+                        // Do NOT evaluate Right for '^' — it’s a UnitInt
+                        if (Right is UnitInt ui)
+                        {
+                            var L = Left.Evaluate(reg, diag);
+                            return L.Pow(ui.Value);
+                        }
+                        // Back-compat fallback if something else slipped in
+                        if (Right is UnitSymbol rs && int.TryParse(rs.Name, out int n))
+                        {
+                            var L = Left.Evaluate(reg, diag);
+                            return L.Pow(n);
+                        }
+                        diag.Report(ESeverity.Error, "Exponent in unit must be an integer (e.g., ^-2).", Op.span);
+                        return new UnitEval(double.NaN, Dimension.None);
+                    }
+
                 case ETokenType.Star:
-                    return new UnitEval(L.ScaleToMeter * R.ScaleToMeter, L.Dim + R.Dim);
+                    {
+                        var L = Left.Evaluate(reg, diag);
+                        var R = Right.Evaluate(reg, diag);
+                        return L.Mul(R);
+                    }
 
                 case ETokenType.Slash:
-                    return new UnitEval(L.ScaleToMeter / R.ScaleToMeter, L.Dim - R.Dim);
-
-                case ETokenType.Pow:
-                    if (Right is UnitSymbol rs && int.TryParse(rs.Name, out int n))
-                        return new UnitEval(Math.Pow(L.ScaleToMeter, n), L.Dim.Pow(n));
-
-                    diag.Report(ESeverity.Error, "Exponent in unit must be an integer (e.g., ^-2).", Op.span);
-                    return new UnitEval(double.NaN, L.Dim);
+                    {
+                        var L = Left.Evaluate(reg, diag);
+                        var R = Right.Evaluate(reg, diag);
+                        return L.Div(R);
+                    }
             }
 
             diag.Report(ESeverity.Error, $"Unsupported unit operator '{Op.type}'.", Op.span);
             return new UnitEval(double.NaN, Dimension.None);
         }
     }
+
+
 }

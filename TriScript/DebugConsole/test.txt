@@ -1,3 +1,5 @@
-a = 23 [m^2/m]
 
-print(a [m])
+a = 10.0 [cm]
+
+print(a * a )
+

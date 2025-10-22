@@ -2,6 +2,7 @@
 using TriScript.Diagnostics;
 using TriScript.Parsing;
 using TriScript.Parsing.Nodes;
+using TriScript.Parsing.Nodes.Statements;
 
 namespace TriScript
 {
@@ -20,7 +21,7 @@ namespace TriScript
             Parser parser = new Parser(_source, diagnos);
             ObjHeap heap = new ObjHeap();
             ScopeStack stack = new ScopeStack();
-            TriProgram program = parser.Parse();
+            StmtProgram program = parser.Parse();
 
             foreach (Diagnostic item in diagnos.Items)
             {

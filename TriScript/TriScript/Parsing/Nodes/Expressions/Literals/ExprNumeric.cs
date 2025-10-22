@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TriScript.Data;
+using TriScript.Data.Units;
 using TriScript.Diagnostics;
 using TriScript.Scanning;
 
@@ -11,22 +12,29 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
 {
     public sealed class ExprNumeric : Expr
     {
-        public ExprNumeric(Token token, bool isInteger) : base(token)
+        readonly Value _value;
+
+        public ExprNumeric(Token token, Value value) : base(token)
         {
-            IsInteger = isInteger;
+            _value = value;
         }
 
-        public bool IsInteger { get; }
 
         public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
-            double value = double.Parse(source.GetString(Token.span));
-            return new Value(IsInteger ? (int)value : value);   
+            return _value;
         }
 
         public override EDataType PreviewType(Source source, ScopeStack stack, DiagnosticBag diagnostics)
         {
-            return IsInteger ? EDataType.Integer : EDataType.Numeric;
+            return _value.type;
+        }
+
+        public override bool EvaluateToSI(Source src, ScopeStack stack, ObjHeap heap, DiagnosticBag diagnostics, out double si, out Dimension dim)
+        {
+            si = _value.AsDouble();
+            dim = Dimension.None;
+            return true;
         }
     }
 }

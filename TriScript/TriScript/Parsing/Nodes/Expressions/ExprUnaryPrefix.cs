@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TriScript.Data;
+using TriScript.Data.Units;
 using TriScript.Diagnostics;
 using TriScript.Scanning;
 
@@ -26,6 +27,11 @@ namespace TriScript.Parsing.Nodes.Expressions
         }
 
         public override EDataType PreviewType(Source source, ScopeStack stack, DiagnosticBag diagnostics)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override bool EvaluateToSI(Source src, ScopeStack stack, ObjHeap heap, DiagnosticBag diagnostics, out double si, out Dimension dim)
         {
             throw new NotImplementedException();
         }

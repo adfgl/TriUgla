@@ -1,5 +1,6 @@
 ﻿using TriScript.Data;
 using TriScript.Data.Objects;
+using TriScript.Data.Units;
 using TriScript.Diagnostics;
 using TriScript.Scanning;
 
@@ -22,6 +23,13 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
         public override EDataType PreviewType(Source source, ScopeStack stack, DiagnosticBag diagnostics)
         {
             return EDataType.String;
+        }
+
+        public override bool EvaluateToSI(Source src, ScopeStack stack, ObjHeap heap, DiagnosticBag diagnostics, out double si, out Dimension dim)
+        {
+            si = double.NaN;
+            dim = Dimension.None;
+            return false;
         }
     }
 }

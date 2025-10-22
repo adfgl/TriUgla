@@ -1,4 +1,5 @@
 ﻿using TriScript.Data;
+using TriScript.Data.Units;
 using TriScript.Diagnostics;
 using TriScript.Scanning;
 
@@ -23,5 +24,7 @@ namespace TriScript.Parsing.Nodes.Expressions
         {
             return Expr.PreviewType(source, stack, diagnostics);
         }
+
+        public override bool EvaluateToSI(Source src, ScopeStack stack, ObjHeap heap, DiagnosticBag diagnostics, out double si, out Dimension dim) => Expr.EvaluateToSI(src, stack, heap, diagnostics, out si, out dim);
     }
 }

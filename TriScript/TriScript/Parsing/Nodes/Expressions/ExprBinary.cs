@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TriScript.Data;
+using TriScript.Data.Units;
 using TriScript.Diagnostics;
 using TriScript.Scanning;
 
@@ -147,6 +148,58 @@ namespace TriScript.Parsing.Nodes.Expressions
                     Token.span);
             }
             return EDataType.None;
+        }
+
+        public override bool EvaluateToSI(Source src, ScopeStack stack, ObjHeap heap, DiagnosticBag diagnostics, out double si, out Dimension dim)
+        {
+            if (!Left.EvaluateToSI(src, stack, heap, diagnostics, out double lsi, out Dimension ldim))
+            {
+                si = double.NaN; dim = Dimension.None;
+                return false;
+            }
+
+            if (!Right.EvaluateToSI(src, stack, heap, diagnostics, out double rsi, out Dimension rdim))
+            {
+                si = double.NaN;
+                dim = Dimension.None;
+                return false;
+            }
+
+            ETokenType op = Token.type;
+            switch (Token.type)
+            {
+                case ETokenType.Plus:
+                case ETokenType.Minus:
+                    if (!ldim.Equals(rdim))
+                    {
+                        diagnostics.Report(
+                            ESeverity.Warning,
+                            $"Dimension mismatch in {(op == ETokenType.Plus ? "addition" : "subtraction")}: {ldim} vs {rdim}. Treating result as dimensionless.",
+                            Token.span);
+                        // still compute numerically in SI
+                        si = (op == ETokenType.Plus) ? (lsi + rsi) : (lsi - rsi);
+                        dim = Dimension.None;
+                        return true;
+                    }
+                    si = (op == ETokenType.Plus) ? (lsi + rsi) : (lsi - rsi);
+                    dim = ldim;
+                    return true;
+
+                case ETokenType.Star:
+                    si = lsi * rsi;
+                    dim = ldim + rdim;
+                    return true;
+
+                case ETokenType.Slash:
+                    si = lsi / rsi;
+                    dim = ldim - rdim;
+                    return true;
+
+                default:
+                    si = double.NaN;
+                    dim = Dimension.None;
+                    return false;
+            }
         }
     }
 }
