@@ -25,6 +25,7 @@
         Minus,
         Star,
         Slash,
+        Pow,
 
         Is,
         Not,

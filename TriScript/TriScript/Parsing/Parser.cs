@@ -7,6 +7,7 @@ using TriScript.Parsing.Nodes;
 using TriScript.Parsing.Nodes.Expressions;
 using TriScript.Parsing.Nodes.Expressions.Literals;
 using TriScript.Parsing.Nodes.Statements;
+using TriScript.Parsing.Nodes.Units;
 using TriScript.Scanning;
 
 namespace TriScript.Parsing
@@ -84,10 +85,6 @@ namespace TriScript.Parsing
                         Consume();
                         break;
 
-                    case ETokenType.If:
-                        statements.Add(IfElse());
-                        break;
-
                     case ETokenType.CloseCurly:
                         return statements;
 
@@ -103,49 +100,6 @@ namespace TriScript.Parsing
             return statements;
         }
 
-        StmtIfElse IfElse()
-        {
-            List<(Expr, StmtBlock)> branches = new List<(Expr, StmtBlock)>(4);
-            StmtBlock? elseBlock = null;
-
-            Token ifTok = Consume(ETokenType.If);
-            Expr cond = Expression();
-
-            // Static check: condition must be Bool
-            EDataType condType = cond.PreviewType(_source, _stack, _diagnostics);
-            if (condType != EDataType.Numeric && condType != EDataType.None)
-            {
-                _diagnostics.Report(
-                    ESeverity.Error,
-                    $"If-condition must be Bool, got {condType}.",
-                    cond.Token.span);
-            }
-
-            branches.Add((cond, Block()));
-            while (Match(ETokenType.Else))
-            {
-                if (Match(ETokenType.If))
-                {
-                    Expr elifCond = Expression();
-
-                    EDataType elifType = elifCond.PreviewType(_source, _stack, _diagnostics);
-                    if (elifType != EDataType.Numeric && elifType != EDataType.None)
-                    {
-                        _diagnostics.Report(
-                            ESeverity.Error,
-                            $"Else-if condition must be Bool, got {elifType}.",
-                            elifCond.Token.span);
-                    }
-                    branches.Add((elifCond, Block()));
-                    continue;
-                }
-                elseBlock = Block();
-                break; 
-            }
-
-            return new StmtIfElse(branches, elseBlock);
-        }
-
         StmtPrint Print()
         {
             Consume(ETokenType.Print);
@@ -153,27 +107,7 @@ namespace TriScript.Parsing
             return new StmtPrint(args);
         }
 
-        StmtBlock Block()
-        {
-            SkipTrivia();
-            Consume(ETokenType.OpenCurly);
-            _stack.OpenScope();
-            List<Stmt> stmts = new List<Stmt>();
-            while (true)
-            {
-                ETokenType t = Peek().type;
-                if (t == ETokenType.CloseCurly || t == ETokenType.EndOfFile)
-                {
-                    break;
-                }
-                stmts.AddRange(ParseStatements());
-            }
-            Consume(ETokenType.CloseCurly);
-
-            _stack.CloseScope(); 
-            return new StmtBlock(stmts);
-        }
-
+        #region EXPRESSION 
         Expr Expression()
         {
             return Or();
@@ -203,7 +137,7 @@ namespace TriScript.Parsing
             return expr;
         }
 
-        Expr Equality() // c9
+        Expr Equality()
         {
             Expr expr = Comparison();
             while (Match(ETokenType.Equal, ETokenType.NotEqual))
@@ -276,7 +210,143 @@ namespace TriScript.Parsing
             return Primary();
         }
 
-        Expr Assignment()
+        Expr Primary()
+        {
+            Token token = Peek();
+            switch (token.type)
+            {
+                case ETokenType.LiteralIdentifier:
+                    if (Peek(1).type == ETokenType.OpenParen)
+                    {
+                        return Call();
+                    }
+                    return AssignmentOrDeclaration();
+
+                case ETokenType.LiteralString:
+                    return new ExprString(Consume());
+
+                case ETokenType.LiteralNemeric:
+                    return Number();
+
+                case ETokenType.OpenParen:
+                    return Group();
+            }
+
+            Consume();
+            _diagnostics.Report(ESeverity.Error, $"Unexpected token.", token.span);
+            Synchronize();
+            return new ExprError(token);
+        }
+        #endregion EXPRESSION
+
+        #region UNIT EXPRESSION
+        UnitExpr ParseUnitExpression() => ParseUExpr();
+
+        UnitExpr ParseUExpr()
+        {
+            UnitExpr left = ParseUTerm();
+
+            while (true)
+            {
+                var t = Peek();
+
+                if (t.type == ETokenType.Star || t.type == ETokenType.Slash)
+                {
+                    var op = Consume();                    // * or /
+                    var right = ParseUTerm();
+                    left = new UnitBinary(left, op, right);
+                    continue;
+                }
+
+                // forbid '+' / '-' anywhere in unit expr (except after '^' handled below)
+                if (t.type == ETokenType.Plus || t.type == ETokenType.Minus)
+                {
+                    Consume();
+                    _diagnostics.Report(
+                        ESeverity.Error,
+                        "Units cannot be added or subtracted. Use '*' or '/' for compound units; '+'/'-' are only allowed as exponent signs after '^'.",
+                        t.span);
+                    continue; // attempt to recover
+                }
+
+                break;
+            }
+
+            return left;
+        }
+
+        UnitExpr ParseUTerm()
+        {
+            UnitExpr node = ParseUPrimary();
+
+            if (Peek().type == ETokenType.Pow) // '^'
+            {
+                var caret = Consume(ETokenType.Pow);
+                int exp = ParseUnitSignedInt(); // reads optional +/-, then integer
+                                                // encode exponent as UnitSymbol with text like "-2"
+                var tok = _scanner.Previous; // span nearby is fine
+                node = new UnitBinary(node, caret, new UnitSymbol(tok, exp.ToString()));
+            }
+
+            return node;
+        }
+
+        UnitExpr ParseUPrimary()
+        {
+            var t = Peek();
+
+            if (t.type == ETokenType.OpenParen)
+            {
+                var open = Consume(ETokenType.OpenParen);
+                var inner = ParseUExpr();
+                var close = Consume(ETokenType.CloseParen);
+                return new UnitGroup(open, inner, close);
+            }
+
+            if (t.type == ETokenType.LiteralIdentifier)
+            {
+                var id = Consume(ETokenType.LiteralIdentifier);
+                string name = Source.GetString(id.span);
+                return new UnitSymbol(id, name);
+            }
+
+            // explicit ban on unary +/-
+            if (t.type == ETokenType.Plus || t.type == ETokenType.Minus)
+            {
+                var bad = Consume();
+                _diagnostics.Report(
+                    ESeverity.Error,
+                    "Unary '+' or '-' is not allowed in unit expressions. Use '^' with a signed integer for exponents (e.g., m^-2).",
+                    bad.span);
+                return ParseUPrimary(); // recover
+            }
+
+            // error recovery
+            Consume();
+            _diagnostics.Report(ESeverity.Error, "Expected unit symbol or '(' in unit expression.", t.span);
+            return new UnitSymbol(t, "??");
+        }
+
+        // ^( +|- )? <int>
+        int ParseUnitSignedInt()
+        {
+            int sign = 1;
+            if (Peek().type == ETokenType.Plus) { Consume(); }
+            else if (Peek().type == ETokenType.Minus) { Consume(); sign = -1; }
+
+            Token num = Consume(ETokenType.LiteralNemeric);
+            string s = Source.GetString(num.span);
+            if (!int.TryParse(s, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int val))
+            {
+                _diagnostics.Report(ESeverity.Error, "Expected integer exponent after '^'.", num.span);
+                return 1;
+            }
+            return sign * val;
+        }
+        #endregion UNIT EXPRESSION
+
+        Expr AssignmentOrDeclaration()
         {
             Token tknId = Consume(ETokenType.LiteralIdentifier);
             string name = Source.GetString(tknId.span);
@@ -323,7 +393,13 @@ namespace TriScript.Parsing
                     }
                 }
 
-                return new ExprAssignment(tknId, value);
+                UnitExpr? unit = null;
+                if (Match(ETokenType.OpenSquare))
+                {
+                    unit = ParseUExpr();
+                    Consume(ETokenType.CloseSquare);
+                }
+                return new ExprAssignment(tknId, value, unit);
             }
 
             if (!fetched)
@@ -343,43 +419,15 @@ namespace TriScript.Parsing
             string lexeme = Source.GetString(numeric.span);
             if (int.TryParse(lexeme, out _))
             {
-                return new ExprInteger(numeric);
+                return new ExprNumeric(numeric, true);
             }
             else if (double.TryParse(lexeme, out _))
             {
-                return new ExprReal(numeric);
+                return new ExprNumeric(numeric, false);
             }
 
             _diagnostics.Report(ESeverity.Error, $"Unable to parse numeric.", numeric.span);
-            return new ExprReal(numeric);
-        }
-
-        Expr Primary()
-        {
-            Token token = Peek();
-            switch (token.type)
-            {
-                case ETokenType.LiteralIdentifier:
-                    if (Peek(1).type == ETokenType.OpenParen)
-                    {
-                        return Call();
-                    }
-                    return Assignment();
-
-                case ETokenType.LiteralString:
-                    return new ExprString(Consume());
-
-                case ETokenType.LiteralNemeric:
-                    return Number();
-
-                case ETokenType.OpenParen:
-                    return Group();
-            }
-
-            Consume();
-            _diagnostics.Report(ESeverity.Error, $"Unexpected token.", token.span);
-            Synchronize();
-            return new ExprError(token);
+            return new ExprNumeric(numeric, false);
         }
 
         ExprCall Call()
@@ -446,6 +494,8 @@ namespace TriScript.Parsing
                 break;
             }
         }
+
+
 
         void Synchronize()
         {

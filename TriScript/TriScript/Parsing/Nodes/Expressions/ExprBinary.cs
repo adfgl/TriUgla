@@ -93,28 +93,19 @@ namespace TriScript.Parsing.Nodes.Expressions
             {
                 double lr = l.AsDouble();
                 double rr = r.AsDouble();
-                switch (op)
-                {
-                    case ETokenType.Equal:
-                        return new Value(lr == rr);
-                    case ETokenType.NotEqual:
-                        return new Value(lr != rr);
-                    case ETokenType.Greater:
-                        return new Value(lr > rr);
-                    case ETokenType.Less:
-                        return new Value(lr < rr);
-                    case ETokenType.GreaterEqual:
-                        return new Value(lr >= rr);
-                    case ETokenType.LessEqaul:
-                        return new Value(lr <= rr);
-                }
-
                 double result = op switch
                 {
                     ETokenType.Plus  => lr + rr,
                     ETokenType.Minus => lr - rr,
                     ETokenType.Star  => lr * rr,
                     ETokenType.Slash => lr / rr,
+
+                    ETokenType.Equal => lr == rr ? 1 : 0,
+                    ETokenType.NotEqual => lr != rr ? 1 : 0,
+                    ETokenType.Less => lr < rr ? 1 : 0,
+                    ETokenType.LessEqaul => lr <= rr ? 1 : 0,
+                    ETokenType.Greater => lr > rr ? 1 : 0,
+                    ETokenType.GreaterEqual => lr >= rr ? 1 : 0,
                     _ => throw new NotImplementedException(),
                 };
 

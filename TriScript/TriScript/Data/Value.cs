@@ -26,7 +26,7 @@ namespace TriScript.Data
         {
             if (type == EDataType.Integer) return integer;
             if (type == EDataType.Real) return real;
-            throw new InvalidCastException();
+            return Double.NaN;
         }
 
         public Value(EDataType type)

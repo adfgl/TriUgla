@@ -42,6 +42,11 @@ namespace TriScript.Scanning
             ETokenType type;
             switch (Peek())
             {
+                case '^':
+                    type = ETokenType.Pow;
+                    Advance();
+                    break;
+
                 case '.':
                     type = ETokenType.Dot;
                     Advance();

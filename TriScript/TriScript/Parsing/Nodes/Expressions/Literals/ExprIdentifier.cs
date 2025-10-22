@@ -11,7 +11,10 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
         public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
             string id = source.GetString(Token.span);
-            return stack.Current.Get(id).Value;
+
+            Variable var = stack.Current.Get(id);
+            Value value = var.Value;
+            return value;
         }
 
         public override EDataType PreviewType(Source source, ScopeStack stack, DiagnosticBag diagnostics)

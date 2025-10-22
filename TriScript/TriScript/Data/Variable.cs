@@ -1,4 +1,6 @@
-﻿namespace TriScript.Data
+﻿using TriScript.Data.Units;
+
+namespace TriScript.Data
 {
     public class Variable
     {
@@ -9,5 +11,6 @@
 
         public string Name { get; set; }
         public Value Value { get; set; } = Value.Nothing;
+        public UnitBinding? Units { get; set; }
     }
 }
