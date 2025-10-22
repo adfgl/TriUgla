@@ -7,18 +7,14 @@ using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes.Expressions
 {
-    public class ExprAssignment : Expr
+    public sealed class ExprAssignment : Expr
     {
-        public ExprAssignment(Token target, Expr value, UnitExpr? units = null, UnitEval? unitEval = null) : base(target)
+        public ExprAssignment(Token identifier, Expr value) : base(identifier)
         {
-            Value = value;
-            UnitsAst = units;  
-            UnitsEval = unitEval;
+            ValueExpr = value;
         }
 
-        public Expr Value { get; }
-        public UnitExpr? UnitsAst { get; }
-        public UnitEval? UnitsEval { get; }
+        public Expr ValueExpr { get; }
 
         public override Value Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
@@ -31,15 +27,17 @@ namespace TriScript.Parsing.Nodes.Expressions
                 stack.Current.Declare(var);
             }
 
-            // Evaluate RHS expression
-            Value value = Value.Evaluate(source, stack, heap);
+            // Evaluate RHS
+            Value value = ValueExpr.Evaluate(source, stack, heap);
 
-            // --- CASE 1: No unit annotation ---
-            if (!UnitsEval.HasValue)
+            // Detect a unit-cast on RHS (ExprWithUnit) so we can bind/convert storage properly
+            UnitEval? rhsCastUnits = TryExtractUnitsFromRHS(ValueExpr, out var rhsInner);
+
+            // --- No unit cast on RHS ---
+            if (!rhsCastUnits.HasValue)
             {
                 if (declared)
                 {
-                    // first declaration, no units → just assign
                     var.Units = null;
                     var.Value = value;
                     return var.Value;
@@ -50,21 +48,19 @@ namespace TriScript.Parsing.Nodes.Expressions
                 {
                     double num = value.AsDouble();
                     double si = num * var.Units.Preferred.ScaleToMeter;
-                    var.Units.SiValue = si;
-                    var.Value = new Value(num);
+                    var.Units.SiValue = si;               // update canonical
+                    var.Value = new Value(num);           // display stays in preferred
                     return var.Value;
                 }
 
-                // otherwise, just overwrite as plain scalar
                 var.Units = null;
                 var.Value = value;
                 return var.Value;
             }
 
-            // --- CASE 2: There is a [ ... ] unit annotation ---
-            UnitEval ue = UnitsEval.Value;
+            // --- There IS a unit cast on RHS ---
+            UnitEval ue = rhsCastUnits.Value;
 
-            // --- Declared variable ---
             if (declared)
             {
                 if (value.type.IsNumeric())
@@ -77,55 +73,52 @@ namespace TriScript.Parsing.Nodes.Expressions
                     var.Units.SiValue = si;
                     var.Units.Preferred = ue;
 
-                    var.Value = new Value(num);
+                    var.Value = new Value(num); // display in annotated unit
                     return var.Value;
                 }
 
-                // non-numeric RHS with units → store as scalar, drop units
+                // non-numeric w/ units → fallback scalar
                 var.Units = null;
                 var.Value = value;
                 return var.Value;
             }
 
-            // --- Re-assignment (variable already exists) ---
-            // Handle special conversion case: a = a [mm^2]
-            if (Value is ExprIdentifier idRef)
+            // Reassignment (var already exists)
+            // Conversion form: a = a [mm^2]  => ValueExpr is ExprWithUnit(Inner=ExprIdentifier("a"))
+            if (rhsInner is ExprIdentifier idRef)
             {
                 string rhsName = source.GetString(idRef.Token.span);
-
                 if (!stack.Current.TryGet(rhsName, out Variable src) || src.Units is null)
                 {
-                    // no unit-bound variable to convert from
                     var.Units = null;
                     var.Value = value;
                     return var.Value;
                 }
 
-                // dimension check
+                // dimension checks
                 if (!src.Units.Dim.Equals(ue.Dim) || (var.Units != null && !var.Units.Dim.Equals(ue.Dim)))
                 {
                     var.Value = new Value(double.NaN);
                     return var.Value;
                 }
 
-                // conversion: canonical SI unchanged, convert to requested display
+                // SI -> requested display
                 double converted = src.Units.SiValue / ue.ScaleToMeter;
 
                 var.Units ??= new UnitBinding();
                 var.Units.Dim = src.Units.Dim;
-                var.Units.SiValue = src.Units.SiValue;
-                var.Units.Preferred = ue;
+                var.Units.SiValue = src.Units.SiValue; // keep canonical SI
+                var.Units.Preferred = ue;              // new preferred unit
 
                 var.Value = new Value(converted);
                 return var.Value;
             }
 
-            // --- Regular numeric reassignment with [units] ---
+            // Numeric reassignment with [units]
             if (value.type.IsNumeric())
             {
                 double num = value.AsDouble();
 
-                // check dimension match
                 if (var.Units != null && !var.Units.Dim.Equals(ue.Dim))
                 {
                     var.Value = new Value(double.NaN);
@@ -143,7 +136,7 @@ namespace TriScript.Parsing.Nodes.Expressions
                 return var.Value;
             }
 
-            // non-numeric reassignment with units → plain overwrite
+            // non-numeric with cast → plain scalar
             var.Units = null;
             var.Value = value;
             return var.Value;
@@ -151,7 +144,19 @@ namespace TriScript.Parsing.Nodes.Expressions
 
         public override EDataType PreviewType(Source source, ScopeStack stack, DiagnosticBag diagnostics)
         {
-            return Value.PreviewType(source, stack, diagnostics);
+            return ValueExpr.PreviewType(source, stack, diagnostics);
+        }
+
+        private static UnitEval? TryExtractUnitsFromRHS(Expr expr, out Expr inner)
+        {
+            if (expr is ExprWithUnit w)
+            {
+                inner = w.Inner;
+                return w.Units;
+            }
+            inner = expr;
+            return null;
         }
     }
+
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using TriScript.Data;
+using TriScript.Data.Units;
 using TriScript.Diagnostics;
 using TriScript.Parsing.Nodes;
 using TriScript.Parsing.Nodes.Expressions;
@@ -18,6 +19,8 @@ namespace TriScript.Parsing
         readonly Scanner _scanner;
         readonly DiagnosticBag _diagnostics;
         readonly ScopeStack _stack = new ScopeStack();
+        readonly UnitRegistry _unitReg = new UnitRegistry();
+
 
         public Parser(Source source, DiagnosticBag diagnostic)
         {
@@ -107,10 +110,23 @@ namespace TriScript.Parsing
             return new StmtPrint(args);
         }
 
+
         #region EXPRESSION 
         Expr Expression()
         {
-            return Or();
+            Expr expr = Or(); 
+
+            if (Peek().type == ETokenType.OpenSquare)
+            {
+                Consume(ETokenType.OpenSquare);
+                var uAst = ParseUnitExpression();
+                Consume(ETokenType.CloseSquare);
+
+                var uEval = uAst.Evaluate(_unitReg, _diagnostics);
+                expr = new ExprWithUnit(expr, uEval); // wrap as cast
+            }
+
+            return expr;
         }
 
         Expr Or()
@@ -392,14 +408,7 @@ namespace TriScript.Parsing
                             value.Token.span);
                     }
                 }
-
-                UnitExpr? unit = null;
-                if (Match(ETokenType.OpenSquare))
-                {
-                    unit = ParseUExpr();
-                    Consume(ETokenType.CloseSquare);
-                }
-                return new ExprAssignment(tknId, value, unit);
+                return new ExprAssignment(tknId, value);
             }
 
             if (!fetched)
