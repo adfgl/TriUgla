@@ -63,19 +63,15 @@ namespace TriScript.Parsing.Nodes.Expressions
             { new OpKey(ETokenType.Slash, EDataType.Integer, EDataType.Integer), EDataType.Integer },
 
             // equality
-            { new OpKey(ETokenType.Equal, EDataType.Real,     EDataType.Real),    EDataType.Boolean },
-            { new OpKey(ETokenType.Equal, EDataType.Real,     EDataType.Integer), EDataType.Boolean },
-            { new OpKey(ETokenType.Equal, EDataType.Integer,  EDataType.Integer), EDataType.Boolean },
-            { new OpKey(ETokenType.Equal, EDataType.Boolean,  EDataType.Boolean), EDataType.Boolean },
-            { new OpKey(ETokenType.Equal, EDataType.String,  EDataType.String), EDataType.Boolean },
-            { new OpKey(ETokenType.Equal, EDataType.Character,  EDataType.Character), EDataType.Boolean },
+            { new OpKey(ETokenType.Equal, EDataType.Real,     EDataType.Real),    EDataType.Integer },
+            { new OpKey(ETokenType.Equal, EDataType.Real,     EDataType.Integer), EDataType.Integer },
+            { new OpKey(ETokenType.Equal, EDataType.Integer,  EDataType.Integer), EDataType.Integer },
+            { new OpKey(ETokenType.Equal, EDataType.String,  EDataType.String), EDataType.Integer },
 
-            { new OpKey(ETokenType.NotEqual, EDataType.Real,     EDataType.Real),    EDataType.Boolean },
-            { new OpKey(ETokenType.NotEqual, EDataType.Real,     EDataType.Integer), EDataType.Boolean },
-            { new OpKey(ETokenType.NotEqual, EDataType.Integer,  EDataType.Integer), EDataType.Boolean },
-            { new OpKey(ETokenType.NotEqual, EDataType.Boolean,  EDataType.Boolean), EDataType.Boolean },
-            { new OpKey(ETokenType.NotEqual, EDataType.String,  EDataType.String), EDataType.Boolean },
-            { new OpKey(ETokenType.NotEqual, EDataType.Character,  EDataType.Character), EDataType.Boolean },
+            { new OpKey(ETokenType.NotEqual, EDataType.Real,     EDataType.Real),    EDataType.Integer },
+            { new OpKey(ETokenType.NotEqual, EDataType.Real,     EDataType.Integer), EDataType.Integer },
+            { new OpKey(ETokenType.NotEqual, EDataType.Integer,  EDataType.Integer), EDataType.Integer },
+            { new OpKey(ETokenType.NotEqual, EDataType.String,  EDataType.String), EDataType.Integer },
         };
 
         public ExprBinary(Expr left, Token op, Expr right) : base(op)

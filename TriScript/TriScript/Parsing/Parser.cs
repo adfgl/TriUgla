@@ -30,7 +30,10 @@ namespace TriScript.Parsing
 
         public TriProgram Parse()
         {
-            return new TriProgram(ParseStatements());
+            _stack.OpenScope();
+            var prog =  new TriProgram(ParseStatements());
+            _stack.CloseScope();
+            return prog;
         }
 
         Token Consume() => _scanner.Consume(_diagnostics);
@@ -110,7 +113,7 @@ namespace TriScript.Parsing
 
             // Static check: condition must be Bool
             EDataType condType = cond.PreviewType(_source, _stack, _diagnostics);
-            if (condType != EDataType.Boolean && condType != EDataType.None)
+            if (condType != EDataType.Numeric && condType != EDataType.None)
             {
                 _diagnostics.Report(
                     ESeverity.Error,
@@ -126,7 +129,7 @@ namespace TriScript.Parsing
                     Expr elifCond = Expression();
 
                     EDataType elifType = elifCond.PreviewType(_source, _stack, _diagnostics);
-                    if (elifType != EDataType.Boolean && elifType != EDataType.None)
+                    if (elifType != EDataType.Numeric && elifType != EDataType.None)
                     {
                         _diagnostics.Report(
                             ESeverity.Error,
@@ -362,13 +365,6 @@ namespace TriScript.Parsing
                         return Call();
                     }
                     return Assignment();
-
-                case ETokenType.True:
-                case ETokenType.False:
-                    return new ExprBoolean(Consume());
-
-                case ETokenType.LiteralSymbol:
-                    return new ExprCharacter(Consume());
 
                 case ETokenType.LiteralString:
                     return new ExprString(Consume());

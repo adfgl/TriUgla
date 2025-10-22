@@ -4,8 +4,6 @@
     {
         Undefined,
 
-        True, False,
-
         For, In,
         If, Else, 
 

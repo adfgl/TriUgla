@@ -18,7 +18,7 @@ namespace TriScript.Parsing.Nodes.Statements
             foreach ((Expr condtion, StmtBlock block) in IfBlocks)
             {
                 Value value = condtion.Evaluate(source, stack, heap);
-                if (value.boolean)
+                if (value.AsDouble() != 0)
                 {
                     block.Evaluate(source, stack, heap);
                     return;

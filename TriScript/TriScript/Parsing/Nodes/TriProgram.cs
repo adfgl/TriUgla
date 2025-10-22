@@ -14,10 +14,12 @@ namespace TriScript.Parsing.Nodes
 
         public override void Evaluate(Source source, ScopeStack stack, ObjHeap heap)
         {
+            stack.OpenScope();
             foreach (Stmt stmt in Block)
             {
                 stmt.Evaluate(source, stack, heap);
             }
+            stack.CloseScope();
         }
     }
 }

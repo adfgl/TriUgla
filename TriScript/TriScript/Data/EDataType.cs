@@ -10,13 +10,11 @@ namespace TriScript.Data
         Integer = 1 << 0,
         Real = 1 << 1,
         Pointer = 1 << 2,
-        Boolean = 1 << 3,
-        Character = 1 << 4,
 
         String = 1 << 5,
 
         Numeric = Integer | Real,
-        Any = Integer | Real | String | Boolean | Character,
+        Any = Integer | Real | String,
         Object = String
     }
 

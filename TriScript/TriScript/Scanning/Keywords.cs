@@ -6,9 +6,6 @@
         {
             { "print", ETokenType.Print },
 
-            { "true", ETokenType.True },
-            { "false" , ETokenType.False },
-
             { "for", ETokenType.For },
             { "in", ETokenType.In },
 

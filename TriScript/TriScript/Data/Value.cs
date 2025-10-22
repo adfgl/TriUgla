@@ -10,14 +10,11 @@ namespace TriScript.Data
         [FieldOffset(0)] public readonly EDataType type;
         [FieldOffset(4)] public readonly double real;
         [FieldOffset(4)] public readonly int integer;
-        [FieldOffset(4)] public readonly bool boolean;
-        [FieldOffset(4)] public readonly char character;
         [FieldOffset(4)] public readonly Pointer pointer;
 
         public override string ToString() => type switch
         {
             EDataType.Integer => integer.ToString(),
-            EDataType.Boolean => boolean.ToString(),
             EDataType.Real => real.ToString("G"),
             EDataType.Pointer => pointer.ToString(),
             _ => $"<{type}>"
@@ -43,17 +40,13 @@ namespace TriScript.Data
                 case EDataType.Real:
                     real = 0.0;
                     break;
-                case EDataType.Boolean:
-                    boolean = false;
-                    break;
-                case EDataType.Character:
-                    character = '\0';
-                    break;
                 default:
                     pointer = Pointer.Null;
                     break;
             }
         }
+
+        public Value(bool value) : this(value ? 1 : 0) { }
 
         public Value(int value)
         {
@@ -65,18 +58,6 @@ namespace TriScript.Data
         {
             type = EDataType.Real;
             real = value;
-        }
-
-        public Value(bool value)
-        {
-            type = EDataType.Boolean;
-            boolean = value;
-        }
-
-        public Value(char ch)
-        {
-            type = EDataType.Character;
-            character = ch;
         }
 
         public Value(Pointer value)
