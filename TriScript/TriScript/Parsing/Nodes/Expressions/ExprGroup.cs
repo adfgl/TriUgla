@@ -26,5 +26,8 @@ namespace TriScript.Parsing.Nodes.Expressions
         }
 
         public override bool EvaluateToSI(Source src, ScopeStack stack, ObjHeap heap, DiagnosticBag diagnostics, out double si, out Dimension dim) => Expr.EvaluateToSI(src, stack, heap, diagnostics, out si, out dim);
+
+        public override UnitEval? EvaluateToUnit(Source s, ScopeStack st, ObjHeap h)
+    => Expr.EvaluateToUnit(s, st, h);
     }
 }

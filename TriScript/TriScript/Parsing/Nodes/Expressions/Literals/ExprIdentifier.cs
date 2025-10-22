@@ -38,7 +38,7 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
                 return true;
             }
 
-            var val = Evaluate(src, stack, heap);
+            Value val = Evaluate(src, stack, heap);
             if (val.type.IsNumeric())
             { 
                 si = val.AsDouble(); 
@@ -49,6 +49,14 @@ namespace TriScript.Parsing.Nodes.Expressions.Literals
             si = double.NaN; 
             dim = Dimension.None; 
             return false;
+        }
+
+        public override UnitEval? EvaluateToUnit(Source s, ScopeStack st, ObjHeap h)
+        {
+            string id = s.GetString(Token.span);
+            if (st.Current.TryGet(id, out Variable v) && v.Units is not null)
+                return v.Units.Preferred; // carries symbol map (e.g., { "cm":1 })
+            return null;
         }
     }
 }

@@ -68,6 +68,7 @@ namespace TriScript.Parsing.Nodes.Expressions
             dim = innerDim;
             return true;
         }
-    }
 
+        public override UnitEval? EvaluateToUnit(Source s, ScopeStack st, ObjHeap h) => Units;
+    }
 }

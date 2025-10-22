@@ -24,10 +24,9 @@ namespace TriScript.Parsing.Nodes.Units
             {
                 case ETokenType.Pow:
                     {
-                        // Do NOT evaluate Right for '^' — it’s a UnitInt
                         if (Right is UnitInt ui)
                         {
-                            var L = Left.Evaluate(reg, diag);
+                            UnitEval L = Left.Evaluate(reg, diag);
                             return L.Pow(ui.Value);
                         }
                         // Back-compat fallback if something else slipped in
@@ -42,15 +41,15 @@ namespace TriScript.Parsing.Nodes.Units
 
                 case ETokenType.Star:
                     {
-                        var L = Left.Evaluate(reg, diag);
-                        var R = Right.Evaluate(reg, diag);
+                        UnitEval L = Left.Evaluate(reg, diag);
+                        UnitEval R = Right.Evaluate(reg, diag);
                         return L.Mul(R);
                     }
 
                 case ETokenType.Slash:
                     {
-                        var L = Left.Evaluate(reg, diag);
-                        var R = Right.Evaluate(reg, diag);
+                        UnitEval L = Left.Evaluate(reg, diag);
+                        UnitEval R = Right.Evaluate(reg, diag);
                         return L.Div(R);
                     }
             }

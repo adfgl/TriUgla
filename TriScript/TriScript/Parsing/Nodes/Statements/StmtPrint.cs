@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using TriScript.Data;
 using TriScript.Data.Objects;
+using TriScript.Data.Units;
+using TriScript.Diagnostics;
 using TriScript.Parsing.Nodes.Expressions;
 using TriScript.Parsing.Nodes.Expressions.Literals;
 
@@ -27,48 +29,27 @@ namespace TriScript.Parsing.Nodes.Statements
                 return;
             }
 
-            // For now, print only the first argument (you can loop if needed)
             Expr expr = Args[0];
-            Value value = expr.Evaluate(source, stack, heap);
+            var tmp = new DiagnosticBag();
 
-            // Try to detect if this expression refers to a named variable with units
-            string? unitLabel = null;
-
-            if (expr is ExprIdentifier id)
+            if (expr.EvaluateToSI(source, stack, heap, tmp, out double si, out Dimension dim))
             {
-                string name = source.GetString(id.Token.span);
-                if (stack.Current.TryGet(name, out Variable var) && var.Units is not null)
-                {
-                    unitLabel = $"[{var.Units.Preferred.ToString()}]";
-                }
+                UnitEval? u = expr.EvaluateToUnit(source, stack, heap);
+                if (u.HasValue && u.Value.Dim.Equals(dim) && u.Value.ScaleToMeter > 0)
+                    Console.WriteLine($"{si / u.Value.ScaleToMeter} [{u.Value}]");
+                else
+                    Console.WriteLine($"{si} [-]");
             }
-            else if (expr is ExprWithUnit wu)
+            else
             {
-                // explicit cast, use that
-                unitLabel = $"[{wu.Units.ToString()}]";
+                var v = expr.Evaluate(source, stack, heap);
+                if (v.type.IsNumeric()) 
+                    Console.WriteLine($"{v.AsDouble()} [-]");
+                else if (v.type == EDataType.Pointer)
+                    Console.WriteLine($"{heap.Get(v.pointer)} [-]");
+                else 
+                    Console.WriteLine($"{v} [-]");
             }
-
-            // Fallback if nothing attached
-            if (unitLabel == null)
-                unitLabel = "[-]";
-
-            // If numeric → print with unit tag
-            if (value.type.IsNumeric())
-            {
-                Console.WriteLine($"{value.AsDouble()} {unitLabel}");
-                return;
-            }
-
-            // If pointer → object print
-            if (value.type == EDataType.Pointer)
-            {
-                Obj obj = heap.Get(value.pointer);
-                Console.WriteLine($"{obj} {unitLabel}");
-                return;
-            }
-
-            // Anything else
-            Console.WriteLine($"{value} {unitLabel}");
         }
     }
 }

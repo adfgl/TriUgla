@@ -36,7 +36,7 @@ namespace TriScript.Data.Units
         public override string ToString()
         {
             BuildSymbol(Exponents, out string num, out string den);
-            if (num.Length == 0 && den.Length == 0) return Dim.ToString(); // fallback like "L^2"
+            if (num.Length == 0 && den.Length == 0) return "-"; 
             if (den.Length == 0) return num;
             if (num.Length == 0) return $"1/{den}";
             return $"{num}/{den}";

@@ -11,11 +11,9 @@ namespace TriScript.Parsing.Nodes.Units
 
         public override UnitEval Evaluate(UnitRegistry reg, DiagnosticBag diag)
         {
-            // Unity '1'
             if (Name == "1")
                 return new UnitEval(1.0, Dimension.None, new Dictionary<string, int>());
 
-            // Bare integers besides '1' are not units (exponents handled by '^' in UnitBinary)
             if (int.TryParse(Name, System.Globalization.NumberStyles.Integer,
                              System.Globalization.CultureInfo.InvariantCulture, out _))
             {

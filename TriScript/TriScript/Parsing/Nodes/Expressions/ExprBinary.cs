@@ -201,5 +201,35 @@ namespace TriScript.Parsing.Nodes.Expressions
                     return false;
             }
         }
+
+        public override UnitEval? EvaluateToUnit(Source s, ScopeStack st, ObjHeap h)
+        {
+            UnitEval? lu = Left.EvaluateToUnit(s, st, h);
+            UnitEval? ru = Right.EvaluateToUnit(s, st, h);
+
+            switch (Token.type)
+            {
+                case ETokenType.Plus:
+                case ETokenType.Minus:
+                    if (lu.HasValue && ru.HasValue && lu.Value.Dim.Equals(ru.Value.Dim))
+                        return lu;          // prefer left on add/sub of same-dim
+                    return lu ?? ru;        // one side dimensionless or unknown
+
+                case ETokenType.Star:
+                    if (lu.HasValue && ru.HasValue) return lu.Value.Mul(ru.Value);
+                    return lu ?? ru;
+
+                case ETokenType.Slash:
+                    if (lu.HasValue && ru.HasValue) return lu.Value.Div(ru.Value);
+                    if (lu.HasValue) return lu;
+                    if (ru.HasValue)
+                    {
+                        var one = new UnitEval(1.0, Dimension.None, new Dictionary<string, int>());
+                        return one.Div(ru.Value);
+                    }
+                    return null;
+            }
+            return null;
+        }
     }
 }
