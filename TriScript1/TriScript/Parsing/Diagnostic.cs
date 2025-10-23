@@ -1,6 +1,6 @@
 ﻿using TriScript.Scanning;
 
-namespace TriScript.Diagnostics
+namespace TriScript.Parsing
 {
     public readonly struct Diagnostic
     {

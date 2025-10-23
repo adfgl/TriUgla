@@ -1,6 +1,6 @@
 ﻿using TriScript.Scanning;
 
-namespace TriScript.Diagnostics
+namespace TriScript.Parsing
 {
     public sealed class Diagnostics
     {
@@ -11,6 +11,11 @@ namespace TriScript.Diagnostics
         public void Report(ESeverity severity, string message, TextPosition pos, TextSpan span)
         {
             _items.Add(new Diagnostic(severity, message, pos, span));
+        }
+
+        public void Report(ESeverity severity, string message, Token token)
+        {
+            _items.Add(new Diagnostic(severity, message, token.position, token.span));
         }
 
         public bool HasErrors

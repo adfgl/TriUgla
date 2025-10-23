@@ -3,16 +3,35 @@
     public enum ETokenType
     {
         Undefined,
+        EndOfFile,
+        LineBreak,
 
-        LiteralInteger,
-        LiteralReal,
+        LiteralNemeric,
         LiteralString,
         LiteralSymbol,
 
-        Plus, Minus, Start, Slash, Caret,
+        Plus, Minus, Star, Slash, Caret,
 
         Less, LessEqual,
         Greater, GreaterEqual,
         Equal, NotEqual,
+
+        OpenParen, CloseParen,
+        OpenCurly, CloseCurly,
+        OpenSquare, CloseSquare,
+
+        Assign,
+        Is,
+        Not,
+        Or,
+        And,
+
+        Bar,
+        Amp,
+
+        PlusPlus,
+        MinusMinus,
+
+        Colon, SemiColon, Dot, Comma,
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace TriScript.Data
+﻿namespace TriScript.UnitHandling
 {
     public readonly struct Dim : IEquatable<Dim>
     {

@@ -1,4 +1,4 @@
-﻿namespace TriScript.Diagnostics
+﻿namespace TriScript.Parsing
 {
     public enum ESeverity : byte
     {
