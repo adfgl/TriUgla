@@ -2,12 +2,14 @@
 using TriScript.Parsing.Nodes;
 using TriScript.Scanning;
 using TriScript.UnitHandling;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace TriScript.Parsing
 {
-    public class ExprTypePreviewVisitor : IExprVisitor<EDataType>
+    public class ExprEvaluateVisitor : IExprVisitor<Value>
     {
-        public ExprTypePreviewVisitor(ScopeStack stack, Source source, Diagnostics diagnostics)
+
+        public ExprEvaluateVisitor(ScopeStack stack, Source source, Diagnostics diagnostics, UnitRegistry registry)
         {
             ScopeStack = stack;
             Source = source;
@@ -17,33 +19,23 @@ namespace TriScript.Parsing
         public ScopeStack ScopeStack { get; set; }
         public Source Source { get; set; }
         public Diagnostics Diagnostics { get; set; }
+        public UnitRegistry Registry { get; set; }
 
-        public EDataType Visit(ExprNumeric node)
+        public Value Visit(ExprIdentifier node)
         {
-            return node.Value.type;
+            throw new NotImplementedException();
         }
 
-        public EDataType Visit(ExprAssignment node)
+        public Value Visit(ExprAssignment node)
         {
-            return node.Value.Accept(this);
+            throw new NotImplementedException();
         }
 
-        public EDataType Visit(ExprBinary node)
+        public Value Visit(ExprBinary node)
         {
-            EDataType l = node.Left.Accept(this);
-            EDataType r = node.Right.Accept(this);
-            if (l == EDataType.None || r == EDataType.None)
-            {
-                return EDataType.None;
-            }
+            Value l = node.Left.Accept(this);
+            Value r = node.Right.Accept(this);
 
-            if (l == r) return l;
-            if (l.IsNumeric() && r.IsNumeric())
-            {
-                return EDataType.Real;
-            }
-
-            string error;
             switch (node.Token.type)
             {
                 case ETokenType.Plus:
@@ -77,41 +69,31 @@ namespace TriScript.Parsing
                     error = "Operator";
                     break;
             }
-
-            string op = Source.GetString(node.Token.span);
-
-            Diagnostics.Report(ESeverity.Error, $"{error} '{op}' not defined for ({l}, {r}).", node.Token);
-            return EDataType.None;
         }
 
-        public EDataType Visit(ExprGroup node)
+        public Value Visit(ExprGroup node)
         {
             return node.Inner.Accept(this);
         }
 
-        public EDataType Visit(ExprUnaryPostfix node)
+        public Value Visit(ExprNumeric node)
+        {
+            return node.Value;
+        }
+
+        public Value Visit(ExprUnaryPostfix node)
         {
             throw new NotImplementedException();
         }
 
-        public EDataType Visit(ExprUnaryPrefix node)
+        public Value Visit(ExprUnaryPrefix node)
         {
             throw new NotImplementedException();
         }
 
-        public EDataType Visit(ExprWithUnit node)
+        public Value Visit(ExprWithUnit node)
         {
-            return node.Inner.Accept(this);
-        }
-
-        public EDataType Visit(ExprIdentifier node)
-        {
-            string id = Source.GetString(node.Token.span);
-            if (!ScopeStack.Current.TryGet(id, out Variable var))
-            {
-                return EDataType.None;
-            }
-            return var.Value.type;
+            throw new NotImplementedException();
         }
     }
 }

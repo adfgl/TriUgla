@@ -5,27 +5,25 @@ namespace TriScript.Data
 {
     public readonly struct Value
     {
-        public readonly static Value Nothing = new Value(EDataType.None, Double.NaN, DimEval.None);
+        public readonly static Value Nothing = new Value(EDataType.None, Double.NaN);
 
         public readonly EDataType type;
         public readonly double real;
-        public readonly DimEval dimension;
 
-        public Value(EDataType type, double real, DimEval dimension)
+        public Value(EDataType type, double real)
         {
             this.type = type;
             this.real = real;
-            this.dimension = dimension;
         }
 
-        public Value(double real, DimEval dimension)
-            : this(EDataType.Real, real, dimension) { }
+        public Value(double real)
+            : this(EDataType.Real, real) { }
 
-        public Value(int integer, DimEval dimension)
-            : this(EDataType.Integer, integer, dimension) { }
+        public Value(int integer)
+            : this(EDataType.Integer, integer) { }
 
-        public Value(bool value, DimEval dimension)
-            : this(value ? 1 : 0, dimension) { }
+        public Value(bool value)
+            : this(value ? 1 : 0) { }
 
         public double AsDouble()
         {

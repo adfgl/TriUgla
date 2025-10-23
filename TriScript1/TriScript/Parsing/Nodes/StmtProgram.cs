@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TriScript.Parsing
+namespace TriScript.Parsing.Nodes
 {
-    internal class ExprUnitPreview
+    public sealed class StmtProgram : Stmt
     {
     }
 }
