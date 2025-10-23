@@ -26,6 +26,6 @@
             => !left.Equals(right);
 
         public override string ToString()
-            => $"[{start}..{start + length})";
+            => $"{start}..{start + length}";
     }
 }
