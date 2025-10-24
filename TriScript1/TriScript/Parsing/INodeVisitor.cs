@@ -10,11 +10,15 @@ namespace TriScript.Parsing
         ScopeStack Scope { get; }
         Diagnostics Diagnostics { get; }
 
-        bool Visit(ExprIdentifier node, out T? result);
+        bool Visit(ExprLiteralInteger node, out T? result);
+        bool Visit(ExprLiteralReal node, out T? result);
+        bool Visit(ExprLiteralString node, out T? result);
+        bool Visit(ExprLiteralSymbol node, out T? result);
+
+        bool Visit(StmtExpr node, out T? result);
         bool Visit(ExprAssignment node, out T? result);
         bool Visit(ExprBinary node, out T? result);
         bool Visit(ExprGroup node, out T? result);
-        bool Visit(ExprLiteral node, out T? result);
         bool Visit(ExprUnaryPostfix node, out T? result);
         bool Visit(ExprUnaryPrefix node, out T? result);
         bool Visit(ExprWithUnit node, out T? result);

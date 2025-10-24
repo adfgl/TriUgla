@@ -121,12 +121,12 @@ namespace TriScript.UnitHandling
                 if (Kind == ETokenType.Caret)
                 {
                     Token caret = Eat(ETokenType.Caret);
-                    if (Kind != ETokenType.LiteralNemeric)
+                    if (Kind != ETokenType.LiteralNumeric)
                     {
                         throw new FormatException(FormatError(_src, caret.position, caret.span, "Expected integer exponent after '^'"));
                     }
                         
-                    Token powTok = Eat(ETokenType.LiteralNemeric);
+                    Token powTok = Eat(ETokenType.LiteralNumeric);
                     if (!int.TryParse(powTok.GetString(_src), out int pow))
                     {
                         throw new FormatException(FormatError(_src, powTok.position, powTok.span, "Invalid integer exponent"));

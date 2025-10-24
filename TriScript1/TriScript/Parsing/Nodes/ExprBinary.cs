@@ -4,7 +4,7 @@ namespace TriScript.Parsing.Nodes
 {
     public sealed class ExprBinary : Expr
     {
-        public ExprBinary(Token token, Expr left, Expr right) : base(token)
+        public ExprBinary(Expr left, Token token, Expr right) : base(token)
         {
             Left = left;
             Right = right;

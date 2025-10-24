@@ -1,40 +1,25 @@
 ﻿using TriScript.Data;
 using TriScript.Parsing.Nodes;
 using TriScript.Scanning;
-using TriScript.UnitHandling;
 
 namespace TriScript.Parsing
 {
     public class VisitorEval : INodeVisitor<Value>
     {
-        public VisitorEval(ScopeStack stack, Source source)
+        public VisitorEval(ScopeStack stack, Source source, Diagnostics diagnostics)
         {
             Scope = stack;
             Source = source;
+            Diagnostics = diagnostics;
         }
 
-        public ScopeStack Scope { get; set; }
-        public Source Source { get; set; }
-        public Diagnostics Diagnostics { get; set; }
-
-        public bool Visit(ExprIdentifier node, out Value result)
-        {
-            string name = Source.GetString(node.Id.span);
-            if (Scope.Current.TryGet(name, out Variable var))
-            {
-                result = var.Value;
-                return true;
-            }
-
-            Diagnostics.Report(Source, ESeverity.Error, $"Use of undeclared variable '{name}'.", node.Token);
-
-            result = Value.Nothing;
-            return false;
-        }
+        public ScopeStack Scope { get; }
+        public Source Source { get; }
+        public Diagnostics Diagnostics { get; }
 
         public bool Visit(ExprAssignment node, out Value result)
         {
-            string name = Source.GetString(node.Assignee.span);
+            string name = node.Assignee.ToString();
 
             bool declared = !Scope.Current.TryGet(name, out Variable var);
             if (declared)
@@ -117,10 +102,37 @@ namespace TriScript.Parsing
             return node.Inner.Accept(this, out result);
         }
 
-        public bool Visit(ExprLiteral node, out Value result)
+        public bool Visit(ExprLiteralInteger node, out Value result)
         {
             result = node.Value;
             return true;
+        }
+
+        public bool Visit(ExprLiteralReal node, out Value result)
+        {
+            result = node.Value;
+            return true;
+        }
+
+        public bool Visit(ExprLiteralString node, out Value result)
+        {
+            result = node.Value;
+            return true;
+        }
+
+        public bool Visit(ExprLiteralSymbol node, out Value result)
+        {
+            string name = node.ToString();
+            if (Scope.Current.TryGet(node.ToString(), out Variable var))
+            {
+                result = var.Value;
+                return true;
+            }
+
+            Diagnostics.Report(Source, ESeverity.Error, $"Use of undeclared variable '{name}'.", node.Token);
+
+            result = Value.Nothing;
+            return false;
         }
 
         public bool Visit(ExprUnaryPostfix node, out Value result)
@@ -163,6 +175,8 @@ namespace TriScript.Parsing
 
         public bool Visit(StmtBlock node, out Value result)
         {
+            Scope.Open();
+
             result = Value.Nothing;
             foreach (var stmt in node.Statements)
             {
@@ -171,6 +185,8 @@ namespace TriScript.Parsing
                     return false;
                 }
             }
+
+            Scope.Close();
             return true;
         }
 
@@ -202,6 +218,11 @@ namespace TriScript.Parsing
         public bool Visit(StmtProgram node, out Value result)
         {
             return node.Block.Accept(this, out result);
+        }
+
+        public bool Visit(StmtExpr node, out Value result)
+        {
+            return node.Inner.Accept(this, out result);
         }
     }
 }

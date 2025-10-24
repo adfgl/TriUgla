@@ -20,6 +20,6 @@ namespace TriScript.Parsing
         }
 
         public override string ToString()
-            => $"{severity}: {message} at {position} [{position}]";
+            => $"{severity}: {message} at {position} '{source.GetString(span)}'";
     }
 }

@@ -207,7 +207,7 @@ namespace TriScript.Scanning
             }
 
             TextSpan span = new TextSpan(start, _pos - start);
-            return new Token(ETokenType.LiteralNemeric, new TextPosition(line, col), span);
+            return new Token(ETokenType.LiteralNumeric, new TextPosition(line, col), span);
         }
 
         Token ReadIdentifier()
@@ -218,9 +218,10 @@ namespace TriScript.Scanning
             TextSpan span = new TextSpan(start, _pos - start);
             string value = Source.GetString(span);
 
-            if (!Keywords.Source.TryGetValue(value, out ETokenType type))
+            ETokenType type = ETokenType.LiteralSymbol;
+            if (Keywords.Source.TryGetValue(value, out ETokenType keyword))
             {
-                type = ETokenType.LiteralSymbol;
+                type = keyword;
             }
             return new Token(type, new TextPosition(line, col), span);
         }

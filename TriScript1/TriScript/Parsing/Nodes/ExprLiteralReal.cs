@@ -3,14 +3,11 @@ using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes
 {
-    public sealed class ExprLiteral : Expr
+    public sealed class ExprLiteralReal : ExprLiteralBase
     {
-        public ExprLiteral(Token token, Value value) : base(token)
+        public ExprLiteralReal(Token token, Value value) : base(token, value)
         {
-            Value = value;
         }
-
-        public Value Value { get; }
 
         public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default
         {

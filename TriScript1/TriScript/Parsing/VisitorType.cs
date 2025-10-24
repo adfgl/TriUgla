@@ -6,27 +6,6 @@ namespace TriScript.Parsing
 {
     public class VisitorType : INodeVisitor<EDataType>
     {
-        const EDataType INT = EDataType.Integer;
-        const EDataType REAL = EDataType.Real;
-        const EDataType NONE = EDataType.None;
-
-        const ETokenType PLUS = ETokenType.Plus;
-        const ETokenType MINUS = ETokenType.Minus;
-        const ETokenType MULT = ETokenType.Star;
-        const ETokenType DIV = ETokenType.Slash;
-        const ETokenType POW = ETokenType.Caret;
-
-        const ETokenType EQL = ETokenType.Equal;
-        const ETokenType NEQL = ETokenType.NotEqual;
-
-        const ETokenType LESS = ETokenType.Less;
-        const ETokenType GRTR = ETokenType.Greater;
-        const ETokenType LESS_EQL = ETokenType.LessEqual;
-        const ETokenType GRTR_EQL = ETokenType.GreaterEqual;
-
-        const ETokenType OR = ETokenType.Or;
-        const ETokenType AND = ETokenType.And;
-
         public VisitorType(ScopeStack stack, Source source, Diagnostics diagnostics)
         {
             Scope = stack;
@@ -34,33 +13,25 @@ namespace TriScript.Parsing
             Diagnostics = diagnostics;
         }
 
-        public ScopeStack Scope { get; set; }
-        public Source Source { get; set; }
-        public Diagnostics Diagnostics { get; set; }
-
-        public bool Visit(ExprIdentifier node, out EDataType result)
-        {
-            string name = Source.GetString(node.Id.span);
-            if (Scope.Current.TryGet(name, out Variable var))
-            {
-                result = var.Value.type;
-                return true;
-            }
-
-            result = EDataType.None;
-            return false;
-        }
+        public ScopeStack Scope { get; }
+        public Source Source { get; }
+        public Diagnostics Diagnostics { get; }
 
         public static bool TypesCompatible(EDataType left, EDataType right)
         {
-            return true;
+            if (left == right) return true;
+            if (left == EDataType.Real && right == EDataType.Integer)
+            {
+                return true;
+            }
+            return false;
         }
 
         public bool Visit(ExprAssignment node, out EDataType result)
         {
             result = EDataType.None;
 
-            string name = Source.GetString(node.Assignee.span);
+            string name = node.Assignee.ToString();
             if (Scope.Current.TryGet(name, out Variable var))
             {
                 EDataType typeCurrent = var.Value.type;
@@ -79,7 +50,7 @@ namespace TriScript.Parsing
                 if (!TypesCompatible(typeCurrent, typeAssign))
                 {
                     string msg = $"Cannot assign value of type '{typeAssign}' to variable '{name}' of type '{typeCurrent}'.";
-                    Diagnostics.Report(Source, ESeverity.Error, msg, node.Assignee.position, TextSpan.Sum(node.Assignee.span, node.Value.Token.span));
+                    Diagnostics.Report(Source, ESeverity.Error, msg, node.Assignee.Token.position, TextSpan.Sum(node.Assignee.Token.span, node.Value.Token.span));
                     return false;
                 }
 
@@ -104,12 +75,12 @@ namespace TriScript.Parsing
                 return false;
             }
 
-            ETokenType op = node.Operator.type;
-            if (_returnTypes.TryGetValue((l, op, r), out result))
+            result = Output(l, node.Operator.type, r);
+            if (result != EDataType.None)
             {
                 return true;
             }
-            throw new Exception($"Invalid {l}{op}{r}");
+            return false;
         }
 
         public bool Visit(ExprGroup node, out EDataType result)
@@ -117,10 +88,33 @@ namespace TriScript.Parsing
             return node.Inner.Accept(this, out result);
         }
 
-        public bool Visit(ExprLiteral node, out EDataType result)
+        public bool Visit(ExprLiteralInteger node, out EDataType result)
         {
-            result = node.Value.type;
+            result = EDataType.None;
             return true;
+        }
+
+        public bool Visit(ExprLiteralReal node, out EDataType result)
+        {
+            result = EDataType.None;
+            return true;
+        }
+
+        public bool Visit(ExprLiteralString node, out EDataType result)
+        {
+            result = EDataType.None;
+            return true;
+        }
+
+        public bool Visit(ExprLiteralSymbol node, out EDataType result)
+        {
+            if (Scope.Current.TryGet(node.ToString(), out Variable var))
+            {
+                result = var.Value.type;
+                return true;
+            }
+            result = EDataType.None;
+            return false;
         }
 
         public bool Visit(ExprUnaryPostfix node, out EDataType result)
@@ -140,99 +134,66 @@ namespace TriScript.Parsing
 
         public bool Visit(StmtBlock node, out EDataType result)
         {
-            throw new NotImplementedException();
+            foreach (var stmt in node.Statements)
+            {
+                if (!stmt.Accept(this, out _))
+                {
+                    break;
+                }
+            }
+
+            result = EDataType.None;
+            return true;
         }
 
         public bool Visit(StmtPrint node, out EDataType result)
         {
-            throw new NotImplementedException();
+            result = EDataType.None;
+            return true;
         }
 
         public bool Visit(StmtProgram node, out EDataType result)
         {
-            throw new NotImplementedException();
+            result = EDataType.None;
+            return true;
         }
 
-        Dictionary<(EDataType, ETokenType, EDataType), EDataType> _returnTypes = new Dictionary<(EDataType, ETokenType, EDataType), EDataType>()
+        public static EDataType Output(EDataType l, ETokenType op, EDataType r)
         {
-            // +
-            { (INT,  PLUS, INT), INT },
-            { (INT,  PLUS, REAL), NONE },
-            { (REAL, PLUS, INT), REAL },
-            { (REAL, PLUS, REAL), REAL },
+            if (op == ETokenType.Plus && (l == EDataType.String || r == EDataType.String))
+            {
+                return EDataType.String;
+            }
 
-            // -
-            { (INT,  MINUS, INT), INT },
-            { (INT,  MINUS, REAL), NONE },
-            { (REAL, MINUS, INT), REAL },
-            { (REAL, MINUS, REAL), REAL },
+            if (l.IsNumeric() && r.IsNumeric())
+            {
+                switch (op.Type())
+                {
+                    case EOperatorType.Arythmetic:
+                        if (l == EDataType.Real || r == EDataType.Real)
+                        {
+                            return EDataType.Real;
+                        }
+                        return EDataType.Integer;
 
-            // *
-            { (INT,  MULT, INT), INT },
-            { (INT,  MULT, REAL), NONE },
-            { (REAL, MULT, INT), REAL },
-            { (REAL, MULT, REAL), REAL },
+                    case EOperatorType.Comparison:
+                    case EOperatorType.Equality:
+                    case EOperatorType.Boolean:
+                        return EDataType.Integer;
 
-            // /
-            { (INT,  DIV, INT), INT },
-            { (INT,  DIV, REAL), NONE },
-            { (REAL, DIV, INT), REAL },
-            { (REAL, DIV, REAL), REAL },
+                    default:
+                        throw new Exception();
+                }
+            }
 
-            // ^
-            { (INT,  POW, INT), INT },
-            { (INT,  POW, REAL), NONE },
-            { (REAL, POW, INT), REAL },
-            { (REAL, POW, REAL), REAL },
+            return EDataType.None;
+        }
 
-            // ==
-            { (INT,  EQL, INT), INT },
-            { (INT,  EQL, REAL), INT },
-            { (REAL, EQL, INT), INT },
-            { (REAL, EQL, REAL), INT },
+        public bool Visit(StmtExpr node, out EDataType result)
+        {
+            return node.Inner.Accept(this, out result);
+        }
 
-            // !=
-            { (INT,  NEQL, INT), INT },
-            { (INT,  NEQL, REAL), INT },
-            { (REAL, NEQL, INT), INT },
-            { (REAL, NEQL, REAL), INT },
-
-            // <
-            { (INT,  LESS, INT), INT },
-            { (INT,  LESS, REAL), INT },
-            { (REAL, LESS, INT), INT },
-            { (REAL, LESS, REAL), INT },
-
-            // >
-            { (INT,  GRTR, INT), INT },
-            { (INT,  GRTR, REAL), INT },
-            { (REAL, GRTR, INT), INT },
-            { (REAL, GRTR, REAL), INT },
-
-            // <=
-            { (INT,  LESS_EQL, INT), INT },
-            { (INT,  LESS_EQL, REAL), INT },
-            { (REAL, LESS_EQL, INT), INT },
-            { (REAL, LESS_EQL, REAL), INT },
-
-            // >=
-            { (INT,  GRTR_EQL, INT), INT },
-            { (INT,  GRTR_EQL, REAL), INT },
-            { (REAL, GRTR_EQL, INT), INT },
-            { (REAL, GRTR_EQL, REAL), INT },
-
-            // or
-            { (INT,  OR, INT), INT },
-            { (INT,  OR, REAL), INT },
-            { (REAL, OR, INT), INT },
-            { (REAL, OR, REAL), INT },
-
-            // and
-            { (INT,  AND, INT), INT },
-            { (INT,  AND, REAL), INT },
-            { (REAL, AND, INT), INT },
-            { (REAL, AND, REAL), INT },
-        };
-
+      
     }
 }

@@ -137,6 +137,11 @@
                i == other.i && temp == other.temp &&
                n == other.n && j == other.j;
 
+        public static bool operator ==(Dim a, Dim b) => a.Equals(b);
+        public static bool operator !=(Dim a, Dim b) => !a.Equals(b);
+        public static Dim operator -(Dim a, Dim b) => Div(in a, in b);
+        public static Dim operator +(Dim a, Dim b) => Sum(in a, in b);
+
         public override bool Equals(object? obj)
             => obj is Dim d && Equals(d);
 

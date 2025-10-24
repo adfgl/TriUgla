@@ -1,4 +1,6 @@
-﻿namespace TriScript.Parsing
+﻿using TriScript.Parsing.Nodes;
+
+namespace TriScript.Parsing
 {
     public interface INode
     {

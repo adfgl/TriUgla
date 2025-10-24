@@ -2,13 +2,14 @@
 
 namespace TriScript.Parsing.Nodes
 {
-    public sealed class ExprIdentifier : Expr
+    public class StmtExpr : Stmt
     {
-        public ExprIdentifier(Token token) : base(token)
+        public StmtExpr(Token token, Expr inner) : base(token)
         {
+            Inner = inner;
         }
 
-        public Token Id => Token;
+        public Expr Inner { get; }
 
         public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default
         {
