@@ -1,8 +1,10 @@
-﻿namespace TriScript.Parsing.Nodes
+﻿using TriScript.Scanning;
+
+namespace TriScript.Parsing.Nodes
 {
     public sealed class StmtBlock : Stmt
     {
-        public StmtBlock(List<Stmt> statements)
+        public StmtBlock(Token token, List<Stmt> statements) : base(token)
         {
             Statements = statements;
         }

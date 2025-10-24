@@ -9,6 +9,7 @@ namespace TriScript.Data
 
         Integer = 1 << 0,
         Real = 1 << 1,
+        Symbol = 1 << 2,
 
         Numeric = Integer | Real,
         Any = Integer | Real

@@ -8,6 +8,15 @@
         public IReadOnlyCollection<Scope> Scopes => _scopes;
         public int LoopDepth => _loopDepth;
 
+        public void Clear()
+        {
+            while (_scopes.Count != 0)
+            {
+                Scope scope = _scopes.Pop();
+                scope.Clear();
+            }
+        }
+
         public Scope Current
         {
             get

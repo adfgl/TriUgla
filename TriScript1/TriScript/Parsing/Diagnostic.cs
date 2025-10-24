@@ -8,9 +8,11 @@ namespace TriScript.Parsing
         public readonly string message;
         public readonly TextPosition position;
         public readonly TextSpan span;
+        public readonly Source source;
 
-        public Diagnostic(ESeverity severity, string message, TextPosition position, TextSpan span)
+        public Diagnostic(Source source, ESeverity severity, string message, TextPosition position, TextSpan span)
         {
+            this.source = source;
             this.severity = severity;
             this.message = message;
             this.position = position;

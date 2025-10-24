@@ -3,8 +3,10 @@ namespace TriScript.UnitHandling
 {
     public sealed class UnitRegistry
     {
-        readonly Dictionary<string, Unit> _map = new(StringComparer.Ordinal);
-        readonly Dictionary<string, string> _alias = new(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, Unit> _map = new Dictionary<string, Unit>(StringComparer.Ordinal);
+        readonly Dictionary<string, string> _alias = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+
 
         // SI prefixes (longest-first; accept 'u' and 'µ' for micro)
         static readonly (string pfx, double factor)[] _si =
@@ -74,8 +76,6 @@ namespace TriScript.UnitHandling
             Add(new Unit("km", 1e3, L));
         }
 
-        // ---------------- Basic registry ops ----------------
-
         public void Add(Unit u, params string[] aliases)
         {
             _map[u.Symbol] = u;
@@ -89,8 +89,6 @@ namespace TriScript.UnitHandling
 
         public string Canonical(string sym)
             => _alias.TryGetValue(sym, out var s) ? s : sym;
-
-        // ---------------- Integration with DimEval ----------------
 
         /// <summary>
         /// Public access for DimEval.FromSymbol: resolves symbol + optional SI prefix.

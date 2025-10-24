@@ -8,14 +8,14 @@ namespace TriScript.Parsing
 
         public IReadOnlyList<Diagnostic> Items => _items;
 
-        public void Report(ESeverity severity, string message, TextPosition pos, TextSpan span)
+        public void Report(Source source, ESeverity severity, string message, TextPosition pos, TextSpan span)
         {
-            _items.Add(new Diagnostic(severity, message, pos, span));
+            _items.Add(new Diagnostic(source, severity, message, pos, span));
         }
 
-        public void Report(ESeverity severity, string message, Token token)
+        public void Report(Source source, ESeverity severity, string message, Token token)
         {
-            _items.Add(new Diagnostic(severity, message, token.position, token.span));
+            _items.Add(new Diagnostic(source, severity, message, token.position, token.span));
         }
 
         public bool HasErrors
