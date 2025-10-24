@@ -10,15 +10,21 @@ namespace TriScript.Data
         Integer = 1 << 0,
         Real = 1 << 1,
         Symbol = 1 << 2,
+        String = 1 << 3,
 
         Numeric = Integer | Real,
-        Any = Integer | Real
+        Object = Symbol | String,
+
+        Any = Integer | Real | Symbol | String,
     }
 
     public static class DataTypeEx
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsNumeric(this EDataType type) => (type & EDataType.Numeric) != 0;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsObject(this EDataType type) => (type & EDataType.Object) != 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsInteger(this EDataType type) => (type & EDataType.Integer) != 0;

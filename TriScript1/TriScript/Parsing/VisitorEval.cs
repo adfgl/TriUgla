@@ -7,7 +7,7 @@ namespace TriScript.Parsing
 {
     public class VisitorEval : INodeVisitor<Value>
     {
-        public VisitorEval(ScopeStack stack, Source source, Diagnostics diagnostics)
+        public VisitorEval(ScopeStack stack, Source source)
         {
             Scope = stack;
             Source = source;
@@ -16,7 +16,6 @@ namespace TriScript.Parsing
         public ScopeStack Scope { get; set; }
         public Source Source { get; set; }
         public Diagnostics Diagnostics { get; set; }
-        public UnitRegistry Registry { get; set; }
 
         public bool Visit(ExprIdentifier node, out Value result)
         {
@@ -93,7 +92,6 @@ namespace TriScript.Parsing
                     result = l >= r;
                     break;
                 case ETokenType.Equal:
-                case ETokenType.Is:
                     result = l == r;
                     break;
 
@@ -119,7 +117,7 @@ namespace TriScript.Parsing
             return node.Inner.Accept(this, out result);
         }
 
-        public bool Visit(ExprNumeric node, out Value result)
+        public bool Visit(ExprLiteral node, out Value result)
         {
             result = node.Value;
             return true;
@@ -132,7 +130,30 @@ namespace TriScript.Parsing
 
         public bool Visit(ExprUnaryPrefix node, out Value result)
         {
-            throw new NotImplementedException();
+            if (!node.Right.Accept(this, out Value operand))
+            {
+                result = Value.Nothing;
+                return false;
+            }
+
+            switch (node.Token.type)
+            {
+                case ETokenType.Plus:
+                    result = +operand;
+                    break;
+
+                case ETokenType.Minus:
+                    result = -operand;
+                    break;
+
+                case ETokenType.Not:
+                    result = !operand;
+                    break;
+
+                default:
+                    throw new NotImplementedException($"'{node.Token.type}'");
+            }
+            return true;
         }
 
         public bool Visit(ExprWithUnit node, out Value result)

@@ -14,7 +14,7 @@ namespace TriScript.Parsing
         bool Visit(ExprAssignment node, out T? result);
         bool Visit(ExprBinary node, out T? result);
         bool Visit(ExprGroup node, out T? result);
-        bool Visit(ExprNumeric node, out T? result);
+        bool Visit(ExprLiteral node, out T? result);
         bool Visit(ExprUnaryPostfix node, out T? result);
         bool Visit(ExprUnaryPrefix node, out T? result);
         bool Visit(ExprWithUnit node, out T? result);

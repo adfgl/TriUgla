@@ -21,7 +21,6 @@
         OpenSquare, CloseSquare,
 
         Assign,
-        Is,
         Not,
         Or,
         And,

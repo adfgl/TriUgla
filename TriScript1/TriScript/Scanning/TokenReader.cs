@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using TriScript.Parsing;
+﻿using System.Runtime.CompilerServices;
 
 namespace TriScript.Scanning
 {
@@ -27,8 +21,6 @@ namespace TriScript.Scanning
             _pos = _line = _col = 0;
         }
 
-
-
         public Token Read()
         {
             SkipSpace();
@@ -36,8 +28,7 @@ namespace TriScript.Scanning
 
             if (ch == EOF) return ReadEndOfFile();
             if (ch == '\n') return ReadNewline();
-            if (ch == '\"') return ReadString(ETokenType.LiteralString, ch);
-            if (ch == '\'') return ReadString(ETokenType.LiteralSymbol, ch);
+            if (ch == '\"' || ch == '\'') return ReadString(ETokenType.LiteralString, ch);
             if (IsDigit(ch) || (ch == '.' && IsDigit(Peek(1)))) return ReadNumber();
             if (IsIdentStart(ch)) return ReadIdentifier();
             return ReadOperatorOrPunct();

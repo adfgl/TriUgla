@@ -26,7 +26,6 @@ namespace TriScript.Parsing
 
         const ETokenType OR = ETokenType.Or;
         const ETokenType AND = ETokenType.And;
-        const ETokenType IS = ETokenType.Is;
 
         public VisitorType(ScopeStack stack, Source source, Diagnostics diagnostics)
         {
@@ -118,7 +117,7 @@ namespace TriScript.Parsing
             return node.Inner.Accept(this, out result);
         }
 
-        public bool Visit(ExprNumeric node, out EDataType result)
+        public bool Visit(ExprLiteral node, out EDataType result)
         {
             result = node.Value.type;
             return true;
@@ -131,7 +130,7 @@ namespace TriScript.Parsing
 
         public bool Visit(ExprUnaryPrefix node, out EDataType result)
         {
-            throw new NotImplementedException();
+            return node.Right.Accept(this, out result);
         }
 
         public bool Visit(ExprWithUnit node, out EDataType result)
@@ -233,12 +232,6 @@ namespace TriScript.Parsing
             { (INT,  AND, REAL), INT },
             { (REAL, AND, INT), INT },
             { (REAL, AND, REAL), INT },
-
-            // is
-            { (INT,  IS, INT), INT },
-            { (INT,  IS, REAL), INT },
-            { (REAL, IS, INT), INT },
-            { (REAL, IS, REAL), INT },
         };
 
     }

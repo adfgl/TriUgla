@@ -3,9 +3,9 @@ using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes
 {
-    public sealed class ExprNumeric : Expr
+    public sealed class ExprLiteral : Expr
     {
-        public ExprNumeric(Token token, Value value) : base(token)
+        public ExprLiteral(Token token, Value value) : base(token)
         {
             Value = value;
         }

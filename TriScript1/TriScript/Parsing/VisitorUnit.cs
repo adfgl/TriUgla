@@ -38,7 +38,7 @@ namespace TriScript.Parsing
             throw new NotImplementedException();
         }
 
-        public bool Visit(ExprNumeric node, out Dim result)
+        public bool Visit(ExprLiteral node, out Dim result)
         {
             throw new NotImplementedException();
         }
