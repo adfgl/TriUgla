@@ -3,7 +3,7 @@ using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes
 {
-    public abstract class Expr
+    public abstract class Expr : INode
     {
         protected Expr(Token token)
         {
@@ -12,6 +12,6 @@ namespace TriScript.Parsing.Nodes
 
         public Token Token { get; }
 
-        public abstract T Accept<T>(IExprVisitor<T> visitor);
+        public abstract bool Accept<T>(INodeVisitor<T> visitor, out T? result);
     }
 }

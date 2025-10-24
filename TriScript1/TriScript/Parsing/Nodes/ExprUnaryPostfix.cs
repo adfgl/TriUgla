@@ -8,6 +8,9 @@ namespace TriScript.Parsing.Nodes
         {
         }
 
-        public override T Accept<T>(IExprVisitor<T> visitor) => visitor.Visit(this);
+        public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default
+        {
+            return visitor.Visit(this, out result);
+        }
     }
 }

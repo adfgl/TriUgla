@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TriScript.Scanning;
+﻿using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes
 {
@@ -13,9 +8,11 @@ namespace TriScript.Parsing.Nodes
         {
         }
 
-        public override T Accept<T>(IExprVisitor<T> visitor)
+        public Token Id => Token;
+
+        public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default
         {
-            return visitor.Visit(this);
+            return visitor.Visit(this, out result);
         }
     }
 }

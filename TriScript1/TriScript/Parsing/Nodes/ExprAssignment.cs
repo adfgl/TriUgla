@@ -9,8 +9,12 @@ namespace TriScript.Parsing.Nodes
             Value = value;
         }
 
+        public Token Assignee => Token;
         public Expr Value { get; }
 
-        public override T Accept<T>(IExprVisitor<T> visitor) => visitor.Visit(this);
+        public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default
+        {
+            return visitor.Visit(this, out result);
+        }
     }
 }

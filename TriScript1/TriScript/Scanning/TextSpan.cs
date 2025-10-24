@@ -10,6 +10,11 @@
             this.length = length;
         }
 
+        public static TextSpan Sum(in TextSpan a, in TextSpan b)
+        {
+            return new TextSpan(a.start, a.length + b.length);
+        }
+
         public bool Equals(TextSpan other)
             => start == other.start && length == other.length;
 

@@ -7,8 +7,8 @@ using TriScript.Scanning;
 
 namespace TriScript.Parsing.Nodes
 {
-    public abstract class Stmt
+    public abstract class Stmt : INode
     {
-
+        public abstract bool Accept<T>(INodeVisitor<T> visitor, out T? result);
     }
 }
