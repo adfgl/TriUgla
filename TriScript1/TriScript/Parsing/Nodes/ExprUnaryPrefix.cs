@@ -9,6 +9,7 @@ namespace TriScript.Parsing.Nodes
             Right = right;
         }
 
+        public Token Operator => Token;
         public Expr Right { get; }
 
         public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default

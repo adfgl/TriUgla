@@ -191,7 +191,7 @@ namespace TriScript.Parsing
                     {
                         var strTok = Advance();
                         var text = Source.GetString(strTok.span);
-                        return new ExprLiteralSymbol(strTok, new Value(new ObjString(text)));
+                        return new ExprLiteralString(strTok, new Value(new ObjString(text)));
                     }
 
                 case ETokenType.LiteralNumeric:

@@ -1,4 +1,6 @@
-﻿namespace TriScript.Data
+﻿using System.Globalization;
+
+namespace TriScript.Data
 {
     public readonly struct Value : IEquatable<Value>
     {
@@ -15,6 +17,8 @@
             this.obj = obj;
         }
 
+        public Value(EDataType type) : this(type, 0, null) { }
+
         public Value(double real)
             : this(EDataType.Real, real, null) { }
 
@@ -26,6 +30,12 @@
 
         public Value(Obj obj)
             : this(obj.Type, double.NaN, obj) { }
+
+        public static Value One(in Value val)
+        {
+            if (val.type == EDataType.Integer) return new Value(1);
+            return new Value(0.0);
+        }
 
         public bool Equals(Value other)
         {
@@ -217,7 +227,9 @@
                     return ((int)real).ToString();
 
                 case EDataType.Real:
-                    return real.ToString("G");
+                    return real % 1 == 0
+                        ? real.ToString("0.0", CultureInfo.InvariantCulture)
+                        : real.ToString("G", CultureInfo.InvariantCulture);
 
                 default:
                     return obj is null ? "<nothing>" : obj.ToString()!;

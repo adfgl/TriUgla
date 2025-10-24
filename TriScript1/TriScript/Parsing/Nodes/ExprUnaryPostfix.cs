@@ -10,6 +10,7 @@ namespace TriScript.Parsing.Nodes
         }
 
         public Expr Left { get; }
+        public Token Operator => Token;
 
         public override bool Accept<T>(INodeVisitor<T> visitor, out T? result) where T : default
         {
