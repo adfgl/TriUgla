@@ -194,6 +194,7 @@
                 '[' => TokenKind.OpenSquare,
                 ']' => TokenKind.CloseSquare,
 
+                '.' => TokenKind.Dot,
                 ',' => TokenKind.Comma,
                 ':' => TokenKind.Colon,
                 ';' => TokenKind.Semicolon,

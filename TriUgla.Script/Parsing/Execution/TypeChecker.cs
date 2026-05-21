@@ -1,19 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using TriUgla.Script.Data;
-using TriUgla.Script.Parsing.Nodes;
-using TriUgla.Script.Parsing.Nodes.Expressions;
-using TriUgla.Script.Parsing.Nodes.Statements;
+﻿using TriUgla.Script.Data;
 using TriUgla.Script.Scanning;
 
 namespace TriUgla.Script.Parsing.Execution
 {
-    public sealed class TypeChecker(Diagnostics diagnostics) : INodeVisitor<ObjType>
+    public sealed class TypeChecker : INodeVisitor<ObjType>
     {
-        readonly ScopeStack<ObjType> _scopes = new ScopeStack<ObjType>();
-        readonly LoopTrack _loops = new LoopTrack();
-        readonly Diagnostics _diagnostics = diagnostics;
+        readonly ScopeStack<ObjType> _scopes = new();
+        readonly LoopTrack _loops = new();
+        readonly Diagnostics _diagnostics;
+
+        public TypeChecker(Diagnostics diagnostics)
+        {
+            _diagnostics = diagnostics;
+        }
 
         public ObjType Visit(StmtProg node)
         {
@@ -41,64 +40,40 @@ namespace TriUgla.Script.Parsing.Execution
         }
 
         public ObjType Visit(StmtExpr node)
-            => node.Expr.Accept(this);
+            => node.Expression.Accept(this);
 
         public ObjType Visit(StmtAssign node)
         {
-            ObjType valueType = node.Value.Accept(this);
+            ObjType value = node.Value.Accept(this);
 
             if (node.Target is ExprIdentifier id)
             {
-                string name = Text(id.Token);
+                string name = id.Token.Text;
 
                 if (_scopes.TryResolve(name, out var scope))
                 {
                     ObjType current = scope[name];
 
-                    if (!CanAssign(current, valueType))
-                    {
-                        Report(
-                            node.Op,
-                            $"Cannot assign {valueType} to '{name}' of type {current}.");
-                    }
+                    if (!CanAssign(current, value))
+                        Report(node.Op, $"Cannot assign {value} to '{name}' of type {current}.");
 
-                    scope[name] = MergeAssignment(current, valueType);
+                    scope[name] = MergeAssignment(current, value);
                 }
                 else
                 {
-                    _scopes.Current.Declare(name, valueType);
+                    _scopes.Current.Declare(name, value);
                 }
 
-                return valueType;
+                return value;
             }
 
             if (node.Target is ExprIndex index)
-            {
-                ObjType targetType = index.Target.Accept(this);
-                ObjType indexType = index.Index.Accept(this);
+                return CheckIndexAssignment(index, node.Op, value);
 
-                if (indexType != ObjType.Integer)
-                    Report(index.Open, $"Index must be Integer, got {indexType}.");
+            if (node.Target is ExprMember)
+                return value;
 
-                if (!targetType.IsList)
-                {
-                    Report(index.Open, $"Type {targetType} is not index-assignable.");
-                    return ObjType.Undefined;
-                }
-
-                ObjType elementType = targetType.Element ?? ObjType.Undefined;
-
-                if (!CanAssign(elementType, valueType))
-                {
-                    Report(
-                        node.Op,
-                        $"Cannot assign {valueType} to list element of type {elementType}.");
-                }
-
-                return valueType;
-            }
-
-            Report(node.Op, "Left side of assignment must be identifier or index access.");
+            Report(node.Op, "Left side of assignment must be identifier, index, or member.");
             return ObjType.Undefined;
         }
 
@@ -106,12 +81,12 @@ namespace TriUgla.Script.Parsing.Execution
         {
             CheckCondition(node.Condition, "If");
 
-            node.ThenBlock.Accept(this);
+            node.ThenBranch.Accept(this);
 
-            foreach (StmtElseIf elseIf in node.ElseIfs)
-                elseIf.Accept(this);
+            foreach (StmtElseIf item in node.ElseIfs)
+                item.Accept(this);
 
-            node.ElseBlock?.Accept(this);
+            node.ElseBranch?.Accept(this);
 
             return ObjType.Undefined;
         }
@@ -119,40 +94,7 @@ namespace TriUgla.Script.Parsing.Execution
         public ObjType Visit(StmtElseIf node)
         {
             CheckCondition(node.Condition, "ElseIf");
-            node.Block.Accept(this);
-
-            return ObjType.Undefined;
-        }
-
-        public ObjType Visit(StmtFor node)
-        {
-            ObjType iterableType = node.Iterable.Accept(this);
-
-            ObjType itemType;
-
-            if (iterableType == ObjType.Range)
-            {
-                itemType = ObjType.Integer;
-            }
-            else if (iterableType.IsList)
-            {
-                itemType = iterableType.Element ?? ObjType.Undefined;
-            }
-            else
-            {
-                Report(node.Variable, $"For expects Range or List, got {iterableType}.");
-                itemType = ObjType.Undefined;
-            }
-
-            using (_scopes.Guard())
-            {
-                _scopes.Current.Declare(Text(node.Variable), itemType);
-
-                _loops.Enter();
-                node.Body.Accept(this);
-                _loops.Exit();
-            }
-
+            node.Body.Accept(this);
             return ObjType.Undefined;
         }
 
@@ -167,10 +109,33 @@ namespace TriUgla.Script.Parsing.Execution
             return ObjType.Undefined;
         }
 
+        public ObjType Visit(StmtFor node)
+        {
+            ObjType iterable = node.Iterable.Accept(this);
+
+            ObjType itemType = iterable.Kind switch
+            {
+                DataKind.Range => ObjType.Integer,
+                DataKind.List => iterable.Element ?? ObjType.Undefined,
+                _ => Error(node.Identifier, $"For expects Range or List, got {iterable}.")
+            };
+
+            using (_scopes.Guard())
+            {
+                _scopes.Current.Declare(node.Identifier.Text, itemType);
+
+                _loops.Enter();
+                node.Body.Accept(this);
+                _loops.Exit();
+            }
+
+            return ObjType.Undefined;
+        }
+
         public ObjType Visit(StmtBreak node)
         {
             if (!_loops.IsInsideLoop)
-                Report(node.Token, "'Break' can only be used inside a loop.");
+                Report(default, "'Break' can only be used inside a loop.");
 
             return ObjType.Undefined;
         }
@@ -178,9 +143,137 @@ namespace TriUgla.Script.Parsing.Execution
         public ObjType Visit(StmtContinue node)
         {
             if (!_loops.IsInsideLoop)
-                Report(node.Token, "'Continue' can only be used inside a loop.");
+                Report(default, "'Continue' can only be used inside a loop.");
 
             return ObjType.Undefined;
+        }
+
+        public ObjType Visit(StmtReturn node)
+        {
+            node.Value?.Accept(this);
+            return ObjType.Undefined;
+        }
+
+        public ObjType Visit(StmtPoint node)
+        {
+            CheckInteger(node.Id, "Point id");
+            CheckNumberList(node.Values, 4, "Point values must be {x, y, z, meshSize}.");
+            return ObjType.Point;
+        }
+
+        public ObjType Visit(StmtLine node)
+        {
+            CheckInteger(node.Id, "Line id");
+            CheckIntegerList(node.Values, 2, "Line values must be {startPointId, endPointId}.");
+            return ObjType.Line;
+        }
+
+        public ObjType Visit(StmtCircle node)
+        {
+            CheckInteger(node.Id, "Circle id");
+            CheckIntegerList(node.Values, 3, "Circle values must be {startPointId, centerPointId, endPointId}.");
+            return ObjType.Circle;
+        }
+
+        public ObjType Visit(StmtEllipse node)
+        {
+            CheckInteger(node.Id, "Ellipse id");
+            CheckIntegerList(node.Values, 4, "Ellipse values must be {startPointId, centerPointId, majorPointId, endPointId}.");
+            return ObjType.Ellipse;
+        }
+
+        public ObjType Visit(StmtSpline node)
+        {
+            CheckInteger(node.Id, "Spline id");
+            CheckIntegerList(node.Values, minCount: 2, "Spline needs at least 2 point ids.");
+            return ObjType.Spline;
+        }
+
+        public ObjType Visit(StmtBSpline node)
+        {
+            CheckInteger(node.Id, "BSpline id");
+            CheckIntegerList(node.Values, minCount: 2, "BSpline needs at least 2 point ids.");
+            return ObjType.BSpline;
+        }
+
+        public ObjType Visit(StmtBezier node)
+        {
+            CheckInteger(node.Id, "Bezier id");
+            CheckIntegerList(node.Values, minCount: 2, "Bezier needs at least 2 point ids.");
+            return ObjType.Bezier;
+        }
+
+        public ObjType Visit(StmtCurveLoop node)
+        {
+            CheckInteger(node.Id, "Curve Loop id");
+            CheckIntegerList(node.Values, minCount: 1, "Curve Loop needs at least one curve id.");
+            return ObjType.CurveLoop;
+        }
+
+        public ObjType Visit(StmtPlaneSurface node)
+        {
+            CheckInteger(node.Id, "Plane Surface id");
+            CheckIntegerList(node.Values, minCount: 1, "Plane Surface needs at least one curve loop id.");
+            return ObjType.PlaneSurface;
+        }
+
+        public ObjType Visit(StmtPhysical node)
+        {
+            CheckInteger(node.Id, "Physical group id");
+            CheckIntegerList(node.Values, minCount: 1, "Physical group needs at least one entity id.");
+            node.Name?.Accept(this);
+            return node.Kind switch
+            {
+                Keyword.Point => new ObjType(DataKind.PhysicalPoint),
+                Keyword.Curve or Keyword.Line => new ObjType(DataKind.PhysicalCurve),
+                Keyword.Surface => new ObjType(DataKind.PhysicalSurface),
+                _ => ObjType.Undefined
+            };
+        }
+
+        public ObjType Visit(StmtTransfiniteCurve node)
+        {
+            CheckIntegerList(node.Curves, minCount: 1, "Transfinite Curve needs at least one curve id.");
+            CheckInteger(node.Divisions, "Transfinite Curve divisions");
+            CheckNumber(node.Progression, "Transfinite Curve progression");
+            return new ObjType(DataKind.TransfiniteCurve);
+        }
+
+        public ObjType Visit(StmtTransfiniteSurface node)
+        {
+            CheckIntegerList(node.Surfaces, minCount: 1, "Transfinite Surface needs at least one surface id.");
+
+            if (node.Corners is not null)
+                CheckIntegerList(node.Corners, minCount: 3, "Transfinite Surface corners need at least 3 point ids.");
+
+            return new ObjType(DataKind.TransfiniteSurface);
+        }
+
+        public ObjType Visit(StmtRecombineSurface node)
+        {
+            CheckIntegerList(node.Surfaces, minCount: 1, "Recombine Surface needs at least one surface id.");
+            return new ObjType(DataKind.RecombineSurface);
+        }
+
+        public ObjType Visit(StmtEmbed node)
+        {
+            CheckIntegerList(node.Entities, minCount: 1, "Embedded entity list cannot be empty.");
+            CheckIntegerList(node.Containers, minCount: 1, "Embedding container list cannot be empty.");
+            return new ObjType(DataKind.EmbedConstraint);
+        }
+
+        public ObjType Visit(StmtMeshOption node)
+        {
+            node.Value.Accept(this);
+            return ObjType.MeshOption;
+        }
+
+        public ObjType Visit(StmtMeshCommand node)
+        {
+            foreach (Expr arg in node.Args)
+                arg.Accept(this);
+
+            return ObjType.MeshCommand;
         }
 
         public ObjType Visit(StmtError node)
@@ -191,21 +284,15 @@ namespace TriUgla.Script.Parsing.Execution
 
         public ObjType Visit(ExprIdentifier node)
         {
-            string name = Text(node.Token);
-
-            if (_scopes.TryGet(name, out ObjType type))
+            if (_scopes.TryGet(node.Token.Text, out ObjType type))
                 return type;
 
-            Report(node.Token, $"Unknown identifier '{name}'.");
+            Report(node.Token, $"Unknown identifier '{node.Token.Text}'.");
             return ObjType.Undefined;
         }
 
         public ObjType Visit(ExprNumber node)
-        {
-            return IsIntegerLiteral(node.Token)
-                ? ObjType.Integer
-                : ObjType.Double;
-        }
+            => IsIntegerLiteral(node.Token) ? ObjType.Integer : ObjType.Double;
 
         public ObjType Visit(ExprString node)
             => ObjType.String;
@@ -219,94 +306,114 @@ namespace TriUgla.Script.Parsing.Execution
         public ObjType Visit(ExprUnary node)
         {
             ObjType right = node.Right.Accept(this);
-            OperatorKind op = (OperatorKind)node.Op.Value;
 
-            return op switch
+            return node.Op.Operator switch
             {
-                OperatorKind.Plus => CheckUnaryNumber(node.Op, right, "+"),
-                OperatorKind.Minus => CheckUnaryNumber(node.Op, right, "-"),
-                OperatorKind.Not => CheckUnaryBoolean(node.Op, right),
-
-                _ => Error(node.Op, $"Unsupported unary operator '{op}'.")
+                OperatorKind.Plus => RequireNumber(node.Op, right, "Unary '+'"),
+                OperatorKind.Minus => RequireNumber(node.Op, right, "Unary '-'"),
+                OperatorKind.Not => RequireBoolean(node.Op, right, "Unary '!'"),
+                _ => Error(node.Op, $"Unsupported unary operator '{node.Op.Text}'.")
             };
         }
 
         public ObjType Visit(ExprBinary node)
         {
-            OperatorKind op = (OperatorKind)node.Op.Value;
+            ObjType left = node.Left.Accept(this);
 
-            if (op is OperatorKind.And or OperatorKind.Or)
+            if (node.Op.Is(OperatorKind.And) || node.Op.Is(Keyword.And))
             {
-                ObjType left = node.Left.Accept(this);
                 ObjType right = node.Right.Accept(this);
-
                 if (left != ObjType.Boolean || right != ObjType.Boolean)
-                {
-                    Report(
-                        node.Op,
-                        $"Logical operator '{op}' expects Boolean operands, got {left} and {right}.");
-                }
-
+                    Report(node.Op, $"And expects Boolean operands, got {left} and {right}.");
                 return ObjType.Boolean;
             }
 
-            ObjType l = node.Left.Accept(this);
-            ObjType r = node.Right.Accept(this);
-
-            return op switch
+            if (node.Op.Is(OperatorKind.Or) || node.Op.Is(Keyword.Or))
             {
-                OperatorKind.Plus => BinaryPlus(node.Op, l, r),
+                ObjType right = node.Right.Accept(this);
+                if (left != ObjType.Boolean || right != ObjType.Boolean)
+                    Report(node.Op, $"Or expects Boolean operands, got {left} and {right}.");
+                return ObjType.Boolean;
+            }
 
-                OperatorKind.Minus or
-                OperatorKind.Multiply or
-                OperatorKind.Modulo or
-                OperatorKind.Power => BinaryNumber(node.Op, l, r, op),
+            ObjType rightType = node.Right.Accept(this);
 
-                OperatorKind.Divide => BinaryDivide(node.Op, node.Right, l, r),
+            if (node.Op.Is(OperatorKind.Plus))
+                return BinaryPlus(node.Op, left, rightType);
 
-                OperatorKind.Less or
-                OperatorKind.LessEqual or
-                OperatorKind.Greater or
-                OperatorKind.GreaterEqual => BinaryCompare(node.Op, l, r, op),
+            if (node.Op.Is(OperatorKind.Minus) ||
+                node.Op.Is(OperatorKind.Multiply) ||
+                node.Op.Is(OperatorKind.Modulo) ||
+                node.Op.Is(OperatorKind.Power))
+                return BinaryNumber(node.Op, left, rightType);
 
-                OperatorKind.Equal or
-                OperatorKind.NotEqual => BinaryEquality(node.Op, l, r),
+            if (node.Op.Is(OperatorKind.Divide))
+                return BinaryDivide(node.Op, node.Right, left, rightType);
 
-                _ => Error(node.Op, $"Unsupported binary operator '{op}'.")
-            };
+            if (node.Op.Is(OperatorKind.Less) ||
+                node.Op.Is(OperatorKind.LessEqual) ||
+                node.Op.Is(OperatorKind.Greater) ||
+                node.Op.Is(OperatorKind.GreaterEqual))
+                return BinaryCompare(node.Op, left, rightType);
+
+            if (node.Op.Is(OperatorKind.Equal) ||
+                node.Op.Is(OperatorKind.NotEqual) ||
+                node.Op.Is(Keyword.Is))
+                return BinaryEquality(node.Op, left, rightType);
+
+            return Error(node.Op, $"Unsupported binary operator '{node.Op.Text}'.");
+        }
+
+        public ObjType Visit(ExprTernary node)
+        {
+            CheckCondition(node.Condition, "Ternary condition");
+
+            ObjType a = node.WhenTrue.Accept(this);
+            ObjType b = node.WhenFalse.Accept(this);
+
+            return CommonType(a, b);
+        }
+
+        public ObjType Visit(ExprCall node)
+        {
+            foreach (Expr arg in node.Args)
+                arg.Accept(this);
+
+            if (node.Target is ExprIdentifier id)
+            {
+                return id.Token.Text switch
+                {
+                    "print" => ObjType.Undefined,
+                    "exit" => ObjType.Undefined,
+                    "Transpose" => ObjType.ListOf(ObjType.ListOf(ObjType.Double)),
+                    "Inverse" => ObjType.ListOf(ObjType.ListOf(ObjType.Double)),
+                    _ => ObjType.Undefined
+                };
+            }
+
+            return ObjType.Undefined;
         }
 
         public ObjType Visit(ExprList node)
         {
-            if (node.Items.Count == 0)
+            if (node.Values.Count == 0)
                 return ObjType.ListOf(ObjType.Undefined);
 
-            ObjType element = node.Items[0].Accept(this);
+            ObjType element = node.Values[0].Accept(this);
 
-            for (int i = 1; i < node.Items.Count; i++)
-                element = CommonType(element, node.Items[i].Accept(this));
+            for (int i = 1; i < node.Values.Count; i++)
+                element = CommonType(element, node.Values[i].Accept(this));
 
             return ObjType.ListOf(element);
         }
 
         public ObjType Visit(ExprRange node)
         {
-            ObjType start = node.Start.Accept(this);
-            ObjType end = node.End.Accept(this);
-
-            if (!start.IsNumber)
-                Report(GetToken(node.Start), $"Range start must be numeric, got {start}.");
-
-            if (!end.IsNumber)
-                Report(GetToken(node.End), $"Range end must be numeric, got {end}.");
+            CheckNumber(node.Start, "Range start");
+            CheckNumber(node.End, "Range end");
 
             if (node.Step is not null)
-            {
-                ObjType step = node.Step.Accept(this);
-
-                if (!step.IsNumber)
-                    Report(GetToken(node.Step), $"Range step must be numeric, got {step}.");
-            }
+                CheckNumber(node.Step, "Range step");
 
             return ObjType.Range;
         }
@@ -314,6 +421,15 @@ namespace TriUgla.Script.Parsing.Execution
         public ObjType Visit(ExprIndex node)
         {
             ObjType target = node.Target.Accept(this);
+
+            if (node.Index is null)
+            {
+                if (!target.IsList)
+                    Report(node.Open, $"Empty index [] requires List, got {target}.");
+
+                return target;
+            }
+
             ObjType index = node.Index.Accept(this);
 
             if (index != ObjType.Integer)
@@ -329,10 +445,54 @@ namespace TriUgla.Script.Parsing.Execution
             return ObjType.Undefined;
         }
 
+        public ObjType Visit(ExprMember node)
+        {
+            node.Target.Accept(this);
+            return ObjType.Undefined;
+        }
+
         public ObjType Visit(ExprError node)
         {
             Report(node.Token, node.Message);
             return ObjType.Undefined;
+        }
+
+        ObjType CheckIndexAssignment(ExprIndex index, Token op, ObjType value)
+        {
+            ObjType target = index.Target.Accept(this);
+
+            if (index.Index is null)
+            {
+                if (!target.IsList)
+                    Report(index.Open, $"Empty index [] assignment requires List, got {target}.");
+
+                if (op.Is(OperatorKind.Assign))
+                    return value;
+
+                if (op.Is(OperatorKind.PlusAssign))
+                    return target;
+
+                Report(op, "Only '=' and '+=' are valid for empty index assignment.");
+                return ObjType.Undefined;
+            }
+
+            ObjType indexType = index.Index.Accept(this);
+
+            if (indexType != ObjType.Integer)
+                Report(index.Open, $"Index must be Integer, got {indexType}.");
+
+            if (!target.IsList)
+            {
+                Report(index.Open, $"Type {target} is not index-assignable.");
+                return ObjType.Undefined;
+            }
+
+            ObjType element = target.Element ?? ObjType.Undefined;
+
+            if (!CanAssign(element, value))
+                Report(op, $"Cannot assign {value} to list element of type {element}.");
+
+            return value;
         }
 
         void CheckCondition(Expr condition, string owner)
@@ -340,7 +500,39 @@ namespace TriUgla.Script.Parsing.Execution
             ObjType type = condition.Accept(this);
 
             if (type != ObjType.Boolean)
-                Report(GetToken(condition), $"{owner} condition must be Boolean, got {type}.");
+                Report(GetToken(condition), $"{owner} must be Boolean, got {type}.");
+        }
+
+        void CheckInteger(Expr expr, string name)
+        {
+            ObjType type = expr.Accept(this);
+
+            if (type != ObjType.Integer)
+                Report(GetToken(expr), $"{name} must be Integer, got {type}.");
+        }
+
+        void CheckNumber(Expr expr, string name)
+        {
+            ObjType type = expr.Accept(this);
+
+            if (!type.IsNumber)
+                Report(GetToken(expr), $"{name} must be numeric, got {type}.");
+        }
+
+        void CheckIntegerList(Expr expr, int minCount, string message)
+        {
+            ObjType type = expr.Accept(this);
+
+            if (!type.IsList || type.Element != ObjType.Integer)
+                Report(GetToken(expr), $"{message} Expected List<Integer>, got {type}.");
+        }
+
+        void CheckNumberList(Expr expr, int exactCount, string message)
+        {
+            ObjType type = expr.Accept(this);
+
+            if (!type.IsList || type.Element is null || !type.Element.IsNumber)
+                Report(GetToken(expr), $"{message} Expected List<Number>, got {type}.");
         }
 
         ObjType BinaryPlus(Token op, ObjType left, ObjType right)
@@ -348,19 +540,13 @@ namespace TriUgla.Script.Parsing.Execution
             if (left == ObjType.String || right == ObjType.String)
                 return ObjType.String;
 
-            return BinaryNumber(op, left, right, OperatorKind.Plus);
+            return BinaryNumber(op, left, right);
         }
 
-        ObjType BinaryNumber(Token op, ObjType left, ObjType right, OperatorKind kind)
+        ObjType BinaryNumber(Token op, ObjType left, ObjType right)
         {
             if (!left.IsNumber || !right.IsNumber)
-            {
-                Report(op, $"Operator '{kind}' expects numbers, got {left} and {right}.");
-                return ObjType.Undefined;
-            }
-
-            if (kind == OperatorKind.Power)
-                return ObjType.Double;
+                return Error(op, $"Operator '{op.Text}' expects numbers, got {left} and {right}.");
 
             return PromoteNumber(left, right);
         }
@@ -368,10 +554,7 @@ namespace TriUgla.Script.Parsing.Execution
         ObjType BinaryDivide(Token op, Expr rightExpr, ObjType left, ObjType right)
         {
             if (!left.IsNumber || !right.IsNumber)
-            {
-                Report(op, $"Operator '/' expects numbers, got {left} and {right}.");
-                return ObjType.Undefined;
-            }
+                return Error(op, $"Operator '/' expects numbers, got {left} and {right}.");
 
             if (IsLiteralZero(rightExpr))
                 Report(op, "Division by constant zero.");
@@ -379,10 +562,10 @@ namespace TriUgla.Script.Parsing.Execution
             return ObjType.Double;
         }
 
-        ObjType BinaryCompare(Token op, ObjType left, ObjType right, OperatorKind kind)
+        ObjType BinaryCompare(Token op, ObjType left, ObjType right)
         {
             if (!left.IsNumber || !right.IsNumber)
-                Report(op, $"Comparison '{kind}' expects numbers, got {left} and {right}.");
+                Report(op, $"Comparison expects numbers, got {left} and {right}.");
 
             return ObjType.Boolean;
         }
@@ -399,21 +582,18 @@ namespace TriUgla.Script.Parsing.Execution
             return ObjType.Boolean;
         }
 
-        ObjType CheckUnaryNumber(Token op, ObjType right, string symbol)
+        ObjType RequireNumber(Token token, ObjType type, string name)
         {
-            if (!right.IsNumber)
-            {
-                Report(op, $"Unary '{symbol}' expects number, got {right}.");
-                return ObjType.Undefined;
-            }
+            if (!type.IsNumber)
+                return Error(token, $"{name} expects number, got {type}.");
 
-            return right;
+            return type;
         }
 
-        ObjType CheckUnaryBoolean(Token op, ObjType right)
+        ObjType RequireBoolean(Token token, ObjType type, string name)
         {
-            if (right != ObjType.Boolean)
-                Report(op, $"Unary '!' expects Boolean, got {right}.");
+            if (type != ObjType.Boolean)
+                Report(token, $"{name} expects Boolean, got {type}.");
 
             return ObjType.Boolean;
         }
@@ -425,69 +605,40 @@ namespace TriUgla.Script.Parsing.Execution
         }
 
         static ObjType PromoteNumber(ObjType a, ObjType b)
-        {
-            return a == ObjType.Double || b == ObjType.Double
-                ? ObjType.Double
-                : ObjType.Integer;
-        }
+            => a == ObjType.Double || b == ObjType.Double ? ObjType.Double : ObjType.Integer;
 
         static ObjType CommonType(ObjType a, ObjType b)
         {
-            if (a == b)
-                return a;
-
-            if (a.IsNumber && b.IsNumber)
-                return PromoteNumber(a, b);
+            if (a == b) return a;
+            if (a.IsNumber && b.IsNumber) return PromoteNumber(a, b);
 
             if (a.IsList && b.IsList)
-            {
-                ObjType ae = a.Element ?? ObjType.Undefined;
-                ObjType be = b.Element ?? ObjType.Undefined;
-
-                return ObjType.ListOf(CommonType(ae, be));
-            }
+                return ObjType.ListOf(CommonType(a.Element ?? ObjType.Undefined, b.Element ?? ObjType.Undefined));
 
             return ObjType.Undefined;
         }
 
         static bool CanAssign(ObjType expected, ObjType actual)
         {
-            if (expected == actual)
-                return true;
-
-            if (expected == ObjType.Double && actual == ObjType.Integer)
-                return true;
+            if (expected == actual) return true;
+            if (expected == ObjType.Double && actual == ObjType.Integer) return true;
 
             if (expected.IsList && actual.IsList)
-            {
-                ObjType expectedElement = expected.Element ?? ObjType.Undefined;
-                ObjType actualElement = actual.Element ?? ObjType.Undefined;
-
-                return CanAssign(expectedElement, actualElement);
-            }
+                return CanAssign(expected.Element ?? ObjType.Undefined, actual.Element ?? ObjType.Undefined);
 
             return false;
         }
 
         static ObjType MergeAssignment(ObjType current, ObjType next)
-        {
-            if (CanAssign(current, next))
-                return current;
-
-            return CommonType(current, next);
-        }
+            => CanAssign(current, next) ? current : CommonType(current, next);
 
         static bool IsLiteralZero(Expr expr)
-        {
-            return expr is ExprNumber n && Math.Abs(n.Value) < 1e-12;
-        }
+            => expr is ExprNumber n && Math.Abs(n.Value) < 1e-12;
 
-        bool IsIntegerLiteral(Token token)
-        {
-            return int.TryParse(Text(token), out _);
-        }
+        static bool IsIntegerLiteral(Token token)
+            => int.TryParse(token.Text, out _);
 
-        Token GetToken(Expr expr)
+        static Token GetToken(Expr expr)
         {
             return expr switch
             {
@@ -495,28 +646,23 @@ namespace TriUgla.Script.Parsing.Execution
                 ExprNumber x => x.Token,
                 ExprString x => x.Token,
                 ExprBoolean x => x.Token,
+                ExprGroup x => x.Open,
                 ExprUnary x => x.Op,
                 ExprBinary x => x.Op,
-                ExprGroup x => x.Open,
+                ExprTernary x => x.Question,
+                ExprCall x => x.Open,
                 ExprList x => x.Open,
                 ExprRange x => GetToken(x.Start),
                 ExprIndex x => x.Open,
+                ExprMember x => x.Dot,
                 ExprError x => x.Token,
                 _ => default
             };
         }
 
-        string Text(Token token)
-        {
-            return token.Source.Slice(token.Span);
-        }
-
         void Report(Token token, string message)
         {
-            _diagnostics.Report(
-                Severity.Error,
-                message,
-                token);
+            _diagnostics.Error(message, token);
         }
     }
 }

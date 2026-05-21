@@ -1,20 +1,15 @@
 ﻿using System.Globalization;
-using TriUgla.Script.Parsing.Nodes;
-using TriUgla.Script.Parsing.Nodes.Expressions;
-using TriUgla.Script.Parsing.Nodes.Statements;
 using TriUgla.Script.Scanning;
 
 namespace TriUgla.Script.Parsing
 {
     public sealed class Parser(Source source)
     {
-        readonly Scanner _scanner = new Scanner(source);
-        readonly LoopTrack _loops = new LoopTrack();
+        readonly Scanner _scanner = new(source);
+        readonly LoopTrack _loops = new();
 
         public StmtProg Parse()
-        {
-            return new StmtProg(ParseStatements());
-        }
+            => new(ParseStatements());
 
         List<Stmt> ParseStatements(params Keyword[] stops)
         {
@@ -29,15 +24,11 @@ namespace TriUgla.Script.Parsing
 
                 statements.Add(Statement());
 
-                if (CheckKeywordAny(stops) || IsAtEnd())
+                if (IsAtEnd() || CheckKeywordAny(stops))
                     continue;
 
                 if (!Match(TokenKind.Semicolon) && !Match(TokenKind.LineBreak))
-                {
-                    statements.Add(StmtErrorAt(
-                        Peek(),
-                        "Expected ';' or line break after statement."));
-                }
+                    statements.Add(StmtErrorAt(Peek(), "Expected ';' or line break after statement."));
 
                 SkipLineBreaks();
             }
@@ -50,20 +41,37 @@ namespace TriUgla.Script.Parsing
             if (Check(TokenKind.Error))
                 return StmtErrorFromToken();
 
-            if (Peek().Kind == TokenKind.Keyword)
-            {
-                Keyword keyword = (Keyword)Peek().Value;
+            if (CheckKeyword(Keyword.If)) return If();
+            if (CheckKeyword(Keyword.For)) return For();
+            if (CheckKeyword(Keyword.While)) return While();
+            if (CheckKeyword(Keyword.Break)) return Break();
+            if (CheckKeyword(Keyword.Continue)) return Continue();
 
-                return keyword switch
-                {
-                    Keyword.If => If(),
-                    Keyword.For => For(),
-                    Keyword.While => While(),
-                    Keyword.Break => Break(),
-                    Keyword.Continue => Continue(),
-                    _ => ExprOrAssign()
-                };
-            }
+            if (CheckKeyword(Keyword.Point)) return Point();
+
+            if (CheckKeyword(Keyword.Line) && Peek(1).Kind == TokenKind.OpenParen) return Line();
+            if (CheckKeyword(Keyword.Line) && Peek(1).Is(Keyword.Loop)) return CurveLoop();
+
+            if (CheckKeyword(Keyword.Circle)) return Circle();
+            if (CheckKeyword(Keyword.Ellipse)) return Ellipse();
+            if (CheckKeyword(Keyword.Spline)) return Spline();
+            if (CheckKeyword(Keyword.BSpline)) return BSpline();
+            if (CheckKeyword(Keyword.Bezier)) return Bezier();
+
+            if (CheckKeyword(Keyword.Curve) && Peek(1).Is(Keyword.Loop)) return CurveLoop();
+
+            if (CheckKeyword(Keyword.Plane)) return PlaneSurface();
+            if (CheckKeyword(Keyword.Physical)) return Physical();
+
+            if (CheckKeyword(Keyword.Transfinite)) return Transfinite();
+            if (CheckKeyword(Keyword.Recombine)) return Recombine();
+
+            if (IsEmbedStart()) return Embed();
+
+            if (CheckKeyword(Keyword.Mesh) && Peek(1).Kind == TokenKind.Dot) return MeshOption();
+            if (CheckKeyword(Keyword.Mesh)) return MeshCommand();
+
+            if (IsCommandStart()) return MeshCommand();
 
             return ExprOrAssign();
         }
@@ -82,8 +90,8 @@ namespace TriUgla.Script.Parsing
                 Token op = Previous;
                 Expr value = Expression();
 
-                if (target is not ExprIdentifier and not ExprIndex)
-                    return StmtErrorAt(op, "Left side of assignment must be identifier or index.");
+                if (target is not ExprIdentifier and not ExprIndex and not ExprMember)
+                    return StmtErrorAt(op, "Left side of assignment must be identifier, index, or member.");
 
                 return new StmtAssign(target, op, value);
             }
@@ -91,13 +99,163 @@ namespace TriUgla.Script.Parsing
             return new StmtExpr(target);
         }
 
+        Stmt Point() => Entity1(Keyword.Point, (id, values) => new StmtPoint(id, values));
+        Stmt Line() => Entity1(Keyword.Line, (id, values) => new StmtLine(id, values));
+        Stmt Circle() => Entity1(Keyword.Circle, (id, values) => new StmtCircle(id, values));
+        Stmt Ellipse() => Entity1(Keyword.Ellipse, (id, values) => new StmtEllipse(id, values));
+        Stmt Spline() => Entity1(Keyword.Spline, (id, values) => new StmtSpline(id, values));
+        Stmt BSpline() => Entity1(Keyword.BSpline, (id, values) => new StmtBSpline(id, values));
+        Stmt Bezier() => Entity1(Keyword.Bezier, (id, values) => new StmtBezier(id, values));
+
+        Stmt Entity1(Keyword keyword, Func<Expr, Expr, Stmt> make)
+        {
+            ExpectKeyword(keyword, $"Expected '{keyword}'.");
+            Expr id = ParenthesizedExpression();
+            ExpectOp(OperatorKind.Assign, $"Expected '=' after {keyword}(...).");
+            Expr values = ListExpression();
+            return make(id, values);
+        }
+
+        Stmt CurveLoop()
+        {
+            if (MatchKeyword(Keyword.Line))
+                ExpectKeyword(Keyword.Loop, "Expected 'Loop' after 'Line'.");
+            else
+            {
+                ExpectKeyword(Keyword.Curve, "Expected 'Curve'.");
+                ExpectKeyword(Keyword.Loop, "Expected 'Loop' after 'Curve'.");
+            }
+
+            Expr id = ParenthesizedExpression();
+            ExpectOp(OperatorKind.Assign, "Expected '=' after Curve Loop(...).");
+            Expr values = ListExpression();
+
+            return new StmtCurveLoop(id, values);
+        }
+
+        Stmt PlaneSurface()
+        {
+            ExpectKeyword(Keyword.Plane, "Expected 'Plane'.");
+            ExpectKeyword(Keyword.Surface, "Expected 'Surface' after 'Plane'.");
+
+            Expr id = ParenthesizedExpression();
+            ExpectOp(OperatorKind.Assign, "Expected '=' after Plane Surface(...).");
+            Expr values = ListExpression();
+
+            return new StmtPlaneSurface(id, values);
+        }
+
+        Stmt Transfinite()
+        {
+            ExpectKeyword(Keyword.Transfinite, "Expected 'Transfinite'.");
+
+            if (MatchKeyword(Keyword.Curve))
+            {
+                Expr curves = ListExpression();
+                ExpectOp(OperatorKind.Assign, "Expected '=' after Transfinite Curve{...}.");
+
+                Expr divisions = Expression();
+
+                Expr progression = new ExprNumber(default, 1);
+
+                if (MatchKeyword(Keyword.Using))
+                {
+                    ExpectKeyword(Keyword.Progression, "Expected 'Progression'.");
+                    progression = Expression();
+                }
+
+                return new StmtTransfiniteCurve(curves, divisions, progression);
+            }
+
+            if (MatchKeyword(Keyword.Surface))
+            {
+                Expr surfaces = ListExpression();
+                Expr? corners = null;
+
+                if (MatchOp(OperatorKind.Assign))
+                {
+                    corners = ListExpression();
+                }
+
+                return new StmtTransfiniteSurface(
+                    surfaces,
+                    corners);
+            }
+
+            return StmtErrorAt(Peek(), "Expected 'Curve' or 'Surface' after 'Transfinite'.");
+        }
+
+        Stmt Recombine()
+        {
+            ExpectKeyword(Keyword.Recombine, "Expected 'Recombine'.");
+            ExpectKeyword(Keyword.Surface, "Expected 'Surface' after 'Recombine'.");
+
+            Expr surfaces = ListExpression();
+
+            return new StmtRecombineSurface(surfaces);
+        }
+
+        Stmt Physical()
+        {
+            ExpectKeyword(Keyword.Physical, "Expected 'Physical'.");
+
+            Keyword kind;
+
+            if (MatchKeyword(Keyword.Point)) kind = Keyword.Point;
+            else if (MatchKeyword(Keyword.Curve) || MatchKeyword(Keyword.Line)) kind = Keyword.Curve;
+            else if (MatchKeyword(Keyword.Surface)) kind = Keyword.Surface;
+            else return StmtErrorAt(Peek(), "Expected Point, Curve, Line, or Surface after Physical.");
+
+            Expr id = ParenthesizedExpression();
+            ExpectOp(OperatorKind.Assign, "Expected '=' after Physical group.");
+            Expr values = ListExpression();
+
+            return new StmtPhysical(kind, id, values, null);
+        }
+
+        Stmt Embed()
+        {
+            Keyword entity = EntityKindKeyword();
+            Expr entities = ListExpression();
+
+            ExpectKeyword(Keyword.In, "Expected 'In'.");
+
+            Keyword container = EntityKindKeyword();
+            Expr containers = ListExpression();
+
+            return new StmtEmbed(entity, entities, container, containers);
+        }
+
+        Stmt MeshOption()
+        {
+            List<Token> path = ReadPath();
+            ExpectOp(OperatorKind.Assign, "Expected '=' after mesh option.");
+            Expr value = Expression();
+
+            return new StmtMeshOption(path, value);
+        }
+
+        Stmt MeshCommand()
+        {
+            List<Token> path = ReadCommandPath();
+            List<Expr> args = [];
+
+            while (!IsAtEnd() &&
+                   !Check(TokenKind.Semicolon) &&
+                   !Check(TokenKind.LineBreak))
+            {
+                args.Add(Expression());
+            }
+
+            return new StmtMeshCommand(path, args);
+        }
+
         Stmt If()
         {
             ExpectKeyword(Keyword.If, "Expected 'If'.");
-
             Expr condition = ParenthesizedExpression();
 
-            StmtBlock thenBlock = new(ParseStatements(
+            StmtBlock thenBranch = new(ParseStatements(
                 Keyword.ElseIf,
                 Keyword.Else,
                 Keyword.EndIf));
@@ -116,34 +274,32 @@ namespace TriUgla.Script.Parsing
                 elseIfs.Add(new StmtElseIf(elseIfCondition, elseIfBlock));
             }
 
-            StmtBlock? elseBlock = null;
+            Stmt? elseBranch = null;
 
             if (MatchKeyword(Keyword.Else))
-                elseBlock = new StmtBlock(ParseStatements(Keyword.EndIf));
+                elseBranch = new StmtBlock(ParseStatements(Keyword.EndIf));
 
             ExpectKeyword(Keyword.EndIf, "Expected 'EndIf'.");
 
-            return new StmtIf(condition, thenBlock, elseIfs, elseBlock);
+            return new StmtIf(condition, thenBranch, elseIfs, elseBranch);
         }
 
         Stmt For()
         {
             ExpectKeyword(Keyword.For, "Expected 'For'.");
 
-            Token variable = Expect(TokenKind.Identifier, "Expected loop variable.");
+            Token id = Expect(TokenKind.Identifier, "Expected loop variable.");
             ExpectKeyword(Keyword.In, "Expected 'In' after loop variable.");
 
             Expr iterable = Expression();
 
             _loops.Enter();
-
             StmtBlock body = new(ParseStatements(Keyword.EndFor));
-
             _loops.Exit();
 
             ExpectKeyword(Keyword.EndFor, "Expected 'EndFor'.");
 
-            return new StmtFor(variable, iterable, body);
+            return new StmtFor(id, iterable, body);
         }
 
         Stmt While()
@@ -153,9 +309,7 @@ namespace TriUgla.Script.Parsing
             Expr condition = ParenthesizedExpression();
 
             _loops.Enter();
-
             StmtBlock body = new(ParseStatements(Keyword.EndWhile));
-
             _loops.Exit();
 
             ExpectKeyword(Keyword.EndWhile, "Expected 'EndWhile'.");
@@ -189,7 +343,7 @@ namespace TriUgla.Script.Parsing
         {
             Expr expr = And();
 
-            while (MatchOp(OperatorKind.Or))
+            while (MatchOp(OperatorKind.Or) || MatchKeyword(Keyword.Or))
                 expr = new ExprBinary(expr, Previous, And());
 
             return expr;
@@ -199,7 +353,7 @@ namespace TriUgla.Script.Parsing
         {
             Expr expr = Equality();
 
-            while (MatchOp(OperatorKind.And))
+            while (MatchOp(OperatorKind.And) || MatchKeyword(Keyword.And))
                 expr = new ExprBinary(expr, Previous, Equality());
 
             return expr;
@@ -209,7 +363,7 @@ namespace TriUgla.Script.Parsing
         {
             Expr expr = Comparison();
 
-            while (MatchOp(OperatorKind.Equal, OperatorKind.NotEqual))
+            while (MatchOp(OperatorKind.Equal, OperatorKind.NotEqual) || MatchKeyword(Keyword.Is))
                 expr = new ExprBinary(expr, Previous, Comparison());
 
             return expr;
@@ -245,13 +399,8 @@ namespace TriUgla.Script.Parsing
         {
             Expr expr = Power();
 
-            while (MatchOp(
-                OperatorKind.Multiply,
-                OperatorKind.Divide,
-                OperatorKind.Modulo))
-            {
+            while (MatchOp(OperatorKind.Multiply, OperatorKind.Divide, OperatorKind.Modulo))
                 expr = new ExprBinary(expr, Previous, Power());
-            }
 
             return expr;
         }
@@ -268,33 +417,59 @@ namespace TriUgla.Script.Parsing
 
         Expr Unary()
         {
-            if (MatchOp(
-                OperatorKind.Plus,
-                OperatorKind.Minus,
-                OperatorKind.Not))
+            if (MatchOp(OperatorKind.Plus, OperatorKind.Minus, OperatorKind.Not) ||
+                MatchKeyword(Keyword.Not))
             {
                 return new ExprUnary(Previous, Unary());
             }
 
-            return Index();
+            return Postfix();
         }
 
-        Expr Index()
+        Expr Postfix()
         {
             Expr expr = Primary();
 
-            while (Match(TokenKind.OpenSquare))
+            while (true)
             {
-                Token open = Previous;
+                if (Match(TokenKind.OpenParen))
+                {
+                    Token open = Previous;
+                    List<Expr> args = [];
 
-                Expr? index = null;
+                    if (!Check(TokenKind.CloseParen))
+                    {
+                        do args.Add(Expression());
+                        while (Match(TokenKind.Comma));
+                    }
 
-                if (!Check(TokenKind.CloseSquare))
-                    index = Expression();
+                    Token close = Expect(TokenKind.CloseParen, "Expected ')' after call arguments.");
+                    expr = new ExprCall(expr, open, args, close);
+                    continue;
+                }
 
-                Token close = Expect(TokenKind.CloseSquare, "Expected closing ']'.");
+                if (Match(TokenKind.OpenSquare))
+                {
+                    Token open = Previous;
+                    Expr? index = null;
 
-                expr = new ExprIndex(expr, open, index, close);
+                    if (!Check(TokenKind.CloseSquare))
+                        index = Expression();
+
+                    Token close = Expect(TokenKind.CloseSquare, "Expected ']'.");
+                    expr = new ExprIndex(expr, open, index, close);
+                    continue;
+                }
+
+                if (Match(TokenKind.Dot))
+                {
+                    Token dot = Previous;
+                    Token member = ExpectIdentifierLike("Expected member name after '.'.");
+                    expr = new ExprMember(expr, dot, member);
+                    continue;
+                }
+
+                break;
             }
 
             return expr;
@@ -309,10 +484,10 @@ namespace TriUgla.Script.Parsing
                 return Number(Previous);
 
             if (Match(TokenKind.String))
-                return new ExprString(Previous, Previous.Source.Slice(Previous.Span));
+                return new ExprString(Previous, Previous.Text);
 
             if (Match(TokenKind.Identifier))
-                return IdentifierOrCall(Previous);
+                return new ExprIdentifier(Previous);
 
             if (MatchKeyword(Keyword.True))
                 return new ExprBoolean(Previous, true);
@@ -324,39 +499,17 @@ namespace TriUgla.Script.Parsing
             {
                 Token open = Previous;
                 Expr inner = Expression();
-                Token close = Expect(TokenKind.CloseParen, "Expected closing ')'.");
+                Token close = Expect(TokenKind.CloseParen, "Expected ')'.");
                 return new ExprGroup(open, inner, close);
             }
 
             if (Check(TokenKind.OpenCurly))
-                return ListOrRange();
+                return ListExpression();
 
             return ExprErrorAt(Peek(), $"Expected expression but got '{Peek().Kind}'.");
         }
 
-        Expr IdentifierOrCall(Token name)
-        {
-            if (!Match(TokenKind.OpenParen))
-                return new ExprIdentifier(name);
-
-            Token open = Previous;
-            List<Expr> args = [];
-
-            if (!Check(TokenKind.CloseParen))
-            {
-                do
-                {
-                    args.Add(Expression());
-                }
-                while (Match(TokenKind.Comma));
-            }
-
-            Token close = Expect(TokenKind.CloseParen, "Expected ')' after arguments.");
-
-            return new ExprCall(name, open, args, close);
-        }
-
-        Expr ListOrRange()
+        Expr ListExpression()
         {
             Token open = Expect(TokenKind.OpenCurly, "Expected '{'.");
 
@@ -367,30 +520,42 @@ namespace TriUgla.Script.Parsing
 
             if (Match(TokenKind.Colon))
             {
+                Token colon1 = Previous;
                 Expr end = Expression();
+
+                Token? colon2 = null;
                 Expr? step = null;
 
                 if (Match(TokenKind.Colon))
+                {
+                    colon2 = Previous;
                     step = Expression();
+                }
 
                 Expect(TokenKind.CloseCurly, "Expected '}' after range.");
-
-                return new ExprRange(first, end, step);
+                return new ExprRange(first, colon1, end, colon2, step);
             }
 
-            List<Expr> items = [first];
+            List<Expr> values = [first];
 
             while (Match(TokenKind.Comma))
-                items.Add(Expression());
+                values.Add(Expression());
 
             Token close = Expect(TokenKind.CloseCurly, "Expected '}' after list.");
+            return new ExprList(open, values, close);
+        }
 
-            return new ExprList(open, items, close);
+        Expr ParenthesizedExpression()
+        {
+            Expect(TokenKind.OpenParen, "Expected '('.");
+            Expr expr = Expression();
+            Expect(TokenKind.CloseParen, "Expected ')'.");
+            return expr;
         }
 
         ExprNumber Number(Token token)
         {
-            string text = token.Source.Slice(token.Span);
+            string text = token.Text;
 
             if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i))
                 return new ExprNumber(token, i);
@@ -401,12 +566,67 @@ namespace TriUgla.Script.Parsing
             return new ExprNumber(token, double.NaN);
         }
 
-        Expr ParenthesizedExpression()
+        Keyword EntityKindKeyword()
         {
-            Expect(TokenKind.OpenParen, "Expected '('.");
-            Expr expr = Expression();
-            Expect(TokenKind.CloseParen, "Expected ')'.");
-            return expr;
+            if (MatchKeyword(Keyword.Point)) return Keyword.Point;
+            if (MatchKeyword(Keyword.Line)) return Keyword.Curve;
+            if (MatchKeyword(Keyword.Curve)) return Keyword.Curve;
+            if (MatchKeyword(Keyword.Surface)) return Keyword.Surface;
+
+            StmtErrorAt(Peek(), "Expected entity kind Point, Line, Curve, or Surface.");
+            return Keyword.None;
+        }
+
+        bool IsEmbedStart()
+        {
+            return Peek().Is(Keyword.Line) && Peek(1).Kind == TokenKind.OpenCurly ||
+                   Peek().Is(Keyword.Curve) && Peek(1).Kind == TokenKind.OpenCurly ||
+                   Peek().Is(Keyword.Point) && Peek(1).Kind == TokenKind.OpenCurly ||
+                   Peek().Is(Keyword.Surface) && Peek(1).Kind == TokenKind.OpenCurly;
+        }
+
+        bool IsCommandStart()
+        {
+            return Peek().Is(Keyword.Coherence) ||
+                   Peek().Is(Keyword.RenumberMeshNodes) ||
+                   Peek().Is(Keyword.RenumberMeshElements) ||
+                   Peek().Is(Keyword.Refine) ||
+                   Peek().Is(Keyword.Optimize);
+        }
+
+        List<Token> ReadPath()
+        {
+            List<Token> path = [ExpectIdentifierLike("Expected path segment.")];
+
+            while (Match(TokenKind.Dot))
+                path.Add(ExpectIdentifierLike("Expected path segment after '.'."));
+
+            return path;
+        }
+
+        List<Token> ReadCommandPath()
+        {
+            List<Token> path = [ExpectIdentifierLike("Expected command name.")];
+
+            while (Peek().Kind is TokenKind.Identifier or TokenKind.Keyword &&
+                   !Peek().Is(Keyword.If) &&
+                   !Peek().Is(Keyword.For) &&
+                   !Peek().Is(Keyword.While))
+            {
+                path.Add(Advance());
+            }
+
+            return path;
+        }
+
+        Token ExpectIdentifierLike(string message)
+        {
+            if (Peek().Kind is TokenKind.Identifier or TokenKind.Keyword)
+                return Advance();
+
+            Report(Peek(), message);
+            Synchronize();
+            return Peek();
         }
 
         Expr ExprErrorFromToken()
@@ -423,9 +643,7 @@ namespace TriUgla.Script.Parsing
 
         string ScanErrorMessage(Token token)
         {
-            ScanError error = (ScanError)token.Value;
-
-            return error switch
+            return token.ScanError switch
             {
                 ScanError.UnterminatedString => "Unterminated string literal.",
                 ScanError.InvalidEscape => "Invalid escape sequence.",
@@ -453,17 +671,12 @@ namespace TriUgla.Script.Parsing
 
         void Report(Token token, string message)
         {
-            // Wire your Diagnostics here.
-            // Example:
-            // diagnostics.Report(token, message, _scanner.LineText(token.Position), _scanner.Marker(token));
+            // plug Diagnostics here
         }
 
         void Synchronize()
         {
             if (IsAtEnd())
-                return;
-
-            if (IsHardStop(Peek()) || IsStatementStarter(Peek()))
                 return;
 
             while (!IsAtEnd())
@@ -477,10 +690,7 @@ namespace TriUgla.Script.Parsing
 
         static bool IsHardStop(Token token)
         {
-            return token.Kind is
-                TokenKind.Semicolon or
-                TokenKind.LineBreak or
-                TokenKind.EndOfFile;
+            return token.Kind is TokenKind.Semicolon or TokenKind.LineBreak or TokenKind.EndOfFile;
         }
 
         static bool IsStatementStarter(Token token)
@@ -488,66 +698,41 @@ namespace TriUgla.Script.Parsing
             if (token.Kind != TokenKind.Keyword)
                 return false;
 
-            Keyword keyword = (Keyword)token.Value;
-
-            return keyword is
-                Keyword.If or
-                Keyword.For or
-                Keyword.While or
-                Keyword.Break or
-                Keyword.Continue or
-                Keyword.ElseIf or
-                Keyword.Else or
-                Keyword.EndIf or
-                Keyword.EndFor or
-                Keyword.EndWhile;
+            return token.Keyword is
+                Keyword.If or Keyword.For or Keyword.While or
+                Keyword.Break or Keyword.Continue or
+                Keyword.Point or Keyword.Line or Keyword.Circle or
+                Keyword.Ellipse or Keyword.Spline or Keyword.BSpline or
+                Keyword.Bezier or Keyword.Curve or Keyword.Plane or
+                Keyword.Physical or Keyword.Transfinite or Keyword.Recombine or
+                Keyword.Mesh or Keyword.Coherence or
+                Keyword.RenumberMeshNodes or Keyword.RenumberMeshElements or
+                Keyword.ElseIf or Keyword.Else or Keyword.EndIf or
+                Keyword.EndFor or Keyword.EndWhile;
         }
 
         void SkipLineBreaks()
         {
-            while (Match(TokenKind.LineBreak))
-            {
-            }
+            while (Match(TokenKind.LineBreak)) { }
         }
 
         Token Peek(int offset = 0) => _scanner.Peek(offset);
-
         Token Advance() => _scanner.Consume();
-
         Token Previous => _scanner.Previous;
 
         bool IsAtEnd() => Peek().Kind == TokenKind.EndOfFile;
-
         bool Check(TokenKind kind) => Peek().Kind == kind;
+
+        bool CheckKeyword(Keyword keyword)
+            => Peek().Is(keyword);
 
         bool Match(params TokenKind[] kinds)
         {
             TokenKind current = Peek().Kind;
 
-            for (int i = 0; i < kinds.Length; i++)
+            foreach (TokenKind kind in kinds)
             {
-                if (current == kinds[i])
-                {
-                    Advance();
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        bool MatchOp(params OperatorKind[] operators)
-        {
-            Token token = Peek();
-
-            if (token.Kind != TokenKind.Operator)
-                return false;
-
-            OperatorKind current = (OperatorKind)token.Value;
-
-            for (int i = 0; i < operators.Length; i++)
-            {
-                if (current == operators[i])
+                if (current == kind)
                 {
                     Advance();
                     return true;
@@ -559,29 +744,39 @@ namespace TriUgla.Script.Parsing
 
         bool MatchKeyword(Keyword keyword)
         {
-            Token token = Peek();
-
-            if (token.Kind != TokenKind.Keyword)
-                return false;
-
-            if ((Keyword)token.Value != keyword)
+            if (!Peek().Is(keyword))
                 return false;
 
             Advance();
             return true;
         }
 
-        bool CheckKeywordAny(params Keyword[] keywords)
+        bool MatchOp(params OperatorKind[] ops)
         {
-            Token token = Peek();
-
-            if (token.Kind != TokenKind.Keyword)
+            if (Peek().Kind != TokenKind.Operator)
                 return false;
 
-            Keyword current = (Keyword)token.Value;
+            OperatorKind current = Peek().Operator;
 
-            for (int i = 0; i < keywords.Length; i++)
-                if (current == keywords[i])
+            foreach (OperatorKind op in ops)
+            {
+                if (current == op)
+                {
+                    Advance();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool CheckKeywordAny(params Keyword[] keywords)
+        {
+            if (Peek().Kind != TokenKind.Keyword)
+                return false;
+
+            foreach (Keyword keyword in keywords)
+                if (Peek().Keyword == keyword)
                     return true;
 
             return false;
@@ -594,7 +789,6 @@ namespace TriUgla.Script.Parsing
 
             Report(Peek(), message);
             Synchronize();
-
             return Peek();
         }
 
@@ -605,7 +799,16 @@ namespace TriUgla.Script.Parsing
 
             Report(Peek(), message);
             Synchronize();
+            return Peek();
+        }
 
+        Token ExpectOp(OperatorKind op, string message)
+        {
+            if (MatchOp(op))
+                return Previous;
+
+            Report(Peek(), message);
+            Synchronize();
             return Peek();
         }
     }

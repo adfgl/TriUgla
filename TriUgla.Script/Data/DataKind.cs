@@ -14,6 +14,7 @@
         Point,
 
         Line,
+        LineLoop
         Circle,
         Ellipse,
         Spline,

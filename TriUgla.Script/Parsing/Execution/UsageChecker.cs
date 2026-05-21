@@ -194,7 +194,7 @@ namespace TriUgla.Script.Parsing.Execution
 
         public bool Visit(ExprList node)
         {
-            foreach (Expr item in node.Items)
+            foreach (Expr item in node.Values)
                 item.Accept(this);
 
             return true;

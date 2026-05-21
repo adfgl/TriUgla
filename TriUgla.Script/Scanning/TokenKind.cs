@@ -23,6 +23,7 @@
         OpenSquare,
         CloseSquare,
 
+        Dot,
         Comma,
         Colon,
         Semicolon,

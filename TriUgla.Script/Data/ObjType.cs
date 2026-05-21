@@ -9,17 +9,34 @@
         public static readonly ObjType String = new(DataKind.String);
         public static readonly ObjType Range = new(DataKind.Range);
 
-        public static ObjType ListOf(ObjType element)
-            => new(DataKind.List, element);
+        public static readonly ObjType Point = new(DataKind.Point);
+        public static readonly ObjType Line = new(DataKind.Line);
+        public static readonly ObjType Circle = new(DataKind.Circle);
+        public static readonly ObjType Ellipse = new(DataKind.Ellipse);
+        public static readonly ObjType Spline = new(DataKind.Spline);
+        public static readonly ObjType BSpline = new(DataKind.BSpline);
+        public static readonly ObjType Bezier = new(DataKind.Bezier);
+        public static readonly ObjType CurveLoop = new(DataKind.CurveLoop);
+        public static readonly ObjType PlaneSurface = new(DataKind.PlaneSurface);
+        public static readonly ObjType MeshCommand = new(DataKind.MeshCommand);
+        public static readonly ObjType MeshOption = new(DataKind.MeshOption);
+
+        public static ObjType ListOf(ObjType element) => new(DataKind.List, element);
 
         public bool IsNumber => Kind is DataKind.Integer or DataKind.Double;
         public bool IsList => Kind == DataKind.List;
+        public bool IsGeometry => Kind is
+            DataKind.Point or
+            DataKind.Line or
+            DataKind.Circle or
+            DataKind.Ellipse or
+            DataKind.Spline or
+            DataKind.BSpline or
+            DataKind.Bezier or
+            DataKind.CurveLoop or
+            DataKind.PlaneSurface;
 
         public override string ToString()
-        {
-            return Kind == DataKind.List
-                ? $"List<{Element}>"
-                : Kind.ToString();
-        }
+            => Kind == DataKind.List ? $"List<{Element}>" : Kind.ToString();
     }
 }
