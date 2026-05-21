@@ -443,11 +443,20 @@ namespace TriUgla.Script.Parsing
                     Token open = Previous;
                     List<Expr> args = [];
 
+                    SkipSeparators();
+
                     if (!Check(TokenKind.CloseParen))
                     {
-                        do args.Add(Expression());
+                        do
+                        {
+                            SkipSeparators();
+                            args.Add(Expression());
+                            SkipSeparators();
+                        }
                         while (Match(TokenKind.Comma));
                     }
+
+                    SkipSeparators();
 
                     Token close = Expect(TokenKind.CloseParen, "Expected ')' after call arguments.");
                     expr = new ExprCall(expr, open, args, close);
@@ -459,8 +468,12 @@ namespace TriUgla.Script.Parsing
                     Token open = Previous;
                     Expr? index = null;
 
+                    SkipSeparators();
+
                     if (!Check(TokenKind.CloseSquare))
                         index = Expression();
+
+                    SkipSeparators();
 
                     Token close = Expect(TokenKind.CloseSquare, "Expected ']'.");
                     expr = new ExprIndex(expr, open, index, close);
@@ -515,19 +528,42 @@ namespace TriUgla.Script.Parsing
             return ExprErrorAt(Peek(), $"Expected expression but got '{Peek().Kind}'.");
         }
 
+        void SkipSeparators()
+        {
+            while (Match(TokenKind.LineBreak))
+            {
+            }
+        }
+
+        Expr ExpressionSkipSeparators()
+        {
+            SkipSeparators();
+
+            Expr expr = Expression();
+
+            SkipSeparators();
+
+            return expr;
+        }
+
         Expr ListExpression()
         {
             Token open = Expect(TokenKind.OpenCurly, "Expected '{'.");
+
+            SkipSeparators();
 
             if (Match(TokenKind.CloseCurly))
                 return new ExprList(open, [], Previous);
 
             Expr first = Expression();
 
+            SkipSeparators();
+
             if (Match(TokenKind.Colon))
             {
                 Token colon1 = Previous;
-                Expr end = Expression();
+
+                Expr end = ExpressionSkipSeparators();
 
                 Token? colon2 = null;
                 Expr? step = null;
@@ -535,7 +571,8 @@ namespace TriUgla.Script.Parsing
                 if (Match(TokenKind.Colon))
                 {
                     colon2 = Previous;
-                    step = Expression();
+
+                    step = ExpressionSkipSeparators();
                 }
 
                 Expect(TokenKind.CloseCurly, "Expected '}' after range.");
@@ -544,8 +581,22 @@ namespace TriUgla.Script.Parsing
 
             List<Expr> values = [first];
 
-            while (Match(TokenKind.Comma))
+            while (true)
+            {
+                SkipSeparators();
+
+                if (!Match(TokenKind.Comma))
+                    break;
+
+                SkipSeparators();
+
+                if (Check(TokenKind.CloseCurly))
+                    break;
+
                 values.Add(Expression());
+            }
+
+            SkipSeparators();
 
             Token close = Expect(TokenKind.CloseCurly, "Expected '}' after list.");
             return new ExprList(open, values, close);
