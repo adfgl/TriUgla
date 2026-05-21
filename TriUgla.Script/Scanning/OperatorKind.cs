@@ -1,4 +1,4 @@
-﻿namespace TriUgla.Script
+﻿namespace TriUgla.Script.Scanning
 {
     public enum OperatorKind
     {

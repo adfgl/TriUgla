@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TriUgla.Script
+namespace TriUgla.Script.Scanning
 {
     public static class Keywords
     {

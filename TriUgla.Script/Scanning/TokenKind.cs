@@ -1,13 +1,18 @@
-﻿namespace TriUgla.Script
+﻿namespace TriUgla.Script.Scanning
 {
     public enum TokenKind
     {
+        Error,
         Undefined,
+
         EndOfFile,
         LineBreak,
 
-        Keyword,
+        Comment,
+        MultiLineComment,
+
         Identifier,
+        Keyword,
         Number,
         String,
 

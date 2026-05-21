@@ -1,46 +1,31 @@
-﻿namespace TriUgla.Script
+﻿namespace TriUgla.Script.Scanning
 {
-    public readonly record struct Position(int Line, int Column)
-    {
-        public override string ToString()
-            => $"Ln: {Line + 1} Ch: {Column + 1}";
-    }
-
-    public readonly record struct Span(int Start, int Length)
-    {
-        public int End => Start + Length;
-        public override string ToString() 
-            => $"{Start + 1}..{End + 1}";
-    }
 
     public sealed class TokenReader(Cursor cursor)
     {
         public Token Read()
         {
-            SkipTrivia();
+            SkipWhiteSpaceOnly();
 
             int start = cursor.Index;
             Position position = cursor.Position;
 
             if (cursor.IsEnd)
-            {
-                return Make(
-                    TokenKind.EndOfFile,
-                    position,
-                    start);
-            }
+                return Make(TokenKind.EndOfFile, position, start);
 
             char ch = cursor.Current;
 
             if (IsLineBreak(ch))
             {
                 cursor.Advance();
-
-                return Make(
-                    TokenKind.LineBreak,
-                    position,
-                    start);
+                return Make(TokenKind.LineBreak, position, start);
             }
+
+            if (ch == '/' && cursor.Peek(1) == '/')
+                return LineComment(position, start);
+
+            if (ch == '/' && cursor.Peek(1) == '*')
+                return MultiLineComment(position, start);
 
             if (IsIdentifierStart(ch))
                 return Identifier(position, start);
@@ -51,16 +36,45 @@
             if (ch is '"' or '\'')
                 return String(position, start);
 
-            return Symbol(position, start);
+            return SymbolOrOperator(position, start);
         }
 
-        void SkipTrivia()
+        void SkipWhiteSpaceOnly()
         {
-            while (true)
+            while (!cursor.IsEnd &&
+                   char.IsWhiteSpace(cursor.Current) &&
+                   !IsLineBreak(cursor.Current))
             {
-                if (false ==cursor.SkipWhiteSpace())
-                    break;
+                cursor.Advance();
             }
+        }
+
+        Token LineComment(Position position, int start)
+        {
+            cursor.Advance(2);
+
+            while (!cursor.IsEnd && !IsLineBreak(cursor.Current))
+                cursor.Advance();
+
+            return Make(TokenKind.Comment, position, start);
+        }
+
+        Token MultiLineComment(Position position, int start)
+        {
+            cursor.Advance(2);
+
+            while (!cursor.IsEnd)
+            {
+                if (cursor.Current == '*' && cursor.Peek(1) == '/')
+                {
+                    cursor.Advance(2);
+                    return Make(TokenKind.MultiLineComment, position, start);
+                }
+
+                cursor.Advance();
+            }
+
+            return Error(ScanError.UnterminatedComment, position, start);
         }
 
         Token Identifier(Position position, int start)
@@ -77,6 +91,7 @@
             if (Keywords.Source.TryGetValue(text, out Keyword keyword))
             {
                 return new Token(
+                    cursor.Source,
                     TokenKind.Keyword,
                     position,
                     span,
@@ -84,11 +99,11 @@
             }
 
             return new Token(
+                cursor.Source,
                 TokenKind.Identifier,
                 position,
                 span);
         }
-
 
         Token Number(Position position, int start)
         {
@@ -112,6 +127,9 @@
                 if (!cursor.IsEnd && cursor.Current is '+' or '-')
                     cursor.Advance();
 
+                if (cursor.IsEnd || !IsDigit(cursor.Current))
+                    return Error(ScanError.InvalidNumber, position, start);
+
                 while (!cursor.IsEnd && IsDigit(cursor.Current))
                     cursor.Advance();
             }
@@ -130,7 +148,7 @@
                 char ch = cursor.Current;
 
                 if (IsLineBreak(ch))
-                    return Make(TokenKind.Undefined, position, start);
+                    return Error(ScanError.UnterminatedString, position, start);
 
                 if (ch == quote)
                 {
@@ -143,16 +161,27 @@
                     cursor.Advance();
 
                     if (cursor.IsEnd)
-                        return Make(TokenKind.Undefined, position, start);
+                        return Error(ScanError.UnterminatedString, position, start);
+
+                    if (!IsValidEscape(cursor.Current))
+                    {
+                        cursor.Advance();
+                        return Error(ScanError.InvalidEscape, position, start);
+                    }
                 }
 
                 cursor.Advance();
             }
 
-            return Make(TokenKind.Undefined, position, start);
+            return Error(ScanError.UnterminatedString, position, start);
         }
 
-        Token Symbol(Position position, int start)
+        static bool IsValidEscape(char c)
+        {
+            return c is 'n' or 'r' or 't' or '\\' or '"' or '\'';
+        }
+
+        Token SymbolOrOperator(Position position, int start)
         {
             TokenKind kind = cursor.Current switch
             {
@@ -227,7 +256,7 @@
             }
 
             cursor.Advance();
-            return Make(TokenKind.Undefined, position, start);
+            return Error(ScanError.UnknownCharacter, position, start);
         }
 
         Token Operator2(
@@ -257,9 +286,10 @@
             cursor.Advance();
 
             if (cursor.IsEnd || cursor.Current != second)
-                return Make(TokenKind.Undefined, position, start);
+                return Error(ScanError.InvalidOperator, position, start);
 
             cursor.Advance();
+
             return Make(TokenKind.Operator, position, start, (int)kind);
         }
 
@@ -270,10 +300,24 @@
             int value = 0)
         {
             return new Token(
+                 cursor.Source,
                 kind,
                 position,
                 cursor.SpanFrom(start),
                 value);
+        }
+
+        Token Error(
+            ScanError error,
+            Position position,
+            int start)
+        {
+            return new Token(
+                 cursor.Source,
+                TokenKind.Error,
+                position,
+                cursor.SpanFrom(start),
+                (int)error);
         }
 
         static bool IsDigit(char c) 
