@@ -29,8 +29,199 @@ namespace TriUgla.Script.Data
 
         public static Value Multiply(this Value a, Value b)
         {
+            // matrix * matrix
+            if (a.IsMatrix() && b.IsMatrix())
+                return MatrixMultiply(a, b);
+
+            // matrix * vector
+            if (a.IsMatrix() && b.IsVector())
+                return MatrixVectorMultiply(a, b);
+
+            // vector * matrix
+            if (a.IsVector() && b.IsMatrix())
+                return VectorMatrixMultiply(a, b);
+
+            // scalar * matrix
+            if (a.IsNumber && b.IsMatrix())
+                return ScalarMatrixMultiply(a.AsDouble(), b);
+
+            if (a.IsMatrix() && b.IsNumber)
+                return ScalarMatrixMultiply(b.AsDouble(), a);
+
+            // scalar * vector
+            if (a.IsNumber && b.IsVector())
+                return ScalarVectorMultiply(a.AsDouble(), b);
+
+            if (a.IsVector() && b.IsNumber)
+                return ScalarVectorMultiply(b.AsDouble(), a);
+
+            // vector dot product
+            if (a.IsVector() && b.IsVector())
+                return DotMultiply(a, b);
+
+            // scalar
             Numeric(a, b, out DataKind kind, out double x, out double y);
+
             return Number(kind, x * y);
+        }
+
+        public static bool IsVector(this Value value)
+        {
+            if (value.Object is not ObjList list)
+                return false;
+
+            return list.Values.All(x => x.IsNumber);
+        }
+
+        public static bool IsMatrix(this Value value)
+        {
+            if (value.Object is not ObjList list)
+                return false;
+
+            if (list.Values.Count == 0)
+                return false;
+
+            return list.Values.All(x => x.IsVector());
+        }
+
+        static Value MatrixMultiply(Value a, Value b)
+        {
+            double[,] x = a.ToMatrix();
+            double[,] y = b.ToMatrix();
+
+            int xr = x.GetLength(0);
+            int xc = x.GetLength(1);
+
+            int yr = y.GetLength(0);
+            int yc = y.GetLength(1);
+
+            if (xc != yr)
+            {
+                throw new InvalidOperationException(
+                    $"Invalid matrix multiply dimensions ({xr}x{xc}) * ({yr}x{yc}).");
+            }
+
+            double[,] result = new double[xr, yc];
+
+            for (int r = 0; r < xr; r++)
+            {
+                for (int c = 0; c < yc; c++)
+                {
+                    double sum = 0.0;
+
+                    for (int k = 0; k < xc; k++)
+                        sum += x[r, k] * y[k, c];
+
+                    result[r, c] = sum;
+                }
+            }
+
+            return FromMatrix(result);
+        }
+
+        static Value MatrixVectorMultiply(Value matrix, Value vector)
+        {
+            double[,] a = matrix.ToMatrix();
+            double[] x = vector.ToVector();
+
+            int rows = a.GetLength(0);
+            int cols = a.GetLength(1);
+
+            if (cols != x.Length)
+            {
+                throw new InvalidOperationException(
+                    $"Invalid matrix-vector dimensions ({rows}x{cols}) * ({x.Length}).");
+            }
+
+            double[] result = new double[rows];
+
+            for (int r = 0; r < rows; r++)
+            {
+                double sum = 0.0;
+
+                for (int c = 0; c < cols; c++)
+                    sum += a[r, c] * x[c];
+
+                result[r] = sum;
+            }
+
+            return FromVector(result);
+        }
+
+        static Value VectorMatrixMultiply(Value vector, Value matrix)
+        {
+            double[] x = vector.ToVector();
+            double[,] a = matrix.ToMatrix();
+
+            int rows = a.GetLength(0);
+            int cols = a.GetLength(1);
+
+            if (x.Length != rows)
+            {
+                throw new InvalidOperationException(
+                    $"Invalid vector-matrix dimensions ({x.Length}) * ({rows}x{cols}).");
+            }
+
+            double[] result = new double[cols];
+
+            for (int c = 0; c < cols; c++)
+            {
+                double sum = 0.0;
+
+                for (int r = 0; r < rows; r++)
+                    sum += x[r] * a[r, c];
+
+                result[c] = sum;
+            }
+
+            return FromVector(result);
+        }
+
+        static Value ScalarVectorMultiply(double scalar, Value vector)
+        {
+            double[] x = vector.ToVector();
+
+            double[] result = new double[x.Length];
+
+            for (int i = 0; i < x.Length; i++)
+                result[i] = scalar * x[i];
+
+            return FromVector(result);
+        }
+
+        static Value ScalarMatrixMultiply(double scalar, Value matrix)
+        {
+            double[,] a = matrix.ToMatrix();
+
+            int rows = a.GetLength(0);
+            int cols = a.GetLength(1);
+
+            double[,] result = new double[rows, cols];
+
+            for (int r = 0; r < rows; r++)
+                for (int c = 0; c < cols; c++)
+                    result[r, c] = scalar * a[r, c];
+
+            return FromMatrix(result);
+        }
+
+        static Value DotMultiply(Value a, Value b)
+        {
+            double[] x = a.ToVector();
+            double[] y = b.ToVector();
+
+            if (x.Length != y.Length)
+            {
+                throw new InvalidOperationException(
+                    $"Dot product dimension mismatch ({x.Length}) vs ({y.Length}).");
+            }
+
+            double sum = 0.0;
+
+            for (int i = 0; i < x.Length; i++)
+                sum += x[i] * y[i];
+
+            return new Value(sum);
         }
 
         public static Value Divide(this Value a, Value b)
@@ -204,7 +395,7 @@ namespace TriUgla.Script.Data
 
             for (int r = 0; r < rows; r++)
             {
-                List<Value> row = new(cols);
+                List<Value> row = new List<Value>(cols);
 
                 for (int c = 0; c < cols; c++)
                     row.Add(new Value(matrix[r, c]));

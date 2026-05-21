@@ -36,6 +36,22 @@
             DataKind.CurveLoop or
             DataKind.PlaneSurface;
 
+        public bool IsVector =>
+            Kind == DataKind.List &&
+            Element is not null &&
+            Element.IsNumber;
+
+        public bool IsMatrix =>
+            Kind == DataKind.List &&
+            Element is not null &&
+            Element.IsVector;
+
+        public static ObjType VectorOf(ObjType element)
+            => ListOf(element);
+
+        public static ObjType MatrixOf(ObjType element)
+            => ListOf(ListOf(element));
+
         public override string ToString()
             => Kind == DataKind.List ? $"List<{Element}>" : Kind.ToString();
     }

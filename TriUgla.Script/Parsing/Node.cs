@@ -158,14 +158,14 @@ namespace TriUgla.Script.Parsing
 
     public sealed class StmtBreak(Token token) : Stmt
     {
-        public Token Identifier { get; } = token;
+        public Token Token { get; } = token;
         public override T Accept<T>(INodeVisitor<T> visitor)
             => visitor.Visit(this);
     }
 
     public sealed class StmtContinue(Token token) : Stmt
     {
-        public Token Identifier { get; } = token;
+        public Token Token { get; } = token;
         public override T Accept<T>(INodeVisitor<T> visitor)
             => visitor.Visit(this);
     }
