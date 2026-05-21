@@ -1,7 +1,7 @@
 ﻿using TriUgla.Script.Data;
 using TriUgla.Script.Scanning;
 
-namespace TriUgla.Script.Parsing.Execution
+namespace TriUgla.Script.Parsing
 {
     public sealed class TypeChecker : INodeVisitor<ObjType>
     {
@@ -379,19 +379,62 @@ namespace TriUgla.Script.Parsing.Execution
             foreach (Expr arg in node.Args)
                 arg.Accept(this);
 
-            if (node.Target is ExprIdentifier id)
+            if (node.Target is not ExprIdentifier id)
+                return ObjType.Undefined;
+
+            if (!Builtins.TryGet(id.Token.Text, out BuiltinFunction fn))
+                return ObjType.Undefined;
+
+            int argc = node.Args.Count;
+
+            if (argc < fn.MinArgs || argc > fn.MaxArgs)
             {
-                return id.Token.Text switch
-                {
-                    "print" => ObjType.Undefined,
-                    "exit" => ObjType.Undefined,
-                    "Transpose" => ObjType.ListOf(ObjType.ListOf(ObjType.Double)),
-                    "Inverse" => ObjType.ListOf(ObjType.ListOf(ObjType.Double)),
-                    _ => ObjType.Undefined
-                };
+                Report(
+                    id.Token,
+                    $"Function '{id.Token.Text}' expects between {fn.MinArgs} and {fn.MaxArgs} arguments, got {argc}.");
+
+                return ObjType.Undefined;
             }
 
-            return ObjType.Undefined;
+            return fn.Kind switch
+            {
+                BuiltinFunctionKind.Print => ObjType.Undefined,
+                BuiltinFunctionKind.Exit => ObjType.Undefined,
+
+                BuiltinFunctionKind.Min => ObjType.Double,
+                BuiltinFunctionKind.Max => ObjType.Double,
+                BuiltinFunctionKind.Abs => ObjType.Double,
+
+                BuiltinFunctionKind.Sin => ObjType.Double,
+                BuiltinFunctionKind.Cos => ObjType.Double,
+                BuiltinFunctionKind.Tan => ObjType.Double,
+
+                BuiltinFunctionKind.Sqrt => ObjType.Double,
+                BuiltinFunctionKind.Pow => ObjType.Double,
+
+                BuiltinFunctionKind.Length => ObjType.Double,
+                BuiltinFunctionKind.Dot => ObjType.Double,
+
+                BuiltinFunctionKind.StrLen => ObjType.Integer,
+
+                BuiltinFunctionKind.StrContains => ObjType.Boolean,
+                BuiltinFunctionKind.StrStartsWith => ObjType.Boolean,
+                BuiltinFunctionKind.StrEndsWith => ObjType.Boolean,
+
+                BuiltinFunctionKind.StrLower => ObjType.String,
+                BuiltinFunctionKind.StrUpper => ObjType.String,
+                BuiltinFunctionKind.StrTrim => ObjType.String,
+                BuiltinFunctionKind.StrReplace => ObjType.String,
+                BuiltinFunctionKind.SubStr => ObjType.String,
+
+                BuiltinFunctionKind.Transpose => ObjType.ListOf(
+                    ObjType.ListOf(ObjType.Double)),
+
+                BuiltinFunctionKind.Inverse => ObjType.ListOf(
+                    ObjType.ListOf(ObjType.Double)),
+
+                _ => ObjType.Undefined
+            };
         }
 
         public ObjType Visit(ExprList node)

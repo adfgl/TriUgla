@@ -3,13 +3,19 @@ using TriUgla.Script.Scanning;
 
 namespace TriUgla.Script.Parsing
 {
-    public sealed class Parser(Source source)
+    public sealed class Parser(Source source, Diagnostics diagnostics)
     {
-        readonly Scanner _scanner = new(source);
-        readonly LoopTrack _loops = new();
+        readonly Scanner _scanner = new Scanner(source);
+        readonly Diagnostics _diagnostics = diagnostics;
+        readonly LoopTrack _loops = new LoopTrack();
 
         public StmtProg Parse()
             => new(ParseStatements());
+
+        void Report(Token token, string message)
+        {
+            _diagnostics.Error(message, token);
+        }
 
         List<Stmt> ParseStatements(params Keyword[] stops)
         {
@@ -667,11 +673,6 @@ namespace TriUgla.Script.Parsing
             Report(token, message);
             Synchronize();
             return new StmtError(token, message);
-        }
-
-        void Report(Token token, string message)
-        {
-            // plug Diagnostics here
         }
 
         void Synchronize()

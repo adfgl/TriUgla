@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Folder Include="Data\Primitive\" />
+    <Folder Include="Evaluation\" />
   </ItemGroup>
 
 </Project>

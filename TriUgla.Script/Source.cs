@@ -2,14 +2,9 @@
 
 namespace TriUgla.Script
 {
-    public sealed class Source
+    public sealed class Source(string? text)
     {
-        readonly string _text;
-
-        public Source(string? text)
-        {
-            _text = text ?? string.Empty;
-        }
+        readonly string _text = text ?? string.Empty;
 
         public int Length => _text.Length;
 

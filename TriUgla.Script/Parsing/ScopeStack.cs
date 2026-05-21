@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TriUgla.Script.Parsing.Execution
+namespace TriUgla.Script.Parsing
 {
     public sealed class ScopeStack<T>
     {

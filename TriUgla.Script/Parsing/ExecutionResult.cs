@@ -1,6 +1,6 @@
 ﻿using TriUgla.Script.Data;
 
-namespace TriUgla.Script.Parsing.Execution
+namespace TriUgla.Script.Parsing
 {
     public sealed class ExecutionResult
     {

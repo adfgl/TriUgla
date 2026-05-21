@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using TriUgla.Script.Data;
+﻿using TriUgla.Script.Data;
 using TriUgla.Script.Data.Collections;
 using TriUgla.Script.Data.Geometry;
-using TriUgla.Script.Parsing.Execution;
 using TriUgla.Script.Scanning;
 
 namespace TriUgla.Script.Parsing
@@ -18,13 +14,18 @@ namespace TriUgla.Script.Parsing
 
     public sealed class ScriptContinueException : Exception;
 
-    public sealed class Evaluator : INodeVisitor<Value>
+    public sealed class Evaluator(CancellationToken ct = default) : INodeVisitor<Value>
     {
         readonly ScopeStack<Value> _scopes = new();
 
         public ExecutionResult Result { get; } = new();
 
         ScriptContext Context => Result.Context;
+
+        void CheckCancelled()
+        {
+            ct.ThrowIfCancellationRequested();
+        }
 
         public ExecutionResult Execute(StmtProg program)
         {
@@ -54,7 +55,10 @@ namespace TriUgla.Script.Parsing
             Value last = Value.Undefined;
 
             foreach (Stmt stmt in node.Statements)
+            {
+                CheckCancelled();
                 last = stmt.Accept(this);
+            }
 
             return last;
         }
@@ -66,7 +70,10 @@ namespace TriUgla.Script.Parsing
                 Value last = Value.Undefined;
 
                 foreach (Stmt stmt in node.Statements)
+                {
+                    CheckCancelled();
                     last = stmt.Accept(this);
+                }
 
                 return last;
             }
@@ -115,6 +122,7 @@ namespace TriUgla.Script.Parsing
         {
             while (node.Condition.Accept(this).AsBool())
             {
+                CheckCancelled();
                 try
                 {
                     node.Body.Accept(this);
@@ -139,6 +147,7 @@ namespace TriUgla.Script.Parsing
             {
                 foreach (Value value in Enumerate(iterable, node.Identifier))
                 {
+                    CheckCancelled();
                     _scopes.Set(node.Identifier.Text, value);
 
                     try
@@ -464,18 +473,150 @@ namespace TriUgla.Script.Parsing
         public Value Visit(ExprCall node)
         {
             if (node.Target is not ExprIdentifier id)
-                throw Runtime(node.Open, "Only simple function calls are supported.");
+                throw Runtime(node.Open, "Only named function calls are supported.");
 
-            string name = id.Token.Text;
+            if (!Builtins.TryGet(id.Token.Text, out BuiltinFunction fn))
+                throw Runtime(id.Token, $"Unknown function '{id.Token.Text}'.");
 
-            return name switch
+            List<Value> args = new(node.Args.Count);
+
+            foreach (Expr arg in node.Args)
+                args.Add(arg.Accept(this));
+
+            int argc = args.Count;
+
+            if (argc < fn.MinArgs || argc > fn.MaxArgs)
             {
-                "print" => Print(node),
-                "exit" => Exit(node),
-                "Transpose" => Transpose(node),
-                "Inverse" => Inverse(node),
-                _ => throw Runtime(id.Token, $"Unknown function '{name}'.")
+                throw Runtime(
+                    id.Token,
+                    $"Function '{id.Token.Text}' expects between {fn.MinArgs} and {fn.MaxArgs} arguments, got {argc}.");
+            }
+
+            return ExecuteBuiltin(fn.Kind, args, id.Token);
+        }
+
+        Value ExecuteBuiltin(
+            BuiltinFunctionKind fn,
+            List<Value> a,
+            Token token)
+        {
+            return fn switch
+            {
+                BuiltinFunctionKind.Print => BuiltinPrint(a),
+                BuiltinFunctionKind.Exit => BuiltinExit(a),
+
+                BuiltinFunctionKind.Min => Num(Math.Min(a[0].AsDouble(), a[1].AsDouble())),
+                BuiltinFunctionKind.Max => Num(Math.Max(a[0].AsDouble(), a[1].AsDouble())),
+                BuiltinFunctionKind.Abs => Num(Math.Abs(a[0].AsDouble())),
+
+                BuiltinFunctionKind.Sin => Num(Math.Sin(a[0].AsDouble())),
+                BuiltinFunctionKind.Cos => Num(Math.Cos(a[0].AsDouble())),
+                BuiltinFunctionKind.Tan => Num(Math.Tan(a[0].AsDouble())),
+
+                BuiltinFunctionKind.Sqrt => Num(Math.Sqrt(a[0].AsDouble())),
+                BuiltinFunctionKind.Pow => Num(Math.Pow(a[0].AsDouble(), a[1].AsDouble())),
+
+                BuiltinFunctionKind.Exp => Num(Math.Exp(a[0].AsDouble())),
+                BuiltinFunctionKind.Log => Num(
+                    a.Count == 1
+                        ? Math.Log(a[0].AsDouble())
+                        : Math.Log(a[0].AsDouble(), a[1].AsDouble())),
+
+                BuiltinFunctionKind.Log10 => Num(Math.Log10(a[0].AsDouble())),
+
+                BuiltinFunctionKind.Floor => Num(Math.Floor(a[0].AsDouble())),
+                BuiltinFunctionKind.Ceil => Num(Math.Ceiling(a[0].AsDouble())),
+                BuiltinFunctionKind.Round => Num(
+                    a.Count == 1
+                        ? Math.Round(a[0].AsDouble())
+                        : Math.Round(a[0].AsDouble(), a[1].AsInt())),
+
+                BuiltinFunctionKind.Trunc => Num(Math.Truncate(a[0].AsDouble())),
+
+                BuiltinFunctionKind.Rad => Num(a[0].AsDouble() * Math.PI / 180.0),
+                BuiltinFunctionKind.Deg => Num(a[0].AsDouble() * 180.0 / Math.PI),
+
+                BuiltinFunctionKind.StrLen =>
+                    new Value(a[0].AsString().Length),
+
+                BuiltinFunctionKind.StrLower =>
+                    Value.FromString(a[0].AsString().ToLowerInvariant()),
+
+                BuiltinFunctionKind.StrUpper =>
+                    Value.FromString(a[0].AsString().ToUpperInvariant()),
+
+                BuiltinFunctionKind.StrTrim =>
+                    Value.FromString(a[0].AsString().Trim()),
+
+                BuiltinFunctionKind.StrContains =>
+                    new Value(a[0].AsString().Contains(a[1].AsString())),
+
+                BuiltinFunctionKind.StrStartsWith =>
+                    new Value(a[0].AsString().StartsWith(a[1].AsString())),
+
+                BuiltinFunctionKind.StrEndsWith =>
+                    new Value(a[0].AsString().EndsWith(a[1].AsString())),
+
+                BuiltinFunctionKind.StrReplace =>
+                    Value.FromString(
+                        a[0].AsString().Replace(
+                            a[1].AsString(),
+                            a[2].AsString())),
+
+                BuiltinFunctionKind.SubStr =>
+                    Value.FromString(
+                        a.Count == 2
+                            ? a[0].AsString()[a[1].AsInt()..]
+                            : a[0].AsString().Substring(
+                                a[1].AsInt(),
+                                a[2].AsInt())),
+
+                BuiltinFunctionKind.ToString =>
+                    Value.FromString(a[0].ToString()),
+
+                BuiltinFunctionKind.ToInt =>
+                    new Value(a[0].AsInt()),
+
+                BuiltinFunctionKind.ToDouble =>
+                    new Value(a[0].AsDouble()),
+
+                BuiltinFunctionKind.ToBool =>
+                    new Value(a[0].AsBool()),
+
+                BuiltinFunctionKind.Transpose =>
+                    a[0].Transpose(),
+
+                BuiltinFunctionKind.Inverse =>
+                    a[0].Inverse(),
+
+                _ => throw Runtime(token, $"Builtin '{fn}' is not implemented.")
             };
+        }
+
+        static Value Num(double value)
+        {
+            double rounded = Math.Round(value);
+
+            if (Math.Abs(value - rounded) < 1e-12)
+                return new Value((int)rounded);
+
+            return new Value(value);
+        }
+
+        Value BuiltinPrint(List<Value> args)
+        {
+            foreach (Value arg in args)
+            {
+                string str = arg.ToString();
+                Console.WriteLine(str);
+                Context.Log.Add(str);
+            }
+            return Value.Undefined;
+        }
+
+        Value BuiltinExit(List<Value> args)
+        {
+            throw new ScriptExitException(args[0].AsInt());
         }
 
         public Value Visit(ExprList node)
@@ -667,11 +808,23 @@ namespace TriUgla.Script.Parsing
             return Value.FromObject(obj);
         }
 
+        Value Log(ExprCall node)
+        {
+            foreach (Expr arg in node.Args)
+            {
+                string msg = arg.Accept(this).ToString();
+                Context.Log.Add(msg);
+            }
+            return Value.Undefined;
+        }
+
         Value Print(ExprCall node)
         {
             foreach (Expr arg in node.Args)
-                Context.Log.Add(arg.Accept(this).ToString());
-
+            {
+                string msg = arg.Accept(this).ToString();
+                Console.WriteLine(msg);
+            }
             return Value.Undefined;
         }
 
