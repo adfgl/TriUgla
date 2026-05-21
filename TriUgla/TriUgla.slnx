@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../DebugConsole/DebugConsole.csproj" />
+  <Project Path="../TriUgla.Script/TriUgla.Script.csproj" />
+  <Project Path="TriUgla.csproj" />
+</Solution>
