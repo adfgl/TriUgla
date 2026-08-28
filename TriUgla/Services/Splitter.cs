@@ -64,6 +64,11 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         Node d = db.NodeStart;
         Node e = node;
 
+        int forwardConstraints = ab.ConstraintCount;
+        int reverseConstraints = ba.ConstraintCount;
+        RemoveConstraints(ab, forwardConstraints);
+        RemoveConstraints(ba, reverseConstraints);
+
         Edge ae = ab;
         Edge ea = ba;
         (Edge eb, Edge be) = CreateTwins();
@@ -79,6 +84,9 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         Linker.LinkTriangle(bce, bc, ce, eb, b, c, e);
         Linker.LinkTriangle(ade, ad, de, ea, a, d, e);
         Linker.LinkTriangle(dbe, db, be, ed, d, b, e);
+
+        ApplyConstraints(ae, eb, forwardConstraints);
+        ApplyConstraints(ea, be, reverseConstraints);
 
         TransferData(cae, bce);
         TransferData(ade, dbe);
@@ -114,6 +122,23 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         if (source.Data is not null)
         {
             destination.Data = dataInterpolator!.From(source.Data);
+        }
+    }
+
+    static void RemoveConstraints(Edge edge, int count)
+    {
+        for (int index = 0; index < count; index++)
+        {
+            edge.Relax();
+        }
+    }
+
+    static void ApplyConstraints(Edge first, Edge second, int count)
+    {
+        for (int index = 0; index < count; index++)
+        {
+            first.Constrain();
+            second.Constrain();
         }
     }
 

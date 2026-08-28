@@ -59,6 +59,26 @@ public class EdgeSplitTests
         Assert.Equal("bottom", GetColor(result.AffectedFaces[3]));
         Assert.Equal("forward", GetColor(result.SecondHalf));
         Assert.Equal("reverse", GetColor(result.SecondHalf.Twin!));
+        Assert.NotSame(f.Target.Data, result.SecondHalf.Data);
+        Assert.NotSame(f.Twin.Data, result.SecondHalf.Twin!.Data);
+    }
+
+    [Fact]
+    public void Split_TransmitsDirectedConstraintCountsToBothHalves()
+    {
+        Fixture f = CreateFixture();
+        f.Target.Constrain();
+        f.Target.Constrain();
+        f.Twin.Constrain();
+        var inserted = new Node();
+
+        EdgeSplitResult result = new Splitter().Split(f.Target, inserted);
+
+        Assert.Equal(2, result.FirstHalf.ConstraintCount);
+        Assert.Equal(2, result.SecondHalf.ConstraintCount);
+        Assert.Equal(1, result.FirstHalf.Twin!.ConstraintCount);
+        Assert.Equal(1, result.SecondHalf.Twin!.ConstraintCount);
+        Assert.True(inserted.Constrained);
     }
 
     static string GetColor(MeshElement element)

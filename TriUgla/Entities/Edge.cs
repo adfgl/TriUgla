@@ -11,6 +11,7 @@ public class Edge : MeshElement, IConstrainable
     public Edge? Twin { get; set; }
     public Node NodeEnd => Next.NodeStart;
 
+    public int ConstraintCount => _constraints;
     public bool Constrained => _constraints > 0;
     public bool OrTwinConstrained => Constrained || (Twin != null && Twin.Constrained);
 

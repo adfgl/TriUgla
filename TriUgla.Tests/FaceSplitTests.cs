@@ -43,6 +43,8 @@ public class FaceSplitTests
 
         Assert.All(result.AffectedFaces, face =>
             Assert.Equal("green", Assert.IsType<TestData>(face.Data).Color));
+        Assert.NotSame(target.Data, result.AffectedFaces[1].Data);
+        Assert.NotSame(target.Data, result.AffectedFaces[2].Data);
     }
 
     static void AssertTriangleRing(Face face, Edge boundary)
