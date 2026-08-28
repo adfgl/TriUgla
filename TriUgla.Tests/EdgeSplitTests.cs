@@ -10,11 +10,11 @@ public class EdgeSplitTests
 
         EdgeSplitResult result = new Splitter().Split(f.Target, center);
 
-        Assert.Equal(4, result.AffectedFaces.Count);
-        AssertTriangle(result.AffectedFaces[0], f.Outer[0], f.C, f.A, center);
-        AssertTriangle(result.AffectedFaces[1], f.Outer[1], f.B, f.C, center);
-        AssertTriangle(result.AffectedFaces[2], f.Outer[2], f.A, f.D, center);
-        AssertTriangle(result.AffectedFaces[3], f.Outer[3], f.D, f.B, center);
+        Assert.Equal(4, result.Change.AffectedFaces.Count);
+        AssertTriangle(result.Change.AffectedFaces[0], f.Outer[0], f.C, f.A, center);
+        AssertTriangle(result.Change.AffectedFaces[1], f.Outer[1], f.B, f.C, center);
+        AssertTriangle(result.Change.AffectedFaces[2], f.Outer[2], f.A, f.D, center);
+        AssertTriangle(result.Change.AffectedFaces[3], f.Outer[3], f.D, f.B, center);
 
         Assert.Same(f.Target, result.FirstHalf);
         Assert.Same(f.Twin, result.FirstHalf.Twin);
@@ -27,7 +27,7 @@ public class EdgeSplitTests
             Assert.Same(f.Outer[i], f.OuterTwins[i].Twin);
         }
 
-        Assert.Equal(f.Outer, result.EdgesToLegalize);
+        Assert.Equal(f.Outer, result.Change.EdgesToLegalize);
     }
 
     [Fact]
@@ -53,10 +53,10 @@ public class EdgeSplitTests
         EdgeSplitResult result = new Splitter(new TestInterpolator())
             .Split(f.Target, new Node());
 
-        Assert.Equal("top", GetColor(result.AffectedFaces[0]));
-        Assert.Equal("top", GetColor(result.AffectedFaces[1]));
-        Assert.Equal("bottom", GetColor(result.AffectedFaces[2]));
-        Assert.Equal("bottom", GetColor(result.AffectedFaces[3]));
+        Assert.Equal("top", GetColor(result.Change.AffectedFaces[0]));
+        Assert.Equal("top", GetColor(result.Change.AffectedFaces[1]));
+        Assert.Equal("bottom", GetColor(result.Change.AffectedFaces[2]));
+        Assert.Equal("bottom", GetColor(result.Change.AffectedFaces[3]));
         Assert.Equal("forward", GetColor(result.SecondHalf));
         Assert.Equal("reverse", GetColor(result.SecondHalf.Twin!));
         Assert.NotSame(f.Target.Data, result.SecondHalf.Data);

@@ -31,9 +31,9 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         TransferData(abd, bcd);
         TransferData(abd, cad);
 
-        return new FaceSplitResult(
+        return new FaceSplitResult(new TopologyChange(
             [abd, bcd, cad],
-            [ab, bc, ca]);
+            [ab, bc, ca]));
     }
 
     public EdgeSplitResult Split(Edge target, Node node)
@@ -96,8 +96,9 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         return new EdgeSplitResult(
             ae,
             eb,
-            [cae, bce, ade, dbe],
-            [ca, bc, ad, db]);
+            new TopologyChange(
+                [cae, bce, ade, dbe],
+                [ca, bc, ad, db]));
     }
 
     static (Edge First, Edge Second) CreateTwins()

@@ -12,8 +12,9 @@ public class EdgeLegalizerTests
         var followUp = new Edge { Face = followUpFace };
         var flipResult = new EdgeFlipResult(
             initial,
-            [firstFace, flippedFace],
-            [followUp]);
+            new TopologyChange(
+                [firstFace, flippedFace],
+                [followUp]));
         var flipper = new StubFlipper(initial, flipResult);
         var queue = new Queue<Edge>();
         queue.Enqueue(initial);
@@ -37,7 +38,7 @@ public class EdgeLegalizerTests
         var edge = new Edge();
         var flipper = new StubFlipper(
             edge,
-            new EdgeFlipResult(edge, [], []));
+            new EdgeFlipResult(edge, new TopologyChange([], [])));
         var queue = new Queue<Edge>();
         var legalizer = new EdgeLegalizer(flipper);
 

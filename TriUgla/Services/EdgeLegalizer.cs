@@ -23,13 +23,14 @@ public sealed class EdgeLegalizer(IEdgeFlipper flipper) : IEdgeLegalizer
 
             EdgeFlipResult result = flipper.Flip(edge);
             _flips.Add(new EdgeFlipRecord(result.FlippedEdge));
+            TopologyChange change = result.Change;
 
-            foreach (Face face in result.AffectedFaces)
+            foreach (Face face in change.AffectedFaces)
             {
                 AddAffected(face);
             }
 
-            foreach (Edge candidate in result.EdgesToLegalize)
+            foreach (Edge candidate in change.EdgesToLegalize)
             {
                 illegalEdges.Enqueue(candidate);
             }

@@ -11,7 +11,7 @@ public class EdgeFlipperTests
         EdgeFlipResult result = flipper.Flip(f.AB);
         Edge flipped = result.FlippedEdge;
 
-        Assert.Equal(new[] { f.Top, f.Bottom }, result.AffectedFaces);
+        Assert.Equal(new[] { f.Top, f.Bottom }, result.Change.AffectedFaces);
         Assert.Same(f.AB, flipped);
         Assert.Same(f.C, flipped.NodeStart);
         Assert.Same(f.D, flipped.NodeEnd);
@@ -29,7 +29,7 @@ public class EdgeFlipperTests
             Assert.Same(f.Outer[i], f.OuterTwins[i].Twin);
         }
 
-        Assert.Equal(new[] { f.AD, f.DB }, result.EdgesToLegalize);
+        Assert.Equal(new[] { f.AD, f.DB }, result.Change.EdgesToLegalize);
     }
 
     [Fact]

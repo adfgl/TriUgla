@@ -3,5 +3,4 @@ namespace TriUgla;
 public readonly record struct EdgeSplitResult(
     Edge FirstHalf,
     Edge SecondHalf,
-    IReadOnlyList<Face> AffectedFaces,
-    IReadOnlyList<Edge> EdgesToLegalize);
+    TopologyChange Change);

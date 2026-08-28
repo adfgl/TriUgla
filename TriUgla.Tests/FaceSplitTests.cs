@@ -9,16 +9,16 @@ public class FaceSplitTests
 
         FaceSplitResult result = new Splitter().Split(target, new Node());
 
-        for (int i = 0; i < result.AffectedFaces.Count; i++)
+        for (int i = 0; i < result.Change.AffectedFaces.Count; i++)
         {
-            AssertTriangleRing(result.AffectedFaces[i], boundary[i]);
+            AssertTriangleRing(result.Change.AffectedFaces[i], boundary[i]);
             Assert.Same(originalTwins[i], boundary[i].Twin);
             Assert.Same(boundary[i], originalTwins[i].Twin);
         }
 
-        Assert.Equal(3, result.AffectedFaces.Count);
-        Assert.Same(target, result.AffectedFaces[0]);
-        Assert.Equal(boundary, result.EdgesToLegalize);
+        Assert.Equal(3, result.Change.AffectedFaces.Count);
+        Assert.Same(target, result.Change.AffectedFaces[0]);
+        Assert.Equal(boundary, result.Change.EdgesToLegalize);
     }
 
     [Fact]
@@ -41,10 +41,10 @@ public class FaceSplitTests
         FaceSplitResult result = new Splitter(new TestInterpolator())
             .Split(target, new Node());
 
-        Assert.All(result.AffectedFaces, face =>
+        Assert.All(result.Change.AffectedFaces, face =>
             Assert.Equal("green", Assert.IsType<TestData>(face.Data).Color));
-        Assert.NotSame(target.Data, result.AffectedFaces[1].Data);
-        Assert.NotSame(target.Data, result.AffectedFaces[2].Data);
+        Assert.NotSame(target.Data, result.Change.AffectedFaces[1].Data);
+        Assert.NotSame(target.Data, result.Change.AffectedFaces[2].Data);
     }
 
     static void AssertTriangleRing(Face face, Edge boundary)

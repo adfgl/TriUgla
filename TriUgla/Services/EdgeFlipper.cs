@@ -39,7 +39,9 @@ public sealed class EdgeFlipper(IGeometry geometry) : IEdgeFlipper
         Linker.LinkTriangle(adc, ad, dc, ca, a, d, c);
         Linker.LinkTriangle(dbc, db, bc, cd, d, b, c);
 
-        return new EdgeFlipResult(cd, [adc, dbc], [ad, db]);
+        return new EdgeFlipResult(
+            cd,
+            new TopologyChange([adc, dbc], [ad, db]));
     }
 
     public bool CanFlip(Edge edge, out bool shouldFlip)
