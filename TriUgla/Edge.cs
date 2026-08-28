@@ -43,4 +43,19 @@ public class Edge : IConstrainable
     public bool Contains(Node node) =>
         ReferenceEquals(NodeStart, node) ||
         ReferenceEquals(NodeEnd, node);
+
+    public static Edge? FindDirected(Node start, Node end)
+    {
+        foreach (Edge edge in start.Edges)
+        {
+            if (ReferenceEquals(end, edge.NodeEnd))
+            {
+                return edge;
+            }
+        }
+        return null;
+    }
+
+    public static Edge? Find(Node start, Node end)
+        => FindDirected(start, end) ?? FindDirected(end, start);
 }
