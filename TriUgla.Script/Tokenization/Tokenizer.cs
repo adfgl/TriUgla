@@ -41,7 +41,10 @@ public sealed class Tokenizer(string source)
                 Advance();
             }
 
-            return MakeToken(TokenKind.Identifier, start, line, column);
+            string text = _source[start.._position];
+            return Keywords.TryGetKind(text, out KeywordKind keyword)
+                ? MakeToken(TokenKind.Keyword, start, line, column, keyword)
+                : MakeToken(TokenKind.Identifier, start, line, column);
         }
 
         if (char.IsDigit(Current) || Current == '.' && char.IsDigit(Peek(1)))
@@ -187,11 +190,17 @@ public sealed class Tokenizer(string source)
         }
     }
 
-    Token MakeToken(TokenKind kind, int start, int line, int column)
+    Token MakeToken(
+        TokenKind kind,
+        int start,
+        int line,
+        int column,
+        KeywordKind keyword = KeywordKind.None)
         => new(
             kind,
             _source[start.._position],
-            new TextSpan(start, _position - start, line, column));
+            new TextSpan(start, _position - start, line, column),
+            keyword);
 
     bool MatchNext(char expected)
     {

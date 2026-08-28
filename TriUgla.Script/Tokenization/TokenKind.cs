@@ -5,6 +5,7 @@ public enum TokenKind
     EndOfFile,
     BadToken,
     Identifier,
+    Keyword,
     Number,
     String,
     LeftParenthesis,

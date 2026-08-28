@@ -53,6 +53,49 @@ public class TokenizerTests
     }
 
     [Fact]
+    public void Tokenize_Keywords_ReturnsKeywordTokenAndParticularKind()
+    {
+        IReadOnlyList<Token> tokens = Tokenize("If ElseIf Else EndIf For In EndFor While EndWhile Break Continue Return");
+
+        Assert.All(tokens.Take(tokens.Count - 1), token => Assert.Equal(TokenKind.Keyword, token.Kind));
+        Assert.Equal(
+            [
+                KeywordKind.If,
+                KeywordKind.ElseIf,
+                KeywordKind.Else,
+                KeywordKind.EndIf,
+                KeywordKind.For,
+                KeywordKind.In,
+                KeywordKind.EndFor,
+                KeywordKind.While,
+                KeywordKind.EndWhile,
+                KeywordKind.Break,
+                KeywordKind.Continue,
+                KeywordKind.Return
+            ],
+            tokens.Take(tokens.Count - 1).Select(token => token.Keyword));
+    }
+
+    [Fact]
+    public void Tokenize_KeywordMatching_IsCaseSensitiveAndDoesNotMatchPrefixes()
+    {
+        IReadOnlyList<Token> tokens = Tokenize("if IfValue If");
+
+        Assert.Equal(
+            [TokenKind.Identifier, TokenKind.Identifier, TokenKind.Keyword, TokenKind.EndOfFile],
+            tokens.Select(token => token.Kind));
+        Assert.Equal(KeywordKind.None, tokens[0].Keyword);
+        Assert.Equal(KeywordKind.If, tokens[2].Keyword);
+    }
+
+    [Fact]
+    public void Keywords_AllContainsEveryParticularKeyword()
+    {
+        Assert.Equal(Enum.GetValues<KeywordKind>().Length - 1, Keywords.All.Count);
+        Assert.DoesNotContain(KeywordKind.None, Keywords.All.Values);
+    }
+
+    [Fact]
     public void Tokenize_String_KeepsQuotedSourceText()
     {
         Token token = Tokenize("\"surface \\\"name\\\"\"")[0];
