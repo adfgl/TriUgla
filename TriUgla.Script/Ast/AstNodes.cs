@@ -21,6 +21,8 @@ public sealed record NameExpr(Token Name) : Expr(Name.Span);
 
 public sealed record LiteralExpr(Token Token, Value Value) : Expr(Token.Span);
 
+public sealed record ErrorExpr(Token Token) : Expr(Token.Span);
+
 public sealed record UnaryExpr(Token Operator, Expr Operand)
     : Expr(TextSpan.FromBounds(Operator.Span, Operand.Span));
 

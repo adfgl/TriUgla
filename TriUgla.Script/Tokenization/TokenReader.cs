@@ -6,6 +6,8 @@ public sealed class TokenReader
     int _position;
     Token? _lookAhead;
 
+    public int Position => _position;
+
     public TokenReader(string source)
         : this(new Tokenizer(source).Tokenize())
     {
