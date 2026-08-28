@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TriUgla.Tests/TriUgla.Tests.csproj" />
+  <Project Path="TriUgla/TriUgla.csproj" />
+</Solution>
