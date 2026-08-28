@@ -1,4 +1,5 @@
 namespace TriUgla;
+
 public class Edge : IConstrainable
 {
     int _constraints = 0;
@@ -30,4 +31,16 @@ public class Edge : IConstrainable
         }
     }
 
+    public IEnumerable<Node> Nodes
+    {
+        get
+        {
+            yield return NodeStart;
+            yield return NodeEnd;
+        }
+    }
+
+    public bool Contains(Node node) =>
+        ReferenceEquals(NodeStart, node) ||
+        ReferenceEquals(NodeEnd, node);
 }
