@@ -1,0 +1,140 @@
+@page "/"
+@inject IJSRuntime JS
+
+<main class="workspace">
+    <header class="app-header">
+        <div>
+            <p class="eyebrow">TriUgla / browser playground</p>
+            <h1>Script editor</h1>
+        </div>
+        <button class="run-button" type="button" @onclick="RunScript" aria-keyshortcuts="Control+Enter Meta+Enter">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+            Run script
+            <kbd>Ctrl ↵</kbd>
+        </button>
+    </header>
+
+    <section class="editor-panel" aria-labelledby="editor-label">
+        <div class="panel-bar">
+            <div class="file-name" id="editor-label">
+                <span class="status-dot" aria-hidden="true"></span>
+                main.tus
+            </div>
+            <span>@LineCount lines</span>
+        </div>
+        <div class="editor-shell">
+            <div id="line-numbers" class="line-numbers" aria-hidden="true">
+                @for (var line = 1; line <= LineCount; line++)
+                {
+                    <span>@line</span>
+                }
+            </div>
+            <textarea id="script-editor"
+                      class="script-editor"
+                      value="@source"
+                      @oninput="UpdateSource"
+                      @onkeydown="HandleEditorKeyDown"
+                      onscroll="editorInterop.syncScroll(this)"
+                      aria-label="Script source code"
+                      spellcheck="false"></textarea>
+        </div>
+    </section>
+
+    <section class="diagnostics-panel" aria-labelledby="diagnostics-title" aria-live="polite">
+        <div class="panel-bar diagnostics-bar">
+            <div class="diagnostics-heading">
+                <h2 id="diagnostics-title">Diagnostics</h2>
+                @if (hasRun)
+                {
+                    <span class="count error-count">@ErrorCount errors</span>
+                    <span class="count info-count">@InfoCount info</span>
+                }
+            </div>
+            @if (hasRun)
+            {
+                <span class="run-time">Checked locally in your browser</span>
+            }
+        </div>
+
+        <div class="diagnostics-list">
+            @if (!hasRun)
+            {
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" /></svg>
+                    <p>Run the script to see errors and information.</p>
+                </div>
+            }
+            else if (diagnostics.Count == 0)
+            {
+                <div class="empty-state success-state">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6" /></svg>
+                    <div><strong>No errors found</strong><p>The script parsed successfully.</p></div>
+                </div>
+            }
+            else
+            {
+                @foreach (var diagnostic in diagnostics)
+                {
+                    <button class="diagnostic-row severity-@diagnostic.Severity.ToString().ToLowerInvariant()"
+                            type="button"
+                            @onclick="() => GoToDiagnostic(diagnostic)"
+                            aria-label="Go to line @diagnostic.Span.Line, column @diagnostic.Span.Column: @diagnostic.Message">
+                        <span class="severity-icon" aria-hidden="true">!</span>
+                        <span class="diagnostic-copy">
+                            <span><strong>@diagnostic.Code</strong> @diagnostic.Message</span>
+                            <span class="location">main.tus:@diagnostic.Span.Line:@diagnostic.Span.Column</span>
+                        </span>
+                        <svg class="jump-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                    </button>
+                }
+            }
+        </div>
+    </section>
+</main>
+
+@code {
+    string source = "Point(1) = {0, 0, 0, 1};\nPoint(2) = {1, 0, 0, 1};\nLine(1) = {1, 2};";
+    IReadOnlyList<Diagnostic> diagnostics = [];
+    bool hasRun;
+
+    int LineCount => Math.Max(1, source.Count(character => character == '\n') + 1);
+    int ErrorCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Error);
+    int InfoCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Info);
+
+    void UpdateSource(ChangeEventArgs args)
+    {
+        source = args.Value?.ToString() ?? string.Empty;
+    }
+
+    void RunScript()
+    {
+        SyntaxTree tree = SyntaxTree.Parse(source);
+        diagnostics = tree.Diagnostics;
+        hasRun = true;
+    }
+
+    void HandleEditorKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && (args.CtrlKey || args.MetaKey))
+        {
+            RunScript();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor");
+        }
+    }
+
+    async Task GoToDiagnostic(Diagnostic diagnostic)
+    {
+        await JS.InvokeVoidAsync(
+            "editorInterop.selectRange",
+            "script-editor",
+            diagnostic.Span.Start,
+            Math.Max(1, diagnostic.Span.Length));
+    }
+}

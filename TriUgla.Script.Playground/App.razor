@@ -1,0 +1,17 @@
+<HeadContent>
+    <title>TriUgla Script Playground</title>
+    <meta name="description" content="Write and validate TriUgla scripts in your browser." />
+</HeadContent>
+
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <main class="not-found">
+            <h1>Page not found</h1>
+            <a href="/">Return to the playground</a>
+        </main>
+    </NotFound>
+</Router>
