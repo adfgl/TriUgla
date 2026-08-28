@@ -85,8 +85,28 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
             return Boolean(node.Operator.Kind == TokenKind.EqualsEquals ? equal : !equal);
         }
 
+        if (left.ObjectOrNull() is ScriptList || right.ObjectOrNull() is ScriptList)
+        {
+            return EvaluateListOperation(left, node.Operator, right);
+        }
+
+        if (!left.IsNumber || !right.IsNumber)
+        {
+            throw UnsupportedOperands(
+                node.Operator,
+                left,
+                right,
+                "Use two numbers, two numeric lists, a numeric list and a scalar, or '+' with two strings.");
+        }
+
         double leftNumber = left.Number;
         double rightNumber = right.Number;
+        if (node.Operator.Kind == TokenKind.Slash && rightNumber == 0d)
+        {
+            throw new InvalidOperationException(
+                "Operator '/' cannot divide by zero. Hint: make the right operand a non-zero number.");
+        }
+
         return node.Operator.Kind switch
         {
             TokenKind.Plus => leftNumber + rightNumber,
@@ -100,6 +120,68 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
             TokenKind.GreaterOrEquals => Boolean(leftNumber >= rightNumber),
             _ => throw UnsupportedOperator(node.Operator)
         };
+    }
+
+    static Value EvaluateListOperation(Value left, Token operation, Value right)
+    {
+        if (operation.Kind is not TokenKind.Plus and not TokenKind.Star and not TokenKind.Slash)
+        {
+            throw new InvalidOperationException(
+                $"Operator '{operation.Text}' cannot be applied when an operand is a list. " +
+                "Hint: use '+', '*' or '/', or reduce the list to a scalar before applying this operator.");
+        }
+
+        ScriptList? leftList = left.ObjectOrNull() as ScriptList;
+        ScriptList? rightList = right.ObjectOrNull() as ScriptList;
+        if (leftList is not null && rightList is not null && leftList.Items.Count != rightList.Items.Count)
+        {
+            throw new InvalidOperationException(
+                $"Cannot apply '{operation.Text}' to lists with different lengths " +
+                $"({leftList.Items.Count} and {rightList.Items.Count}). " +
+                "Hint: make both lists the same length, or replace one list with a scalar value.");
+        }
+
+        int count = leftList?.Items.Count ?? rightList!.Items.Count;
+        var values = new Value[count];
+        for (int index = 0; index < count; index++)
+        {
+            double leftNumber = ListOperandNumber(left, leftList, index, "left");
+            double rightNumber = ListOperandNumber(right, rightList, index, "right");
+            if (operation.Kind == TokenKind.Slash && rightNumber == 0d)
+            {
+                throw new InvalidOperationException(
+                    $"Operator '/' cannot divide by zero at list index {index}. " +
+                    "Hint: replace the corresponding right-hand value with a non-zero number.");
+            }
+
+            values[index] = operation.Kind switch
+            {
+                TokenKind.Plus => leftNumber + rightNumber,
+                TokenKind.Star => leftNumber * rightNumber,
+                TokenKind.Slash => leftNumber / rightNumber,
+                _ => throw UnsupportedOperator(operation)
+            };
+        }
+
+        return new ScriptList(values);
+    }
+
+    static double ListOperandNumber(
+        Value operand,
+        ScriptList? list,
+        int index,
+        string side)
+    {
+        Value item = list is null ? operand : list.Items[index];
+        if (!item.IsNumber)
+        {
+            string location = list is null ? side + " scalar" : $"{side} list at index {index}";
+            throw new InvalidOperationException(
+                $"List arithmetic requires numeric values, but the {location} is {Describe(item)}. " +
+                "Hint: replace that value with a number before applying the operation.");
+        }
+
+        return item.Number;
     }
 
     public Value VisitGroupExpression(GroupExpr node) => Evaluate(node.Expression);
@@ -244,6 +326,25 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
     static InvalidOperationException UnsupportedOperator(Token token)
         => new($"Operator '{token.Text}' cannot be evaluated.");
+
+    static InvalidOperationException UnsupportedOperands(
+        Token operation,
+        Value left,
+        Value right,
+        string hint)
+        => new(
+            $"Operator '{operation.Text}' cannot be applied to {Describe(left)} and {Describe(right)}. " +
+            $"Hint: {hint}");
+
+    static string Describe(Value value)
+        => value.IsNumber
+            ? "a number"
+            : value.Object switch
+            {
+                ScriptString => "a string",
+                ScriptList => "a list",
+                _ => $"an object of type {value.Object.GetType().Name}"
+            };
 }
 
 static class EvaluationValueExtensions

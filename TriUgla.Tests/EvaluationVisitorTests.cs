@@ -192,4 +192,91 @@ public class EvaluationVisitorTests
             ["11", "12", "21", "22"],
             evaluator.PrintedValues.Select(value => value.ToString()));
     }
+
+    [Theory]
+    [InlineData("({1, 2, 3} + {4, 5, 6});", new[] { 5d, 7d, 9d })]
+    [InlineData("({1, 2, 3} + 10);", new[] { 11d, 12d, 13d })]
+    [InlineData("10 + {1, 2, 3};", new[] { 11d, 12d, 13d })]
+    [InlineData("({1, 2, 3} * {4, 5, 6});", new[] { 4d, 10d, 18d })]
+    [InlineData("({1, 2, 3} * 2);", new[] { 2d, 4d, 6d })]
+    [InlineData("2 * {1, 2, 3};", new[] { 2d, 4d, 6d })]
+    [InlineData("({8, 9, 10} / {2, 3, 5});", new[] { 4d, 3d, 2d })]
+    [InlineData("({8, 10} / 2);", new[] { 4d, 5d })]
+    [InlineData("12 / {2, 3, 4};", new[] { 6d, 4d, 3d })]
+    public void Evaluate_ListArithmetic_ReturnsElementWiseResults(
+        string source,
+        double[] expected)
+    {
+        ScriptList result = new EvaluationVisitor()
+            .Evaluate(SyntaxTree.Parse(source).Root)
+            .As<ScriptList>();
+
+        Assert.Equal(expected, result.Items.Select(value => value.Number));
+    }
+
+    [Fact]
+    public void Evaluate_ListArithmetic_WithDifferentLengths_ExplainsBothLengths()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new EvaluationVisitor().Evaluate(SyntaxTree.Parse("({1, 2} + {3});").Root));
+
+        Assert.Contains("different lengths (2 and 1)", exception.Message);
+    }
+
+    [Fact]
+    public void Evaluate_ListArithmetic_WithNonNumericItem_IdentifiesIndex()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new EvaluationVisitor().Evaluate(SyntaxTree.Parse("({1, \"text\"} * 2);").Root));
+
+        Assert.Contains("left list at index 1", exception.Message);
+        Assert.Contains("a string", exception.Message);
+    }
+
+    [Fact]
+    public void Evaluate_ListDivision_ByZero_IdentifiesIndex()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new EvaluationVisitor().Evaluate(SyntaxTree.Parse("({4, 8} / {2, 0});").Root));
+
+        Assert.Contains("zero at list index 1", exception.Message);
+    }
+
+    [Fact]
+    public void Evaluate_UnsupportedListOperator_ListsSupportedOperators()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new EvaluationVisitor().Evaluate(SyntaxTree.Parse("({1, 2} - 1);").Root));
+
+        Assert.Contains("cannot be applied when an operand is a list", exception.Message);
+        Assert.Contains("use '+', '*' or '/'", exception.Message);
+        Assert.Contains("Hint:", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("\"text\" * 2;")]
+    [InlineData("2 + \"text\";")]
+    [InlineData("\"left\" / \"right\";")]
+    public void Evaluate_UnsupportedOperands_DescribesTypesAndSuggestsFix(string source)
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new EvaluationVisitor().Evaluate(SyntaxTree.Parse(source).Root));
+
+        Assert.Contains("Operator", exception.Message);
+        Assert.Contains("cannot be applied", exception.Message);
+        Assert.Contains("Hint:", exception.Message);
+        Assert.Contains("number", exception.Message);
+        Assert.Contains("string", exception.Message);
+    }
+
+    [Fact]
+    public void Evaluate_ScalarDivisionByZero_SuggestsNonZeroOperand()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new EvaluationVisitor().Evaluate(SyntaxTree.Parse("10 / 0;").Root));
+
+        Assert.Contains("Operator '/'", exception.Message);
+        Assert.Contains("Hint:", exception.Message);
+        Assert.Contains("non-zero", exception.Message);
+    }
 }

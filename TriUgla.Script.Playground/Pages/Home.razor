@@ -96,7 +96,7 @@
 </main>
 
 @code {
-    string source = "For i In {1:5}\n  If (i > 3)\n    Print(i);\n  Else\n    Print(\"small\");\n  EndIf\nEndFor";
+    string source = "values = {2, 4, 8};\nscaled = values * 3;\nPrint(scaled);\nPrint(scaled / {2, 3, 4});";
     IReadOnlyList<Diagnostic> diagnostics = [];
     IReadOnlyList<Token> tokens = [];
     string? output;
