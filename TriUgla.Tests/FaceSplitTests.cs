@@ -1,6 +1,6 @@
 namespace TriUgla.Tests;
 
-public class FaceSplitterTests
+public class FaceSplitTests
 {
     [Fact]
     public void SplitPreservesLinksAndOriginalTwins()
@@ -8,7 +8,7 @@ public class FaceSplitterTests
         var (target, boundary, originalTwins) = CreateFace(3, withTwins: true);
         var queue = new LegalizationQueue();
 
-        FaceSplitResult result = new FaceSplitter(queue).Split(target, new Node());
+        FaceSplitResult result = new Splitter(queue).Split(target, new Node());
 
         Face[] faces = [result.Abd, result.Bcd, result.Cad];
         for (int i = 0; i < faces.Length; i++)
@@ -28,9 +28,9 @@ public class FaceSplitterTests
         var (face, _, _) = CreateFace(4, withTwins: false);
 
         var error = Assert.Throws<InvalidOperationException>(
-            () => new FaceSplitter(new LegalizationQueue()).Split(face, new Node()));
+            () => new Splitter(new LegalizationQueue()).Split(face, new Node()));
 
-        Assert.Contains("requires a triangular face", error.Message);
+        Assert.Contains("requires triangular faces", error.Message);
     }
 
     static void AssertTriangleRing(Face face, Edge boundary)
