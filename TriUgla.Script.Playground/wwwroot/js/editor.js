@@ -5,8 +5,16 @@ window.editorInterop = {
 
         editor.dataset.initialized = "true";
         editor.addEventListener("keydown", event => {
+            if (event.isComposing) return;
+
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
                 event.preventDefault();
+                return;
+            }
+
+            if (event.key === "{" && editor.selectionStart !== editor.selectionEnd) {
+                event.preventDefault();
+                this.wrapSelection(editor, "{", "}");
                 return;
             }
 
@@ -15,6 +23,16 @@ window.editorInterop = {
             event.preventDefault();
             this.insertTab(editorId);
         });
+    },
+
+    wrapSelection(editor, opening, closing) {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const selectedText = editor.value.slice(start, end);
+
+        editor.setRangeText(opening + selectedText + closing, start, end, "end");
+        editor.setSelectionRange(start + opening.length, end + opening.length);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
     },
 
     syncScroll(editor) {

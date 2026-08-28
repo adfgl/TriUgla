@@ -241,8 +241,13 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
     public Value VisitForStatement(ForStmt node)
     {
-        double start = Evaluate(node.Start).Number;
-        double end = Evaluate(node.End).Number;
+        if (node.Items is not null)
+        {
+            return EvaluateExplicitLoop(node);
+        }
+
+        double start = Evaluate(node.Start!).Number;
+        double end = Evaluate(node.End!).Number;
         double step = node.Step is null ? 1d : Evaluate(node.Step).Number;
         if (step == 0d || double.IsNaN(step))
         {
@@ -273,6 +278,35 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
                     _scope.TryAssign(currentIterator.Text, current);
                 }
 
+                result = EvaluateStatements(node.Statements);
+            }
+        }
+
+        return result;
+    }
+
+    Value EvaluateExplicitLoop(ForStmt node)
+    {
+        Value result = 0d;
+        int iterations = 0;
+        using (_scope.Open())
+        {
+            if (node.Iterator is not Token iterator)
+            {
+                throw new InvalidOperationException(
+                    "An explicit value loop requires an iterator name. Hint: use 'For item In { ... }'.");
+            }
+
+            _scope.Declare(iterator.Text, 0d);
+            foreach (Expr item in node.Items!)
+            {
+                if (++iterations > MaximumLoopIterations)
+                {
+                    throw new InvalidOperationException(
+                        $"Loop exceeded the limit of {MaximumLoopIterations} iterations.");
+                }
+
+                _scope.TryAssign(iterator.Text, Evaluate(item));
                 result = EvaluateStatements(node.Statements);
             }
         }

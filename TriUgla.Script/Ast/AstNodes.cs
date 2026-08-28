@@ -143,9 +143,10 @@ public sealed record IfStmt(
 public sealed record ForStmt(
     Token ForKeyword,
     Token? Iterator,
-    Expr Start,
-    Expr End,
+    Expr? Start,
+    Expr? End,
     Expr? Step,
+    IReadOnlyList<Expr>? Items,
     IReadOnlyList<Stmt> Statements,
     Token EndForKeyword)
     : Stmt(TextSpan.FromBounds(ForKeyword.Span, EndForKeyword.Span))

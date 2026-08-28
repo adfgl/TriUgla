@@ -165,6 +165,32 @@ public class EvaluationVisitorTests
     }
 
     [Fact]
+    public void Evaluate_ForInExplicitList_VisitsEveryItemInOrder()
+    {
+        const string source = "size = 4;\nFor item In { 1, 2, 3 }\n Print(item);\nEndFor";
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        Assert.Equal(
+            ["1", "2", "3"],
+            evaluator.PrintedValues.Select(value => value.ToString()));
+    }
+
+    [Fact]
+    public void Evaluate_ForInExplicitList_EvaluatesItemExpressions()
+    {
+        const string source = "scale = 2;\nFor item In { scale, scale + 1, scale * 2 }\n Print(item);\nEndFor";
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        Assert.Equal(
+            ["2", "3", "4"],
+            evaluator.PrintedValues.Select(value => value.ToString()));
+    }
+
+    [Fact]
     public void Evaluate_LoopWithZeroStep_Throws()
     {
         var evaluator = new EvaluationVisitor();

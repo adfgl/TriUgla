@@ -149,8 +149,21 @@ public class ParserTests
         Assert.Empty(tree.Diagnostics);
         Assert.Equal(hasIterator, statement.Iterator is not null);
         Assert.Equal(hasStep, statement.Step is not null);
+        Assert.Null(statement.Items);
         Assert.Single(statement.Statements);
         Assert.Equal(KeywordKind.EndFor, statement.EndForKeyword.Keyword);
+    }
+
+    [Fact]
+    public void Parse_ForInExplicitList_StoresEachItem()
+    {
+        SyntaxTree tree = SyntaxTree.Parse("For item In { 1, 2, 3 }\nPrint(item);\nEndFor");
+
+        var statement = Assert.IsType<ForStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Empty(tree.Diagnostics);
+        Assert.Equal(3, statement.Items?.Count);
+        Assert.Null(statement.Start);
+        Assert.Null(statement.End);
     }
 
     [Fact]

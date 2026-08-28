@@ -106,12 +106,24 @@ public sealed class Parser
     {
         Token forKeyword = Read();
         Token? iterator = null;
-        TokenKind closingToken;
+        Expr? start = null;
+        Expr? end = null;
+        Expr? step = null;
+        IReadOnlyList<Expr>? items = null;
 
         if (Peek().Kind == TokenKind.LeftParenthesis)
         {
             Read();
-            closingToken = TokenKind.RightParenthesis;
+            start = ParseExpression();
+            Expect(TokenKind.Colon, "TS1014", "Expected ':' after loop range start.");
+            end = ParseExpression();
+            if (Peek().Kind == TokenKind.Colon)
+            {
+                Read();
+                step = ParseExpression();
+            }
+
+            Expect(TokenKind.RightParenthesis, "TS1015", "Expected ')' after loop range.");
         }
         else
         {
@@ -121,27 +133,47 @@ public sealed class Parser
                 "Expected iterator name or '(' after 'For'.");
             ExpectKeyword(KeywordKind.In, "TS1012", "Expected 'In' after loop iterator.");
             Expect(TokenKind.LeftBrace, "TS1013", "Expected '{' before iterator range.");
-            closingToken = TokenKind.RightBrace;
+            if (Peek().Kind == TokenKind.RightBrace)
+            {
+                items = [];
+            }
+            else
+            {
+                Expr first = ParseExpression();
+                if (Peek().Kind == TokenKind.Colon)
+                {
+                    start = first;
+                    Read();
+                    end = ParseExpression();
+                    if (Peek().Kind == TokenKind.Colon)
+                    {
+                        Read();
+                        step = ParseExpression();
+                    }
+                }
+                else
+                {
+                    var explicitItems = new List<Expr> { first };
+                    while (Peek().Kind == TokenKind.Comma)
+                    {
+                        Read();
+                        explicitItems.Add(ParseExpression());
+                    }
+
+                    items = explicitItems;
+                }
+            }
+
+            Expect(TokenKind.RightBrace, "TS1015", "Expected '}' after loop values.");
         }
 
-        Expr start = ParseExpression();
-        Expect(TokenKind.Colon, "TS1014", "Expected ':' after loop range start.");
-        Expr end = ParseExpression();
-        Expr? step = null;
-        if (Peek().Kind == TokenKind.Colon)
-        {
-            Read();
-            step = ParseExpression();
-        }
-
-        Expect(closingToken, "TS1015", "Expected closing delimiter after loop range.");
         IReadOnlyList<Stmt> statements = ParseStatementsUntil(KeywordKind.EndFor);
         _errorInStatement = false;
         Token endFor = ExpectKeyword(
             KeywordKind.EndFor,
             "TS1016",
             "Expected 'EndFor' to close loop statement.");
-        return new ForStmt(forKeyword, iterator, start, end, step, statements, endFor);
+        return new ForStmt(forKeyword, iterator, start, end, step, items, statements, endFor);
     }
 
     ConditionalBranch ParseConditionalBranch(Token keyword)

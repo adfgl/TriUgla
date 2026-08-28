@@ -96,7 +96,7 @@
 </main>
 
 @code {
-    string source = "values = {2, 4, 8};\nscaled = values * 3;\nPrint(scaled);\nPrint(scaled / {2, 3, 4});";
+    string source = "size = 4;\nFor item In { 1, 2, 3 }\n  Print(item * size);\nEndFor";
     IReadOnlyList<Diagnostic> diagnostics = [];
     IReadOnlyList<Token> tokens = [];
     string? output;
