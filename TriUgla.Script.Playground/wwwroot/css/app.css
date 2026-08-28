@@ -160,6 +160,7 @@ h2 { margin: 0; font-size: .9rem; }
 .token-keyword { color: #c084fc; font-weight: 700; }
 .token-number { color: #fbbf24; }
 .token-string { color: #86efac; }
+.token-function { color: #f472b6; font-weight: 650; }
 .token-identifier { color: #7dd3fc; }
 .token-symbol { color: #a8b4c7; }
 .token-bad { color: #fda4af; }

@@ -96,9 +96,10 @@
 </main>
 
 @code {
-    string source = "size = 4;\nFor item In { 1, 2, 3 }\n  Print(item * size);\nEndFor";
+    string source = "matrix = {\n  {1, 2, 3},\n  {4, 5, 6},\n  {7, 8, 9}\n};\n\nvector = {11, 22, 33};\nPrint(matrix * vector);";
     IReadOnlyList<Diagnostic> diagnostics = [];
     IReadOnlyList<Token> tokens = [];
+    IReadOnlySet<int> functionTokenStarts = new HashSet<int>();
     string? output;
     bool runtimeFailed;
     readonly List<string> printedLines = [];
@@ -157,6 +158,14 @@
         SyntaxTree tree = SyntaxTree.Parse(source);
         diagnostics = tree.Diagnostics;
         tokens = new Tokenizer(source).Tokenize();
+        functionTokenStarts = tokens
+            .Take(tokens.Count - 1)
+            .Select((token, index) => (token, index))
+            .Where(item =>
+                item.token.Kind == TokenKind.Identifier &&
+                tokens[item.index + 1].Kind == TokenKind.LeftParenthesis)
+            .Select(item => item.token.Span.Start)
+            .ToHashSet();
         return tree;
     }
 
@@ -221,18 +230,19 @@
                 int errorEnd = Math.Min(source.Length, errorStart + Math.Max(1, item.Span.Length));
                 return start < errorEnd && end > errorStart;
             });
-            string tokenClass = token.Kind == TokenKind.EndOfFile ? "token-plain" : TokenClass(token.Kind);
+            string tokenClass = token.Kind == TokenKind.EndOfFile ? "token-plain" : TokenClass(token);
             segments.Add(new HighlightSegment(source[start..end], $"{tokenClass}{(hasError ? " token-error" : string.Empty)}"));
         }
 
         return segments;
     }
 
-    static string TokenClass(TokenKind kind) => kind switch
+    string TokenClass(Token token) => token.Kind switch
     {
         TokenKind.Keyword => "token-keyword",
         TokenKind.Number => "token-number",
         TokenKind.String => "token-string",
+        TokenKind.Identifier when functionTokenStarts.Contains(token.Span.Start) => "token-function",
         TokenKind.Identifier => "token-identifier",
         TokenKind.BadToken => "token-bad",
         _ => "token-symbol"

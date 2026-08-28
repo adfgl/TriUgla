@@ -18,6 +18,11 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
             ["Print"] = Print
         };
 
+        foreach ((string name, Func<IReadOnlyList<Value>, Value> function) in StandardMathFunctions.All)
+        {
+            availableFunctions.Add(name, function);
+        }
+
         if (functions is not null)
         {
             foreach ((string name, Func<IReadOnlyList<Value>, Value> function) in functions)
@@ -133,6 +138,11 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
         ScriptList? leftList = left.ObjectOrNull() as ScriptList;
         ScriptList? rightList = right.ObjectOrNull() as ScriptList;
+        if (IsMatrixLike(leftList) || IsMatrixLike(rightList))
+        {
+            return EvaluateMatrixOperation(left, leftList, operation, right, rightList);
+        }
+
         if (leftList is not null && rightList is not null && leftList.Items.Count != rightList.Items.Count)
         {
             throw new InvalidOperationException(
@@ -165,6 +175,209 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
         return new ScriptList(values);
     }
+
+    static Value EvaluateMatrixOperation(
+        Value left,
+        ScriptList? leftList,
+        Token operation,
+        Value right,
+        ScriptList? rightList)
+    {
+        double[][]? leftMatrix = IsMatrixLike(leftList) ? ReadMatrix(leftList!, "left") : null;
+        double[][]? rightMatrix = IsMatrixLike(rightList) ? ReadMatrix(rightList!, "right") : null;
+        double[]? leftVector = leftList is not null && leftMatrix is null ? ReadVector(leftList, "left") : null;
+        double[]? rightVector = rightList is not null && rightMatrix is null ? ReadVector(rightList, "right") : null;
+
+        if (operation.Kind == TokenKind.Star)
+        {
+            if (leftMatrix is not null && rightVector is not null)
+            {
+                RequireDimensions(
+                    leftMatrix[0].Length == rightVector.Length,
+                    $"matrix columns ({leftMatrix[0].Length})",
+                    $"vector length ({rightVector.Length})");
+                return VectorValue(leftMatrix.Select(row => Dot(row, rightVector)));
+            }
+
+            if (leftVector is not null && rightMatrix is not null)
+            {
+                RequireDimensions(
+                    leftVector.Length == rightMatrix.Length,
+                    $"vector length ({leftVector.Length})",
+                    $"matrix rows ({rightMatrix.Length})");
+                return VectorValue(Enumerable.Range(0, rightMatrix[0].Length)
+                    .Select(column => Dot(leftVector, rightMatrix.Select(row => row[column]).ToArray())));
+            }
+
+            if (leftMatrix is not null && rightMatrix is not null)
+            {
+                RequireDimensions(
+                    leftMatrix[0].Length == rightMatrix.Length,
+                    $"left matrix columns ({leftMatrix[0].Length})",
+                    $"right matrix rows ({rightMatrix.Length})");
+                return MatrixValue(leftMatrix.Select(row =>
+                    Enumerable.Range(0, rightMatrix[0].Length)
+                        .Select(column => Dot(row, rightMatrix.Select(item => item[column]).ToArray()))));
+            }
+        }
+
+        if (leftMatrix is not null && rightList is null)
+        {
+            return MatrixScalar(leftMatrix, RequireScalar(right, "right"), operation, scalarOnLeft: false);
+        }
+
+        if (leftList is null && rightMatrix is not null)
+        {
+            return MatrixScalar(rightMatrix, RequireScalar(left, "left"), operation, scalarOnLeft: true);
+        }
+
+        if (leftMatrix is not null && rightMatrix is not null &&
+            operation.Kind is TokenKind.Plus or TokenKind.Slash)
+        {
+            RequireSameMatrixShape(leftMatrix, rightMatrix, operation.Text);
+            return MatrixValue(leftMatrix.Select((row, rowIndex) =>
+                row.Select((value, columnIndex) => ApplyMatrixCell(
+                    value,
+                    rightMatrix[rowIndex][columnIndex],
+                    operation,
+                    rowIndex,
+                    columnIndex))));
+        }
+
+        throw new InvalidOperationException(
+            $"Operator '{operation.Text}' cannot be applied to these vector and matrix shapes. " +
+            "Hint: for '*', match the left columns/length to the right rows/length; " +
+            "for '+' or '/', use matrices with identical dimensions or a matrix and a scalar.");
+    }
+
+    static bool IsMatrixLike(ScriptList? list)
+        => list is not null && list.Items.Any(item => item.ObjectOrNull() is ScriptList);
+
+    static double[] ReadVector(ScriptList list, string side)
+        => list.Items.Select((item, index) =>
+        {
+            if (!item.IsNumber)
+            {
+                throw new InvalidOperationException(
+                    $"The {side} vector contains a non-numeric value at index {index}. " +
+                    "Hint: vectors must contain only numbers.");
+            }
+
+            return item.Number;
+        }).ToArray();
+
+    static double[][] ReadMatrix(ScriptList list, string side)
+    {
+        if (list.Items.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"The {side} matrix is empty. Hint: provide at least one non-empty numeric row.");
+        }
+
+        var rows = new double[list.Items.Count][];
+        int? columns = null;
+        for (int rowIndex = 0; rowIndex < list.Items.Count; rowIndex++)
+        {
+            if (list.Items[rowIndex].ObjectOrNull() is not ScriptList row)
+            {
+                throw new InvalidOperationException(
+                    $"The {side} matrix mixes rows and scalar values at row {rowIndex}. " +
+                    "Hint: wrap every matrix row in braces.");
+            }
+
+            rows[rowIndex] = ReadVector(row, $"{side} matrix row {rowIndex}");
+            if (rows[rowIndex].Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"The {side} matrix row {rowIndex} is empty. Hint: every row must contain numeric values.");
+            }
+
+            columns ??= rows[rowIndex].Length;
+            if (rows[rowIndex].Length != columns)
+            {
+                throw new InvalidOperationException(
+                    $"The {side} matrix is ragged: row 0 has {columns} columns but row {rowIndex} " +
+                    $"has {rows[rowIndex].Length}. Hint: make every matrix row the same length.");
+            }
+        }
+
+        return rows;
+    }
+
+    static Value MatrixScalar(double[][] matrix, double scalar, Token operation, bool scalarOnLeft)
+        => MatrixValue(matrix.Select((row, rowIndex) =>
+            row.Select((value, columnIndex) => ApplyMatrixCell(
+                scalarOnLeft ? scalar : value,
+                scalarOnLeft ? value : scalar,
+                operation,
+                rowIndex,
+                columnIndex))));
+
+    static double ApplyMatrixCell(
+        double left,
+        double right,
+        Token operation,
+        int row,
+        int column)
+    {
+        if (operation.Kind == TokenKind.Slash && right == 0d)
+        {
+            throw new InvalidOperationException(
+                $"Operator '/' cannot divide by zero at matrix row {row}, column {column}. " +
+                "Hint: replace the corresponding right-hand value with a non-zero number.");
+        }
+
+        return operation.Kind switch
+        {
+            TokenKind.Plus => left + right,
+            TokenKind.Star => left * right,
+            TokenKind.Slash => left / right,
+            _ => throw new InvalidOperationException(
+                $"Operator '{operation.Text}' is not supported for matrices. Hint: use '+', '*' or '/'.")
+        };
+    }
+
+    static double RequireScalar(Value value, string side)
+    {
+        if (!value.IsNumber)
+        {
+            throw new InvalidOperationException(
+                $"The {side} matrix operand must be a number. Hint: use a numeric scalar value.");
+        }
+
+        return value.Number;
+    }
+
+    static void RequireDimensions(bool valid, string left, string right)
+    {
+        if (!valid)
+        {
+            throw new InvalidOperationException(
+                $"Cannot multiply because {left} do not match {right}. " +
+                "Hint: the inner dimensions of a multiplication must be equal.");
+        }
+    }
+
+    static void RequireSameMatrixShape(double[][] left, double[][] right, string operation)
+    {
+        if (left.Length != right.Length || left[0].Length != right[0].Length)
+        {
+            throw new InvalidOperationException(
+                $"Cannot apply '{operation}' to matrices sized " +
+                $"{left.Length}x{left[0].Length} and {right.Length}x{right[0].Length}. " +
+                "Hint: element-wise matrix operations require identical dimensions.");
+        }
+    }
+
+    static double Dot(IReadOnlyList<double> left, IReadOnlyList<double> right)
+        => left.Select((value, index) => value * right[index]).Sum();
+
+    static Value VectorValue(IEnumerable<double> values)
+        => new ScriptList(values.Select(value => new Value(value)));
+
+    static Value MatrixValue(IEnumerable<IEnumerable<double>> rows)
+        => new ScriptList(rows.Select(row => new Value(
+            new ScriptList(row.Select(value => new Value(value))))));
 
     static double ListOperandNumber(
         Value operand,
