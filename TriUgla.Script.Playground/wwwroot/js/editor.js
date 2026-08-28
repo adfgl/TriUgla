@@ -20,6 +20,12 @@ window.editorInterop = {
     syncScroll(editor) {
         const gutter = document.getElementById("line-numbers");
         if (gutter) gutter.scrollTop = editor.scrollTop;
+
+        const highlights = document.getElementById("highlight-layer");
+        if (highlights) {
+            highlights.scrollTop = editor.scrollTop;
+            highlights.scrollLeft = editor.scrollLeft;
+        }
     },
 
     selectRange(editorId, start, length) {

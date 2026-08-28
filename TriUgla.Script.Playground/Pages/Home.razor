@@ -17,7 +17,7 @@
     <section class="editor-panel" aria-labelledby="editor-label">
         <div class="panel-bar">
             <div class="file-name" id="editor-label">
-                <span class="status-dot" aria-hidden="true"></span>
+                <span class="status-dot @(ErrorCount > 0 ? "has-errors" : null)" aria-hidden="true"></span>
                 main.tus
             </div>
             <span>@LineCount lines</span>
@@ -29,14 +29,19 @@
                     <span>@line</span>
                 }
             </div>
-            <textarea id="script-editor"
-                      class="script-editor"
-                      value="@source"
-                      @oninput="UpdateSource"
-                      @onkeydown="HandleEditorKeyDown"
-                      onscroll="editorInterop.syncScroll(this)"
-                      aria-label="Script source code"
-                      spellcheck="false"></textarea>
+            <div class="code-surface">
+                <pre id="highlight-layer" class="highlight-layer" aria-hidden="true"><code>@foreach (HighlightSegment segment in HighlightSegments)
+                    {<span class="@segment.CssClass">@segment.Text</span>}</code></pre>
+                <textarea id="script-editor"
+                          class="script-editor"
+                          value="@source"
+                          @oninput="UpdateSource"
+                          @onkeydown="HandleEditorKeyDown"
+                          onscroll="editorInterop.syncScroll(this)"
+                          aria-label="Script source code"
+                          aria-describedby="diagnostics-title"
+                          spellcheck="false"></textarea>
+            </div>
         </div>
     </section>
 
@@ -44,27 +49,14 @@
         <div class="panel-bar diagnostics-bar">
             <div class="diagnostics-heading">
                 <h2 id="diagnostics-title">Diagnostics</h2>
-                @if (hasRun)
-                {
-                    <span class="count error-count">@ErrorCount errors</span>
-                    <span class="count info-count">@InfoCount info</span>
-                }
+                <span class="count error-count">@ErrorCount errors</span>
+                <span class="count info-count">@InfoCount info</span>
             </div>
-            @if (hasRun)
-            {
-                <span class="run-time">Checked locally in your browser</span>
-            }
+            <span class="run-time">Live syntax check</span>
         </div>
 
         <div class="diagnostics-list">
-            @if (!hasRun)
-            {
-                <div class="empty-state">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" /></svg>
-                    <p>Run the script to see errors and information.</p>
-                </div>
-            }
-            else if (diagnostics.Count == 0)
+            @if (diagnostics.Count == 0)
             {
                 <div class="empty-state success-state">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6" /></svg>
@@ -90,27 +82,82 @@
             }
         </div>
     </section>
+
+    <section class="output-panel" aria-labelledby="output-title" aria-live="polite">
+        <div class="panel-bar">
+            <h2 id="output-title">Output</h2>
+            @if (output is not null)
+            {
+                <span class="output-status @(runtimeFailed ? "failed" : null)">@(runtimeFailed ? "Runtime error" : "Completed")</span>
+            }
+        </div>
+        <pre class="output-content @(runtimeFailed ? "failed" : null)">@(output ?? "Run the script to see its result.")</pre>
+    </section>
 </main>
 
 @code {
-    string source = "Point(1) = {0, 0, 0, 1};\nPoint(2) = {1, 0, 0, 1};\nLine(1) = {1, 2};";
+    string source = "size = 4;\narea = size * size;\nPrint(area);";
     IReadOnlyList<Diagnostic> diagnostics = [];
-    bool hasRun;
+    IReadOnlyList<Token> tokens = [];
+    string? output;
+    bool runtimeFailed;
+    readonly List<string> printedLines = [];
 
     int LineCount => Math.Max(1, source.Count(character => character == '\n') + 1);
     int ErrorCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Error);
     int InfoCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Info);
+    IReadOnlyList<HighlightSegment> HighlightSegments => BuildHighlightSegments();
+
+    protected override void OnInitialized() => Analyze();
 
     void UpdateSource(ChangeEventArgs args)
     {
         source = args.Value?.ToString() ?? string.Empty;
+        output = null;
+        runtimeFailed = false;
+        printedLines.Clear();
+        Analyze();
     }
 
     void RunScript()
     {
+        SyntaxTree tree = Analyze();
+        if (tree.HasErrors)
+        {
+            output = "Execution stopped because the script contains syntax errors.";
+            runtimeFailed = true;
+            return;
+        }
+
+        try
+        {
+            printedLines.Clear();
+            var evaluator = new EvaluationVisitor();
+            evaluator.Printed += OnPrinted;
+            Value result = evaluator.Evaluate(tree.Root);
+            output = printedLines.Count == 0 ? result.ToString() : string.Join(Environment.NewLine, printedLines);
+            runtimeFailed = false;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or InvalidCastException)
+        {
+            output = exception.Message;
+            runtimeFailed = true;
+        }
+    }
+
+    void OnPrinted(Value value)
+    {
+        printedLines.Add(value.ToString());
+        output = string.Join(Environment.NewLine, printedLines);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    SyntaxTree Analyze()
+    {
         SyntaxTree tree = SyntaxTree.Parse(source);
         diagnostics = tree.Diagnostics;
-        hasRun = true;
+        tokens = new Tokenizer(source).Tokenize();
+        return tree;
     }
 
     void HandleEditorKeyDown(KeyboardEventArgs args)
@@ -137,4 +184,59 @@
             diagnostic.Span.Start,
             Math.Max(1, diagnostic.Span.Length));
     }
+
+    IReadOnlyList<HighlightSegment> BuildHighlightSegments()
+    {
+        if (source.Length == 0)
+        {
+            return [];
+        }
+
+        var boundaries = new SortedSet<int> { 0, source.Length };
+        foreach (Token token in tokens.Where(item => item.Kind != TokenKind.EndOfFile))
+        {
+            boundaries.Add(Math.Clamp(token.Span.Start, 0, source.Length));
+            boundaries.Add(Math.Clamp(token.Span.End, 0, source.Length));
+        }
+
+        foreach (Diagnostic diagnostic in diagnostics)
+        {
+            int start = Math.Clamp(diagnostic.Span.Start, 0, source.Length - 1);
+            int end = Math.Clamp(start + Math.Max(1, diagnostic.Span.Length), start + 1, source.Length);
+            boundaries.Add(start);
+            boundaries.Add(end);
+        }
+
+        int[] positions = boundaries.ToArray();
+        var segments = new List<HighlightSegment>(positions.Length - 1);
+        for (int index = 0; index < positions.Length - 1; index++)
+        {
+            int start = positions[index];
+            int end = positions[index + 1];
+            Token token = tokens.FirstOrDefault(item =>
+                item.Kind != TokenKind.EndOfFile && start >= item.Span.Start && start < item.Span.End);
+            bool hasError = diagnostics.Any(item =>
+            {
+                int errorStart = Math.Clamp(item.Span.Start, 0, source.Length - 1);
+                int errorEnd = Math.Min(source.Length, errorStart + Math.Max(1, item.Span.Length));
+                return start < errorEnd && end > errorStart;
+            });
+            string tokenClass = token.Kind == TokenKind.EndOfFile ? "token-plain" : TokenClass(token.Kind);
+            segments.Add(new HighlightSegment(source[start..end], $"{tokenClass}{(hasError ? " token-error" : string.Empty)}"));
+        }
+
+        return segments;
+    }
+
+    static string TokenClass(TokenKind kind) => kind switch
+    {
+        TokenKind.Keyword => "token-keyword",
+        TokenKind.Number => "token-number",
+        TokenKind.String => "token-string",
+        TokenKind.Identifier => "token-identifier",
+        TokenKind.BadToken => "token-bad",
+        _ => "token-symbol"
+    };
+
+    sealed record HighlightSegment(string Text, string CssClass);
 }

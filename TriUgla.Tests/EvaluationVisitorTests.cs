@@ -67,6 +67,33 @@ public class EvaluationVisitorTests
     }
 
     [Fact]
+    public void Evaluate_Print_EmitsEachValueInEvaluationOrder()
+    {
+        SyntaxTree tree = SyntaxTree.Parse("Print(1); Print(2 + 3); Print(\"done\");");
+        var evaluator = new EvaluationVisitor();
+        var printed = new List<string>();
+        evaluator.Printed += value => printed.Add(value.ToString());
+
+        evaluator.Evaluate(tree.Root);
+
+        Assert.Equal(["1", "5", "done"], printed);
+        Assert.Equal(printed, evaluator.PrintedValues.Select(value => value.ToString()));
+    }
+
+    [Theory]
+    [InlineData("Print();", 0)]
+    [InlineData("Print(1, 2);", 2)]
+    public void Evaluate_Print_WithWrongArgumentCount_Throws(string source, int count)
+    {
+        var evaluator = new EvaluationVisitor();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => evaluator.Evaluate(SyntaxTree.Parse(source).Root));
+
+        Assert.Contains($"received {count}", exception.Message);
+    }
+
+    [Fact]
     public void Accept_DispatchesToEvaluationVisitor()
     {
         SyntaxTree tree = SyntaxTree.Parse("10;");

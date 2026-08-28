@@ -4,16 +4,36 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 {
     readonly Scope _scope;
     readonly IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>> _functions;
+    readonly List<Value> _printedValues = [];
 
     public EvaluationVisitor(
         Scope? scope = null,
         IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>>? functions = null)
     {
         _scope = scope ?? new Scope();
-        _functions = functions ?? new Dictionary<string, Func<IReadOnlyList<Value>, Value>>();
+        var availableFunctions = new Dictionary<string, Func<IReadOnlyList<Value>, Value>>(
+            StringComparer.Ordinal)
+        {
+            ["Print"] = Print
+        };
+
+        if (functions is not null)
+        {
+            foreach ((string name, Func<IReadOnlyList<Value>, Value> function) in functions)
+            {
+                if (!availableFunctions.TryAdd(name, function))
+                {
+                    throw new ArgumentException($"Function '{name}' is already registered.", nameof(functions));
+                }
+            }
+        }
+
+        _functions = availableFunctions;
     }
 
     public Scope Scope => _scope;
+    public IReadOnlyList<Value> PrintedValues => _printedValues;
+    public event Action<Value>? Printed;
 
     public Value Evaluate(AstNode node)
     {
@@ -132,6 +152,19 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
 
         return result;
+    }
+
+    Value Print(IReadOnlyList<Value> arguments)
+    {
+        if (arguments.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"Print expects exactly one argument, but received {arguments.Count}.");
+        }
+
+        _printedValues.Add(arguments[0]);
+        Printed?.Invoke(arguments[0]);
+        return 0d;
     }
 
     static Value Boolean(bool value) => value ? 1d : 0d;
