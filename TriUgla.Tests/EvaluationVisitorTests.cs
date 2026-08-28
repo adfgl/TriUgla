@@ -138,4 +138,58 @@ public class EvaluationVisitorTests
         Assert.Equal(0, result.Number);
         Assert.Empty(evaluator.PrintedValues);
     }
+
+    [Theory]
+    [InlineData("For i In {1:3}\nPrint(i);\nEndFor", new[] { "1", "2", "3" })]
+    [InlineData("For i In {5:1:-2}\nPrint(i);\nEndFor", new[] { "5", "3", "1" })]
+    [InlineData("For (1:3)\nPrint(\"tick\");\nEndFor", new[] { "tick", "tick", "tick" })]
+    public void Evaluate_GmshLoop_PrintsEveryIterationInOrder(
+        string source,
+        string[] expected)
+    {
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        Assert.Equal(expected, evaluator.PrintedValues.Select(value => value.ToString()));
+    }
+
+    [Fact]
+    public void Evaluate_LoopIterator_IsScopedToLoop()
+    {
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse("For i In {1:2}\nPrint(i);\nEndFor").Root);
+
+        Assert.False(evaluator.Scope.IsDeclared("i"));
+    }
+
+    [Fact]
+    public void Evaluate_LoopWithZeroStep_Throws()
+    {
+        var evaluator = new EvaluationVisitor();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            evaluator.Evaluate(SyntaxTree.Parse("For i In {1:2:0}\nPrint(i);\nEndFor").Root));
+
+        Assert.Contains("non-zero", exception.Message);
+    }
+
+    [Fact]
+    public void Evaluate_NestedLoops_ExecuteCompleteCartesianRange()
+    {
+        SyntaxTree tree = SyntaxTree.Parse(
+            "For i In {1:2}\n" +
+            "  For j In {1:2}\n" +
+            "    Print(i * 10 + j);\n" +
+            "  EndFor\n" +
+            "EndFor");
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(tree.Root);
+
+        Assert.Equal(
+            ["11", "12", "21", "22"],
+            evaluator.PrintedValues.Select(value => value.ToString()));
+    }
 }

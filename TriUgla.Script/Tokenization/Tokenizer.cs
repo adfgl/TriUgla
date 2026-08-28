@@ -66,6 +66,7 @@ public sealed class Tokenizer(string source)
             '[' => TokenKind.LeftBracket,
             ']' => TokenKind.RightBracket,
             ',' => TokenKind.Comma,
+            ':' => TokenKind.Colon,
             ';' => TokenKind.Semicolon,
             '.' => TokenKind.Dot,
             '+' => TokenKind.Plus,

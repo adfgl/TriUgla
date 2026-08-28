@@ -139,3 +139,17 @@ public sealed record IfStmt(
             ? endIfKeyword.Span
             : TextSpan.FromBounds(branches[0].Keyword.Span, endIfKeyword.Span);
 }
+
+public sealed record ForStmt(
+    Token ForKeyword,
+    Token? Iterator,
+    Expr Start,
+    Expr End,
+    Expr? Step,
+    IReadOnlyList<Stmt> Statements,
+    Token EndForKeyword)
+    : Stmt(TextSpan.FromBounds(ForKeyword.Span, EndForKeyword.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitForStatement(this);
+}

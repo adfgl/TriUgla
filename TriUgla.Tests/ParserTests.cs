@@ -134,4 +134,45 @@ public class ParserTests
 
         Assert.Equal("TS1008", diagnostic.Code);
     }
+
+    [Theory]
+    [InlineData("For (1:3)\nPrint(1);\nEndFor", false, false)]
+    [InlineData("For i In {1:5:2}\nPrint(i);\nEndFor", true, true)]
+    public void Parse_GmshLoop_CreatesForStatement(
+        string source,
+        bool hasIterator,
+        bool hasStep)
+    {
+        SyntaxTree tree = SyntaxTree.Parse(source);
+
+        var statement = Assert.IsType<ForStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Empty(tree.Diagnostics);
+        Assert.Equal(hasIterator, statement.Iterator is not null);
+        Assert.Equal(hasStep, statement.Step is not null);
+        Assert.Single(statement.Statements);
+        Assert.Equal(KeywordKind.EndFor, statement.EndForKeyword.Keyword);
+    }
+
+    [Fact]
+    public void Parse_NestedLoops_MatchesEachEndFor()
+    {
+        SyntaxTree tree = SyntaxTree.Parse(
+            "For i In {1:2}\n" +
+            "  For j In {1:2}\n" +
+            "    Print(i + j);\n" +
+            "  EndFor\n" +
+            "EndFor");
+
+        var outer = Assert.IsType<ForStmt>(Assert.Single(tree.Root.Statements));
+        Assert.IsType<ForStmt>(Assert.Single(outer.Statements));
+        Assert.Empty(tree.Diagnostics);
+    }
+
+    [Fact]
+    public void Parse_LoopWithoutEndFor_ReportsDiagnostic()
+    {
+        Diagnostic diagnostic = Assert.Single(SyntaxTree.Parse("For (1:2)\nPrint(1);").Diagnostics);
+
+        Assert.Equal("TS1016", diagnostic.Code);
+    }
 }

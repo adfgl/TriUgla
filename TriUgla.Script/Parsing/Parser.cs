@@ -44,6 +44,11 @@ public sealed class Parser
             return ParseIfStatement();
         }
 
+        if (IsKeyword(KeywordKind.For))
+        {
+            return ParseForStatement();
+        }
+
         if (Peek().Kind == TokenKind.LeftBrace)
         {
             return ParseBlock();
@@ -95,6 +100,48 @@ public sealed class Parser
             "TS1008",
             "Expected 'EndIf' to close conditional statement.");
         return new IfStmt(branches, endIf);
+    }
+
+    ForStmt ParseForStatement()
+    {
+        Token forKeyword = Read();
+        Token? iterator = null;
+        TokenKind closingToken;
+
+        if (Peek().Kind == TokenKind.LeftParenthesis)
+        {
+            Read();
+            closingToken = TokenKind.RightParenthesis;
+        }
+        else
+        {
+            iterator = Expect(
+                TokenKind.Identifier,
+                "TS1011",
+                "Expected iterator name or '(' after 'For'.");
+            ExpectKeyword(KeywordKind.In, "TS1012", "Expected 'In' after loop iterator.");
+            Expect(TokenKind.LeftBrace, "TS1013", "Expected '{' before iterator range.");
+            closingToken = TokenKind.RightBrace;
+        }
+
+        Expr start = ParseExpression();
+        Expect(TokenKind.Colon, "TS1014", "Expected ':' after loop range start.");
+        Expr end = ParseExpression();
+        Expr? step = null;
+        if (Peek().Kind == TokenKind.Colon)
+        {
+            Read();
+            step = ParseExpression();
+        }
+
+        Expect(closingToken, "TS1015", "Expected closing delimiter after loop range.");
+        IReadOnlyList<Stmt> statements = ParseStatementsUntil(KeywordKind.EndFor);
+        _errorInStatement = false;
+        Token endFor = ExpectKeyword(
+            KeywordKind.EndFor,
+            "TS1016",
+            "Expected 'EndFor' to close loop statement.");
+        return new ForStmt(forKeyword, iterator, start, end, step, statements, endFor);
     }
 
     ConditionalBranch ParseConditionalBranch(Token keyword)

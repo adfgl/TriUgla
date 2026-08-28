@@ -145,6 +145,16 @@ public class TokenizerTests
     }
 
     [Fact]
+    public void Tokenize_LoopRange_ReturnsColonTokens()
+    {
+        IReadOnlyList<Token> tokens = Tokenize("For i In {1:5:2}");
+
+        Assert.Equal(2, tokens.Count(token => token.Kind == TokenKind.Colon));
+        Assert.Equal(KeywordKind.For, tokens[0].Keyword);
+        Assert.Equal(KeywordKind.In, tokens[2].Keyword);
+    }
+
+    [Fact]
     public void Tokenize_UnknownCharacter_ReturnsBadTokenWithSourceSpan()
     {
         Token token = Tokenize("  @")[0];

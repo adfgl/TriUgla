@@ -2,6 +2,7 @@ namespace TriUgla.Script;
 
 public sealed class EvaluationVisitor : INodeVisitor<Value>
 {
+    const int MaximumLoopIterations = 1_000_000;
     readonly Scope _scope;
     readonly IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>> _functions;
     readonly List<Value> _printedValues = [];
@@ -154,6 +155,47 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
 
         return 0d;
+    }
+
+    public Value VisitForStatement(ForStmt node)
+    {
+        double start = Evaluate(node.Start).Number;
+        double end = Evaluate(node.End).Number;
+        double step = node.Step is null ? 1d : Evaluate(node.Step).Number;
+        if (step == 0d || double.IsNaN(step))
+        {
+            throw new InvalidOperationException("Loop step must be a non-zero number.");
+        }
+
+        Value result = 0d;
+        int iterations = 0;
+        using (_scope.Open())
+        {
+            if (node.Iterator is Token iterator)
+            {
+                _scope.Declare(iterator.Text, start);
+            }
+
+            for (double current = start;
+                 step > 0d ? current <= end : current >= end;
+                 current += step)
+            {
+                if (++iterations > MaximumLoopIterations)
+                {
+                    throw new InvalidOperationException(
+                        $"Loop exceeded the limit of {MaximumLoopIterations} iterations.");
+                }
+
+                if (node.Iterator is Token currentIterator)
+                {
+                    _scope.TryAssign(currentIterator.Text, current);
+                }
+
+                result = EvaluateStatements(node.Statements);
+            }
+        }
+
+        return result;
     }
 
     Value EvaluateStatements(IReadOnlyList<Stmt> statements)

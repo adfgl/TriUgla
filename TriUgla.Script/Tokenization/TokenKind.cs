@@ -15,6 +15,7 @@ public enum TokenKind
     LeftBracket,
     RightBracket,
     Comma,
+    Colon,
     Semicolon,
     Dot,
     Plus,
