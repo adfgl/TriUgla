@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../TriUgla/TriUgla.csproj" />
+    <ProjectReference Include="../TriUgla.Script/TriUgla.Script.csproj" />
   </ItemGroup>
 
   <ItemGroup>
