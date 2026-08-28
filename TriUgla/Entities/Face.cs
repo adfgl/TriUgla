@@ -1,3 +1,5 @@
+using System.Security.Cryptography.X509Certificates;
+
 namespace TriUgla;
 
 public class Face : MeshElement
@@ -17,5 +19,17 @@ public class Face : MeshElement
             }
             while (!ReferenceEquals(current, first));
         }
+    }
+
+    public bool Contains(Node node)
+    {
+        foreach (Edge edge in Edges)
+        {
+            if (ReferenceEquals(node, edge.NodeStart))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }
