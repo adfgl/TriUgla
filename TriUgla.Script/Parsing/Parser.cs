@@ -39,6 +39,11 @@ public sealed class Parser
     {
         _errorInStatement = false;
 
+        if (IsKeyword(KeywordKind.If))
+        {
+            return ParseIfStatement();
+        }
+
         if (Peek().Kind == TokenKind.LeftBrace)
         {
             return ParseBlock();
@@ -61,6 +66,64 @@ public sealed class Parser
         }
 
         return statement;
+    }
+
+    IfStmt ParseIfStatement()
+    {
+        var branches = new List<ConditionalBranch>();
+        Token ifKeyword = Read();
+        branches.Add(ParseConditionalBranch(ifKeyword));
+
+        while (IsKeyword(KeywordKind.ElseIf))
+        {
+            Token elseIfKeyword = Read();
+            branches.Add(ParseConditionalBranch(elseIfKeyword));
+        }
+
+        if (IsKeyword(KeywordKind.Else))
+        {
+            Token elseKeyword = Read();
+            branches.Add(new ConditionalBranch(
+                elseKeyword,
+                null,
+                ParseStatementsUntil(KeywordKind.EndIf)));
+        }
+
+        _errorInStatement = false;
+        Token endIf = ExpectKeyword(
+            KeywordKind.EndIf,
+            "TS1008",
+            "Expected 'EndIf' to close conditional statement.");
+        return new IfStmt(branches, endIf);
+    }
+
+    ConditionalBranch ParseConditionalBranch(Token keyword)
+    {
+        Expect(TokenKind.LeftParenthesis, "TS1009", $"Expected '(' after '{keyword.Text}'.");
+        Expr condition = ParseExpression();
+        Expect(TokenKind.RightParenthesis, "TS1010", "Expected ')' after conditional expression.");
+        IReadOnlyList<Stmt> statements = ParseStatementsUntil(
+            KeywordKind.ElseIf,
+            KeywordKind.Else,
+            KeywordKind.EndIf);
+        return new ConditionalBranch(keyword, condition, statements);
+    }
+
+    IReadOnlyList<Stmt> ParseStatementsUntil(params KeywordKind[] terminators)
+    {
+        var statements = new List<Stmt>();
+        while (Peek().Kind != TokenKind.EndOfFile &&
+               !terminators.Any(IsKeyword))
+        {
+            int start = _tokens.Position;
+            statements.Add(ParseStatement());
+            if (_tokens.Position == start)
+            {
+                Read();
+            }
+        }
+
+        return statements;
     }
 
     BlockStmt ParseBlock()
@@ -262,6 +325,22 @@ public sealed class Parser
             current.Span.Column));
     }
 
+    Token ExpectKeyword(KeywordKind keyword, string code, string message)
+    {
+        if (IsKeyword(keyword))
+        {
+            return Read();
+        }
+
+        Token current = Peek();
+        ReportError(code, message, current.Span);
+        return new Token(
+            TokenKind.Keyword,
+            string.Empty,
+            new TextSpan(current.Span.Start, 0, current.Span.Line, current.Span.Column),
+            keyword);
+    }
+
     void ReportError(string code, string message, TextSpan span)
     {
         if (_errorInStatement)
@@ -276,6 +355,9 @@ public sealed class Parser
     Token Peek() => _tokens.Peek();
 
     Token Read() => _tokens.Read();
+
+    bool IsKeyword(KeywordKind keyword)
+        => Peek().Kind == TokenKind.Keyword && Peek().Keyword == keyword;
 
     static string Display(Token token)
         => token.Kind == TokenKind.EndOfFile ? "end of file" : token.Text;

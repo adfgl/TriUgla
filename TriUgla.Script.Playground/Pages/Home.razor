@@ -96,7 +96,7 @@
 </main>
 
 @code {
-    string source = "size = 4;\narea = size * size;\nPrint(area);";
+    string source = "size = 4;\narea = size * size;\n\nIf (area > 10)\n  Print(\"large area\");\nElse\n  Print(\"small area\");\nEndIf";
     IReadOnlyList<Diagnostic> diagnostics = [];
     IReadOnlyList<Token> tokens = [];
     string? output;

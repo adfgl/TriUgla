@@ -113,3 +113,29 @@ public sealed record BlockStmt(
     public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
         => visitor.VisitBlockStatement(this);
 }
+
+public sealed record ConditionalBranch(
+    Token Keyword,
+    Expr? Condition,
+    IReadOnlyList<Stmt> Statements)
+{
+    public TextSpan Span => Statements.Count > 0
+        ? TextSpan.FromBounds(Keyword.Span, Statements[^1].Span)
+        : Condition is null
+            ? Keyword.Span
+            : TextSpan.FromBounds(Keyword.Span, Condition.Span);
+}
+
+public sealed record IfStmt(
+    IReadOnlyList<ConditionalBranch> Branches,
+    Token EndIfKeyword)
+    : Stmt(GetSpan(Branches, EndIfKeyword))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitIfStatement(this);
+
+    static TextSpan GetSpan(IReadOnlyList<ConditionalBranch> branches, Token endIfKeyword)
+        => branches.Count == 0
+            ? endIfKeyword.Span
+            : TextSpan.FromBounds(branches[0].Keyword.Span, endIfKeyword.Span);
+}

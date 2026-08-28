@@ -89,4 +89,49 @@ public class ParserTests
             diagnostics.Items.Select(item => item.Severity));
         Assert.True(diagnostics.HasErrors);
     }
+
+    [Fact]
+    public void Parse_GmshConditional_CreatesOrderedBranches()
+    {
+        SyntaxTree tree = SyntaxTree.Parse(
+            "If (value > 10)\n" +
+            "  result = 1;\n" +
+            "ElseIf (value > 5)\n" +
+            "  result = 2;\n" +
+            "Else\n" +
+            "  result = 3;\n" +
+            "EndIf");
+
+        var statement = Assert.IsType<IfStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Empty(tree.Diagnostics);
+        Assert.Equal(3, statement.Branches.Count);
+        Assert.NotNull(statement.Branches[0].Condition);
+        Assert.NotNull(statement.Branches[1].Condition);
+        Assert.Null(statement.Branches[2].Condition);
+        Assert.All(statement.Branches, branch => Assert.Single(branch.Statements));
+        Assert.Equal(KeywordKind.EndIf, statement.EndIfKeyword.Keyword);
+    }
+
+    [Fact]
+    public void Parse_NestedConditionals_MatchesEachEndIf()
+    {
+        SyntaxTree tree = SyntaxTree.Parse(
+            "If (1)\n" +
+            "  If (0)\n" +
+            "    value = 1;\n" +
+            "  EndIf\n" +
+            "EndIf");
+
+        var outer = Assert.IsType<IfStmt>(Assert.Single(tree.Root.Statements));
+        Assert.IsType<IfStmt>(Assert.Single(outer.Branches[0].Statements));
+        Assert.Empty(tree.Diagnostics);
+    }
+
+    [Fact]
+    public void Parse_ConditionalWithoutEndIf_ReportsDiagnostic()
+    {
+        Diagnostic diagnostic = Assert.Single(SyntaxTree.Parse("If (1)\nvalue = 2;").Diagnostics);
+
+        Assert.Equal("TS1008", diagnostic.Code);
+    }
 }

@@ -143,6 +143,19 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
     }
 
+    public Value VisitIfStatement(IfStmt node)
+    {
+        foreach (ConditionalBranch branch in node.Branches)
+        {
+            if (branch.Condition is null || Evaluate(branch.Condition).Number != 0d)
+            {
+                return EvaluateStatements(branch.Statements);
+            }
+        }
+
+        return 0d;
+    }
+
     Value EvaluateStatements(IReadOnlyList<Stmt> statements)
     {
         Value result = 0d;

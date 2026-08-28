@@ -102,4 +102,40 @@ public class EvaluationVisitorTests
 
         Assert.Equal(10, result.Number);
     }
+
+    [Theory]
+    [InlineData(12, "large")]
+    [InlineData(7, "medium")]
+    [InlineData(2, "small")]
+    public void Evaluate_GmshConditional_ExecutesFirstMatchingBranch(
+        double input,
+        string expected)
+    {
+        SyntaxTree tree = SyntaxTree.Parse(
+            $"value = {input};\n" +
+            "If (value > 10)\n" +
+            "  Print(\"large\");\n" +
+            "ElseIf (value > 5)\n" +
+            "  Print(\"medium\");\n" +
+            "Else\n" +
+            "  Print(\"small\");\n" +
+            "EndIf");
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(tree.Root);
+
+        Assert.Equal(expected, Assert.Single(evaluator.PrintedValues).ToString());
+    }
+
+    [Fact]
+    public void Evaluate_ConditionalWithNoMatchingBranch_DoesNothing()
+    {
+        SyntaxTree tree = SyntaxTree.Parse("If (0)\nPrint(\"no\");\nEndIf");
+        var evaluator = new EvaluationVisitor();
+
+        Value result = evaluator.Evaluate(tree.Root);
+
+        Assert.Equal(0, result.Number);
+        Assert.Empty(evaluator.PrintedValues);
+    }
 }

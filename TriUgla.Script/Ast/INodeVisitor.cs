@@ -14,4 +14,5 @@ public interface INodeVisitor<out TResult>
     TResult VisitExpressionStatement(ExpressionStmt node);
     TResult VisitAssignmentStatement(AssignmentStmt node);
     TResult VisitBlockStatement(BlockStmt node);
+    TResult VisitIfStatement(IfStmt node);
 }
