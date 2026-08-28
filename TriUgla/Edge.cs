@@ -1,8 +1,33 @@
 namespace TriUgla;
-public class Edge
+public class Edge : IConstrainable
 {
-    public Node Node = null!;
-    public Edge Next = null!;
-    public Edge Prev = null!;
-    public Face Face = null!;
+    int _constraints = 0;
+
+    public Node NodeStart { get; set; } = null!;
+    public Edge Next { get; set; } = null!;
+    public Edge Prev { get; set; } = null!;
+    public Face Face { get; set; } = null!;
+    public Edge? Twin { get; set; }
+    public Node NodeEnd => Next.NodeStart;
+
+    public bool Constrained => _constraints > 0;
+    public bool OrTwinConstrained => Constrained || (Twin != null && Twin.Constrained);
+
+    public void Constrain()
+    {
+        _constraints++;
+        NodeStart.Constrain();
+        Next.NodeStart.Constrain();
+    }
+
+    public void Relax()
+    {
+        if (Constrained)
+        {
+            _constraints--;
+            NodeStart.Relax();
+            NodeEnd.Relax();
+        }
+    }
+
 }
