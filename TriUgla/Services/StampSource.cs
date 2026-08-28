@@ -3,7 +3,7 @@ namespace TriUgla;
 /// <summary>
 /// Issues sequential traversal stamps.
 /// </summary>
-public sealed class StampSource(Stamp current)
+sealed class StampSource(Stamp current)
 {
     uint _value = current.Value;
 
@@ -25,4 +25,6 @@ public sealed class StampSource(Stamp current)
         stamp = new Stamp(++_value);
         return true;
     }
+
+    public void Reset() => _value = Stamp.None.Value;
 }
