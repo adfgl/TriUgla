@@ -40,6 +40,10 @@ sealed class TestData(string color, double number, object? link) : ElementData
     public string Color { get; } = color;
     public double Number { get; } = number;
     public object? Link { get; } = link;
+    public InsertNodeStatus? InsertedStatus { get; private set; }
+
+    public override void AfterInserted(Node node, InsertNodeResult result)
+        => InsertedStatus = result.Status;
 }
 
 sealed class TestInterpolator : IDataInterpolator
