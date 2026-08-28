@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public class Edge : IConstrainable
+public class Edge : MeshElement, IConstrainable
 {
     int _constraints = 0;
 
@@ -39,6 +39,7 @@ public class Edge : IConstrainable
             yield return NodeEnd;
         }
     }
+
 
     public bool Contains(Node node) =>
         ReferenceEquals(NodeStart, node) ||

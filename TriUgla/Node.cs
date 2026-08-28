@@ -1,6 +1,6 @@
 ﻿namespace TriUgla;
 
-public sealed class Node : IConstrainable
+public sealed class Node : MeshElement, IConstrainable
 {
     int _constraints = 0;
 

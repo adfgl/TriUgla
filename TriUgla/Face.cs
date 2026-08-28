@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public class Face
+public class Face : MeshElement
 {
     public Edge Edge { get; set; } = null!;
 
