@@ -108,7 +108,7 @@ public sealed class Mesh(Face root) : IMeshTraversal
         }
     }
 
-    Stamp NextStamp()
+    internal Stamp NextStamp()
     {
         if (_stamps.TryNext(out Stamp stamp))
         {

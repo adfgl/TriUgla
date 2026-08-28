@@ -1,0 +1,106 @@
+namespace TriUgla;
+
+public sealed class MeshLocator(Mesh mesh) : IMeshLocator
+{
+    Face? _lastFound;
+
+    public double Eps { get; set; } = 1e-6;
+
+    public LocateResult Locate(Vec2 point, Face? from = null)
+    {
+        ValidateEpsilon();
+
+        Face current = from ?? _lastFound ?? mesh.Root;
+        Stamp stamp = mesh.NextStamp();
+        current.TryVisit(stamp);
+
+        while (true)
+        {
+            Edge nearestEdge = FindNearestEdge(current, point, out double minimumCross);
+            LocateResult? result = Classify(current, nearestEdge, point, minimumCross);
+
+            if (result is LocateResult found)
+            {
+                _lastFound = current;
+                return found;
+            }
+
+            if (!TryMoveAcross(nearestEdge, stamp, out current))
+            {
+                _lastFound = null;
+                return LocateResult.Empty;
+            }
+        }
+    }
+
+    LocateResult? Classify(Face face, Edge edge, Vec2 point, double minimumCross)
+    {
+        if (minimumCross < -Eps)
+        {
+            return null;
+        }
+
+        if (minimumCross > Eps)
+        {
+            return LocateResult.From(face);
+        }
+
+        if (IsNear(point, edge.NodeStart.Position))
+        {
+            return LocateResult.From(edge.NodeStart);
+        }
+
+        if (IsNear(point, edge.NodeEnd.Position))
+        {
+            return LocateResult.From(edge.NodeEnd);
+        }
+
+        return IsInsideEdgeBounds(point, edge) ? LocateResult.From(edge) : null;
+    }
+
+    bool IsNear(Vec2 first, Vec2 second)
+        => first.DistanceSquared(second) <= Eps * Eps;
+
+    bool IsInsideEdgeBounds(Vec2 point, Edge edge)
+    {
+        Vec2 min = Vec2.Min(edge.NodeStart.Position, edge.NodeEnd.Position);
+        Vec2 max = Vec2.Max(edge.NodeStart.Position, edge.NodeEnd.Position);
+
+        return point.X >= min.X - Eps && point.X <= max.X + Eps &&
+               point.Y >= min.Y - Eps && point.Y <= max.Y + Eps;
+    }
+
+    static Edge FindNearestEdge(Face face, Vec2 point, out double minimumCross)
+    {
+        Edge nearest = face.Edge;
+        minimumCross = double.PositiveInfinity;
+
+        foreach (Edge edge in face.Edges)
+        {
+            Vec2 start = edge.NodeStart.Position;
+            double cross = (edge.NodeEnd.Position - start).Cross(point - start);
+
+            if (cross < minimumCross)
+            {
+                minimumCross = cross;
+                nearest = edge;
+            }
+        }
+
+        return nearest;
+    }
+
+    static bool TryMoveAcross(Edge edge, Stamp stamp, out Face next)
+    {
+        next = edge.Twin?.Face!;
+        return next is not null && next.TryVisit(stamp);
+    }
+
+    void ValidateEpsilon()
+    {
+        if (double.IsNaN(Eps) || Eps < 0)
+        {
+            throw new InvalidOperationException("Eps must be a non-negative number.");
+        }
+    }
+}
