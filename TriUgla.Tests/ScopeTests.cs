@@ -79,4 +79,21 @@ public class ScopeTests
 
         Assert.Equal(1, scope.Depth);
     }
+
+    [Fact]
+    public void Values_CanBeReadAndAssignedAcrossNestedScopes()
+    {
+        var scope = new Scope();
+        scope.Declare("value", 1d);
+
+        using (scope.Open())
+        {
+            Assert.True(scope.TryGetValue("value", out Value initial));
+            Assert.Equal(1, initial.Number);
+            Assert.True(scope.TryAssign("value", 2d));
+        }
+
+        Assert.True(scope.TryGetValue("value", out Value assigned));
+        Assert.Equal(2, assigned.Number);
+    }
 }

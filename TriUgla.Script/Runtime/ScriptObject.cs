@@ -10,3 +10,10 @@ public sealed class ScriptString(string value) : ScriptObject
 
     public override string ToString() => Value;
 }
+
+public sealed class ScriptList(IEnumerable<Value> items) : ScriptObject
+{
+    public IReadOnlyList<Value> Items { get; } = items.ToArray();
+
+    public override string ToString() => $"{{{string.Join(", ", Items)}}}";
+}

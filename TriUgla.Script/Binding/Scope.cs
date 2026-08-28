@@ -12,7 +12,7 @@ public sealed class Scope
 
     public int Depth => _frames.Count;
 
-    public IReadOnlyCollection<string> DeclaredVariables => _frames.Peek().Variables;
+    public IReadOnlyCollection<string> DeclaredVariables => _frames.Peek().Variables.Keys;
 
     public IDisposable Open()
     {
@@ -22,21 +22,56 @@ public sealed class Scope
     }
 
     public bool Declare(string name)
+        => Declare(name, default);
+
+    public bool Declare(string name, Value value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return _frames.Peek().Variables.Add(name);
+        return _frames.Peek().Variables.TryAdd(name, value);
     }
 
     public bool IsDeclared(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return _frames.Any(frame => frame.Variables.Contains(name));
+        return _frames.Any(frame => frame.Variables.ContainsKey(name));
     }
 
     public bool IsDeclaredInCurrentScope(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return _frames.Peek().Variables.Contains(name);
+        return _frames.Peek().Variables.ContainsKey(name);
+    }
+
+    public bool TryGetValue(string name, out Value value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        foreach (Frame frame in _frames)
+        {
+            if (frame.Variables.TryGetValue(name, out value))
+            {
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
+    }
+
+    public bool TryAssign(string name, Value value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        foreach (Frame frame in _frames)
+        {
+            if (frame.Variables.ContainsKey(name))
+            {
+                frame.Variables[name] = value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void Close(int frameId)
@@ -57,7 +92,7 @@ public sealed class Scope
     sealed class Frame(int id)
     {
         public int Id { get; } = id;
-        public HashSet<string> Variables { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Value> Variables { get; } = new(StringComparer.Ordinal);
     }
 
     sealed class ScopeLease(Scope owner, int frameId) : IDisposable
