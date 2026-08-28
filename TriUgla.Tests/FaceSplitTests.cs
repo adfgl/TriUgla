@@ -32,6 +32,19 @@ public class FaceSplitTests
         Assert.Contains("requires triangular faces", error.Message);
     }
 
+    [Fact]
+    public void Split_CopiesFaceDataToNewFaces()
+    {
+        var (target, _, _) = CreateFace(3, withTwins: false);
+        target.Data = new TestData("green", 0, null);
+
+        FaceSplitResult result = new Splitter(new TestInterpolator())
+            .Split(target, new Node());
+
+        Assert.All(result.AffectedFaces, face =>
+            Assert.Equal("green", Assert.IsType<TestData>(face.Data).Color));
+    }
+
     static void AssertTriangleRing(Face face, Edge boundary)
     {
         Edge first = face.Edge;

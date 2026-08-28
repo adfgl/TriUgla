@@ -41,6 +41,29 @@ public class EdgeSplitTests
         Assert.Contains("boundary edge without a twin", error.Message);
     }
 
+    [Fact]
+    public void Split_CopiesFaceAndHalfEdgeDataToNewElements()
+    {
+        Fixture f = CreateFixture();
+        f.Target.Face.Data = new TestData("top", 0, null);
+        f.Twin.Face.Data = new TestData("bottom", 0, null);
+        f.Target.Data = new TestData("forward", 0, null);
+        f.Twin.Data = new TestData("reverse", 0, null);
+
+        EdgeSplitResult result = new Splitter(new TestInterpolator())
+            .Split(f.Target, new Node());
+
+        Assert.Equal("top", GetColor(result.AffectedFaces[0]));
+        Assert.Equal("top", GetColor(result.AffectedFaces[1]));
+        Assert.Equal("bottom", GetColor(result.AffectedFaces[2]));
+        Assert.Equal("bottom", GetColor(result.AffectedFaces[3]));
+        Assert.Equal("forward", GetColor(result.SecondHalf));
+        Assert.Equal("reverse", GetColor(result.SecondHalf.Twin!));
+    }
+
+    static string GetColor(MeshElement element)
+        => Assert.IsType<TestData>(element.Data).Color;
+
     static void AssertTriangle(
         Face face,
         Edge boundary,
