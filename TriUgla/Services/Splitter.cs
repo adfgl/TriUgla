@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class Splitter(LegalizationQueue illegalEdges) : ISplitter
+public sealed class Splitter : ISplitter
 {
     public FaceSplitResult Split(Face target, Node node)
     {
@@ -27,11 +27,9 @@ public sealed class Splitter(LegalizationQueue illegalEdges) : ISplitter
         Linker.LinkTriangle(bcd, bc, cd, db, b, c, d);
         Linker.LinkTriangle(cad, ca, ad, dc, c, a, d);
 
-        illegalEdges.Add(ab);
-        illegalEdges.Add(bc);
-        illegalEdges.Add(ca);
-
-        return new FaceSplitResult(abd, bcd, cad);
+        return new FaceSplitResult(
+            [abd, bcd, cad],
+            [ab, bc, ca]);
     }
 
     public EdgeSplitResult Split(Edge target, Node node)
@@ -77,12 +75,11 @@ public sealed class Splitter(LegalizationQueue illegalEdges) : ISplitter
         Linker.LinkTriangle(ade, ad, de, ea, a, d, e);
         Linker.LinkTriangle(dbe, db, be, ed, d, b, e);
 
-        illegalEdges.Add(ca);
-        illegalEdges.Add(bc);
-        illegalEdges.Add(ad);
-        illegalEdges.Add(db);
-
-        return new EdgeSplitResult(ae, eb, cae, bce, ade, dbe);
+        return new EdgeSplitResult(
+            ae,
+            eb,
+            [cae, bce, ade, dbe],
+            [ca, bc, ad, db]);
     }
 
     static (Edge First, Edge Second) CreateTwins()
@@ -95,16 +92,21 @@ public sealed class Splitter(LegalizationQueue illegalEdges) : ISplitter
 
     static void EnsureTriangle(Edge first)
     {
-        Edge second = first.Next;
-        Edge third = first.Prev;
-
-        if (!ReferenceEquals(second.Next, third) ||
-            !ReferenceEquals(third.Next, first) ||
-            !ReferenceEquals(second.Prev, first) ||
-            !ReferenceEquals(third.Prev, second))
+        if (!IsTriangle(first))
         {
             throw new InvalidOperationException(
                 "Splitter requires triangular faces with valid edge cycles.");
         }
+    }
+
+    static bool IsTriangle(Edge first)
+    {
+        Edge second = first.Next;
+        Edge third = first.Prev;
+
+        return ReferenceEquals(second.Next, third) &&
+            ReferenceEquals(third.Next, first) &&
+            ReferenceEquals(second.Prev, first) &&
+            ReferenceEquals(third.Prev, second);
     }
 }

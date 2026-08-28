@@ -6,20 +6,19 @@ public class FaceSplitTests
     public void SplitPreservesLinksAndOriginalTwins()
     {
         var (target, boundary, originalTwins) = CreateFace(3, withTwins: true);
-        var queue = new LegalizationQueue();
 
-        FaceSplitResult result = new Splitter(queue).Split(target, new Node());
+        FaceSplitResult result = new Splitter().Split(target, new Node());
 
-        Face[] faces = [result.Abd, result.Bcd, result.Cad];
-        for (int i = 0; i < faces.Length; i++)
+        for (int i = 0; i < result.AffectedFaces.Count; i++)
         {
-            AssertTriangleRing(faces[i], boundary[i]);
+            AssertTriangleRing(result.AffectedFaces[i], boundary[i]);
             Assert.Same(originalTwins[i], boundary[i].Twin);
             Assert.Same(boundary[i], originalTwins[i].Twin);
         }
 
-        Assert.Same(target, result.Abd);
-        Assert.Equal(boundary, [queue.Take(), queue.Take(), queue.Take()]);
+        Assert.Equal(3, result.AffectedFaces.Count);
+        Assert.Same(target, result.AffectedFaces[0]);
+        Assert.Equal(boundary, result.EdgesToLegalize);
     }
 
     [Fact]
@@ -28,7 +27,7 @@ public class FaceSplitTests
         var (face, _, _) = CreateFace(4, withTwins: false);
 
         var error = Assert.Throws<InvalidOperationException>(
-            () => new Splitter(new LegalizationQueue()).Split(face, new Node()));
+            () => new Splitter().Split(face, new Node()));
 
         Assert.Contains("requires triangular faces", error.Message);
     }

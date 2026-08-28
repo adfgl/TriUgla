@@ -7,14 +7,14 @@ public class EdgeSplitTests
     {
         Fixture f = CreateFixture();
         var center = new Node();
-        var queue = new LegalizationQueue();
 
-        EdgeSplitResult result = new Splitter(queue).Split(f.Target, center);
+        EdgeSplitResult result = new Splitter().Split(f.Target, center);
 
-        AssertTriangle(result.CAe, f.Outer[0], f.C, f.A, center);
-        AssertTriangle(result.BCe, f.Outer[1], f.B, f.C, center);
-        AssertTriangle(result.ADe, f.Outer[2], f.A, f.D, center);
-        AssertTriangle(result.DBe, f.Outer[3], f.D, f.B, center);
+        Assert.Equal(4, result.AffectedFaces.Count);
+        AssertTriangle(result.AffectedFaces[0], f.Outer[0], f.C, f.A, center);
+        AssertTriangle(result.AffectedFaces[1], f.Outer[1], f.B, f.C, center);
+        AssertTriangle(result.AffectedFaces[2], f.Outer[2], f.A, f.D, center);
+        AssertTriangle(result.AffectedFaces[3], f.Outer[3], f.D, f.B, center);
 
         Assert.Same(f.Target, result.FirstHalf);
         Assert.Same(f.Twin, result.FirstHalf.Twin);
@@ -27,7 +27,7 @@ public class EdgeSplitTests
             Assert.Same(f.Outer[i], f.OuterTwins[i].Twin);
         }
 
-        Assert.Equal(f.Outer, [queue.Take(), queue.Take(), queue.Take(), queue.Take()]);
+        Assert.Equal(f.Outer, result.EdgesToLegalize);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class EdgeSplitTests
         var edge = new Edge();
 
         var error = Assert.Throws<InvalidOperationException>(
-            () => new Splitter(new LegalizationQueue()).Split(edge, new Node()));
+            () => new Splitter().Split(edge, new Node()));
 
         Assert.Contains("boundary edge without a twin", error.Message);
     }
