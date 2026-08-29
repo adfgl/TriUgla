@@ -10,7 +10,10 @@ public sealed class EdgeInserter(
 
     public bool SplitCrossedEdges { get; set; }
 
-    public EdgeInsertResult Insert(Node start, Node end)
+    public EdgeInsertResult Insert(
+        Node start,
+        Node end,
+        EdgeConstraintKind kind = EdgeConstraintKind.Feature)
     {
         ArgumentNullException.ThrowIfNull(start);
         ArgumentNullException.ThrowIfNull(end);
@@ -38,13 +41,13 @@ public sealed class EdgeInserter(
 
             if (ReferenceEquals(entrance.NodeEnd, segmentEnd))
             {
-                Constrain(constrained, entrance);
+                Constrain(constrained, entrance, kind);
                 continue;
             }
 
             if (ContinuesAlongSegment(entrance, segmentEnd))
             {
-                Constrain(constrained, entrance);
+                Constrain(constrained, entrance, kind);
                 segments.Enqueue(entrance.NodeEnd, segmentEnd);
                 continue;
             }
@@ -157,9 +160,12 @@ public sealed class EdgeInserter(
         return intersection;
     }
 
-    static void Constrain(List<Edge> constrained, Edge edge)
+    static void Constrain(
+        List<Edge> constrained,
+        Edge edge,
+        EdgeConstraintKind kind)
     {
-        edge.Constrain();
+        edge.Constrain(kind);
         constrained.Add(edge);
     }
 

@@ -62,8 +62,8 @@ public sealed class Splitter : ISplitter
         Node d = db.NodeStart;
         Node e = node;
 
-        int forwardConstraints = ab.ConstraintCount;
-        int reverseConstraints = ba.ConstraintCount;
+        ConstraintCounts forwardConstraints = Counts(ab);
+        ConstraintCounts reverseConstraints = Counts(ba);
         RemoveConstraints(ab, forwardConstraints);
         RemoveConstraints(ba, reverseConstraints);
 
@@ -103,7 +103,7 @@ public sealed class Splitter : ISplitter
         Node a = ab.NodeStart;
         Node b = bc.NodeStart;
         Node c = ca.NodeStart;
-        int constraints = ab.ConstraintCount;
+        ConstraintCounts constraints = Counts(ab);
         RemoveConstraints(ab, constraints);
 
         Edge ae = ab;
@@ -130,22 +130,32 @@ public sealed class Splitter : ISplitter
         return (first, second);
     }
 
-    static void RemoveConstraints(Edge edge, int count)
+    static ConstraintCounts Counts(Edge edge)
+        => new(edge.FeatureConstraints, edge.BoundaryConstraints);
+
+    static void RemoveConstraints(Edge edge, ConstraintCounts counts)
     {
-        for (int index = 0; index < count; index++)
+        for (int index = 0; index < counts.Features; index++)
+            edge.Release(EdgeConstraintKind.Feature);
+        for (int index = 0; index < counts.Boundaries; index++)
+            edge.Release(EdgeConstraintKind.Boundary);
+    }
+
+    static void ApplyConstraints(Edge first, Edge second, ConstraintCounts counts)
+    {
+        for (int index = 0; index < counts.Features; index++)
         {
-            edge.Relax();
+            first.Constrain(EdgeConstraintKind.Feature);
+            second.Constrain(EdgeConstraintKind.Feature);
+        }
+        for (int index = 0; index < counts.Boundaries; index++)
+        {
+            first.Constrain(EdgeConstraintKind.Boundary);
+            second.Constrain(EdgeConstraintKind.Boundary);
         }
     }
 
-    static void ApplyConstraints(Edge first, Edge second, int count)
-    {
-        for (int index = 0; index < count; index++)
-        {
-            first.Constrain();
-            second.Constrain();
-        }
-    }
+    readonly record struct ConstraintCounts(int Features, int Boundaries);
 
     static void EnsureTriangle(Edge first)
     {

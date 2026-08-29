@@ -63,7 +63,7 @@ public class MeshRefinerTests
         Linker.LinkTriangle(first, ab, bc, ca, a, b, c);
         Linker.LinkTriangle(second, cb, bd, dc, c, b, d);
         Linker.LinkTwins(bc, cb);
-        bc.Constrain();
+        bc.Constrain(EdgeConstraintKind.Boundary);
 
         Fixture fixture = CreateFixture(first);
         FaceRanker ranker = AreaRanker(double.PositiveInfinity);
@@ -83,7 +83,7 @@ public class MeshRefinerTests
     public void RefineSplitsEncroachedBoundarySegment()
     {
         Fixture fixture = CreateFixture(new Vec2(1, 0.1));
-        fixture.Face.Edge.Constrain();
+        fixture.Face.Edge.Constrain(EdgeConstraintKind.Boundary);
 
         int inserted = fixture.Refiner.Refine(
             [fixture.Face],

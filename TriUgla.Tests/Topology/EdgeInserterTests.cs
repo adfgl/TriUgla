@@ -14,8 +14,26 @@ public class EdgeInserterTests
         Assert.Same(fixture.A, edge.NodeStart);
         Assert.Same(fixture.B, edge.NodeEnd);
         Assert.Equal(1, edge.ConstraintCount);
+        Assert.True(edge.HasFeature);
+        Assert.False(edge.HasBoundary);
         Assert.Empty(result.InsertedNodes);
         Assert.Empty(result.Change.AffectedFaces);
+    }
+
+    [Fact]
+    public void InsertCanCreateBoundaryConstraint()
+    {
+        Fixture fixture = CreateFixture();
+        EdgeInserter inserter = CreateInserter();
+
+        EdgeInsertResult result = inserter.Insert(
+            fixture.A,
+            fixture.B,
+            EdgeConstraintKind.Boundary);
+
+        Edge edge = Assert.Single(result.ConstrainedEdges);
+        Assert.True(edge.HasBoundary);
+        Assert.False(edge.HasFeature);
     }
 
     [Fact]

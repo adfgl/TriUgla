@@ -6,7 +6,7 @@ public class NodeRemoverTests
     public void Remove_RetriangulatesCavityAndPreservesBoundaryContext()
     {
         Fixture fixture = CreateFixture();
-        fixture.AB.Constrain();
+        fixture.AB.Constrain(EdgeConstraintKind.Feature);
 
         RemoveNodeResult result = new NodeRemover().Remove(fixture.Center);
 

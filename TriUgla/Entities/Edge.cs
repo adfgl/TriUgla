@@ -1,8 +1,9 @@
 namespace TriUgla;
 
-public class Edge : MeshElement, IConstrainable
+public class Edge : MeshElement
 {
-    int _constraints = 0;
+    int _featureConstraints;
+    int _boundaryConstraints;
 
     public Node NodeStart { get; set; } = null!;
     public Edge Next { get; set; } = null!;
@@ -24,25 +25,51 @@ public class Edge : MeshElement, IConstrainable
 
     public double Length => Math.Sqrt(LengthSquared);
 
-    public int ConstraintCount => _constraints;
-    public bool Constrained => _constraints > 0;
+    public int FeatureConstraints => _featureConstraints;
+    public int BoundaryConstraints => _boundaryConstraints;
+    public int ConstraintCount => _featureConstraints + _boundaryConstraints;
+    public bool HasFeature => _featureConstraints > 0;
+    public bool HasBoundary => _boundaryConstraints > 0;
+    public bool Constrained => ConstraintCount > 0;
     public bool OrTwinConstrained => Constrained || (Twin != null && Twin.Constrained);
 
-    public void Constrain()
+    public void Constrain(EdgeConstraintKind kind)
     {
-        _constraints++;
+        switch (kind)
+        {
+            case EdgeConstraintKind.Feature:
+                _featureConstraints++;
+                break;
+            case EdgeConstraintKind.Boundary:
+                _boundaryConstraints++;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
+        }
         NodeStart.Constrain();
-        Next.NodeStart.Constrain();
+        NodeEnd.Constrain();
     }
 
-    public void Relax()
+    public bool Release(EdgeConstraintKind kind)
     {
-        if (Constrained)
+        bool released = kind switch
         {
-            _constraints--;
-            NodeStart.Relax();
-            NodeEnd.Relax();
-        }
+            EdgeConstraintKind.Feature => Release(ref _featureConstraints),
+            EdgeConstraintKind.Boundary => Release(ref _boundaryConstraints),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+        };
+        if (!released) return false;
+
+        NodeStart.Relax();
+        NodeEnd.Relax();
+        return true;
+    }
+
+    static bool Release(ref int count)
+    {
+        if (count == 0) return false;
+        count--;
+        return true;
     }
 
     public IEnumerable<Node> Nodes

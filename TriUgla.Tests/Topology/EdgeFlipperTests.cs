@@ -53,7 +53,7 @@ public class EdgeFlipperTests
     public void CanFlipRejectsIneligibleEdge()
     {
         Fixture f = CreateFixture();
-        f.AB.Constrain();
+        f.AB.Constrain(EdgeConstraintKind.Feature);
         var flipper = new EdgeFlipper(new StubGeometry());
 
         bool canFlip = flipper.CanFlip(f.AB, out bool shouldFlip);

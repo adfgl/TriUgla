@@ -41,7 +41,7 @@ public class EdgeSplitTests
         Edge bc = new();
         Edge ca = new();
         Linker.LinkTriangle(new Face(), ab, bc, ca, a, b, c);
-        ab.Constrain();
+        ab.Constrain(EdgeConstraintKind.Boundary);
 
         EdgeSplitResult result = new Splitter().Split(ab, midpoint);
 
@@ -60,17 +60,23 @@ public class EdgeSplitTests
     public void Split_TransmitsDirectedConstraintCountsToBothHalves()
     {
         Fixture f = CreateFixture();
-        f.Target.Constrain();
-        f.Target.Constrain();
-        f.Twin.Constrain();
+        f.Target.Constrain(EdgeConstraintKind.Feature);
+        f.Target.Constrain(EdgeConstraintKind.Boundary);
+        f.Twin.Constrain(EdgeConstraintKind.Boundary);
         var inserted = new Node();
 
         EdgeSplitResult result = new Splitter().Split(f.Target, inserted);
 
         Assert.Equal(2, result.FirstHalf.ConstraintCount);
         Assert.Equal(2, result.SecondHalf.ConstraintCount);
+        Assert.Equal(1, result.FirstHalf.FeatureConstraints);
+        Assert.Equal(1, result.SecondHalf.FeatureConstraints);
+        Assert.Equal(1, result.FirstHalf.BoundaryConstraints);
+        Assert.Equal(1, result.SecondHalf.BoundaryConstraints);
         Assert.Equal(1, result.FirstHalf.Twin!.ConstraintCount);
         Assert.Equal(1, result.SecondHalf.Twin!.ConstraintCount);
+        Assert.True(result.FirstHalf.Twin!.HasBoundary);
+        Assert.True(result.SecondHalf.Twin!.HasBoundary);
         Assert.True(inserted.Constrained);
     }
 
