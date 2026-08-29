@@ -20,4 +20,5 @@ public interface INodeVisitor<out TResult>
     TResult VisitTransfiniteCurveStatement(TransfiniteCurveStmt node);
     TResult VisitCurveLoopStatement(CurveLoopStmt node);
     TResult VisitPlaneSurfaceStatement(PlaneSurfaceStmt node);
+    TResult VisitCurvesInSurfaceStatement(CurvesInSurfaceStmt node);
 }

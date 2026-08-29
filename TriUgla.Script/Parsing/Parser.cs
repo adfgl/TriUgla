@@ -69,6 +69,12 @@ public sealed class Parser
             return ParsePlaneSurfaceStatement();
         }
 
+        if ((IsIdentifier("Curve") || IsIdentifier("Line")) &&
+            _tokens.Peek(1).Kind == TokenKind.LeftBrace)
+        {
+            return ParseCurvesInSurfaceStatement();
+        }
+
         Expr target = ParseExpression();
         Stmt statement;
 
@@ -186,6 +192,32 @@ public sealed class Parser
             rightParenthesis,
             equals,
             loops,
+            semicolon);
+    }
+
+    CurvesInSurfaceStmt ParseCurvesInSurfaceStatement()
+    {
+        Token curveOrLine = Read();
+        ListExpr curves = ParseList();
+        Token inKeyword = IsKeyword(KeywordKind.In)
+            ? Read()
+            : ExpectKeyword(KeywordKind.In, "TS1032", "Expected 'In' after embedded curve tags.");
+        Token surfaceKeyword = IsIdentifier("Surface")
+            ? Read()
+            : Expect(TokenKind.Identifier, "TS1033", "Expected 'Surface' after 'In'.");
+        ListExpr surfaces = Peek().Kind == TokenKind.LeftBrace
+            ? ParseList()
+            : new ListExpr(
+                Expect(TokenKind.LeftBrace, "TS1034", "Expected '{' before target surface tag."),
+                [],
+                Expect(TokenKind.RightBrace, "TS1035", "Expected '}' after target surface tag."));
+        Token semicolon = ReadStatementEnd(surfaces.Span);
+        return new CurvesInSurfaceStmt(
+            curveOrLine,
+            curves,
+            inKeyword,
+            surfaceKeyword,
+            surfaces,
             semicolon);
     }
 

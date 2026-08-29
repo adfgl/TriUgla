@@ -213,3 +213,16 @@ public sealed record PlaneSurfaceStmt(
     public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
         => visitor.VisitPlaneSurfaceStatement(this);
 }
+
+public sealed record CurvesInSurfaceStmt(
+    Token CurveOrLineKeyword,
+    ListExpr Curves,
+    Token InKeyword,
+    Token SurfaceKeyword,
+    ListExpr Surfaces,
+    Token Semicolon)
+    : Stmt(TextSpan.FromBounds(CurveOrLineKeyword.Span, Semicolon.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitCurvesInSurfaceStatement(this);
+}

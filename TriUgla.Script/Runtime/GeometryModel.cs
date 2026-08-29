@@ -167,6 +167,37 @@ public sealed class GeometryModel
         _planeSurfaces.Add(tag, planeSurface);
         return planeSurface;
     }
+
+    public ScriptPlaneSurface EmbedCurvesInSurface(
+        IReadOnlyList<int> curveTags,
+        int surfaceTag)
+    {
+        if (!_planeSurfaces.TryGetValue(surfaceTag, out ScriptPlaneSurface? surface))
+        {
+            throw new InvalidOperationException(
+                $"Cannot embed curves in Plane Surface({surfaceTag}) because it is not declared. " +
+                $"Hint: declare Plane Surface({surfaceTag}) before the embedding constraint.");
+        }
+
+        if (curveTags.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Curve In Surface requires at least one curve tag.");
+        }
+
+        foreach (int curveTag in curveTags)
+        {
+            if (!_lines.ContainsKey(curveTag))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot embed Line({curveTag}) because it is not declared. " +
+                    "Hint: declare every embedded curve first.");
+            }
+        }
+
+        surface.AddEmbeddedCurves(curveTags);
+        return surface;
+    }
 }
 
 public sealed class ScriptPoint(
@@ -239,10 +270,22 @@ public sealed class TransfiniteCurveConstraint(
     }
 }
 
-public sealed class ScriptPlaneSurface(int tag, IReadOnlyList<ScriptCurveLoop> curveLoops) : ScriptObject
+public sealed class ScriptPlaneSurface : ScriptObject
 {
-    public int Tag { get; } = tag;
-    public IReadOnlyList<ScriptCurveLoop> CurveLoops { get; } = curveLoops;
+    readonly HashSet<int> _embeddedCurveTags = [];
+
+    public ScriptPlaneSurface(int tag, IReadOnlyList<ScriptCurveLoop> curveLoops)
+    {
+        Tag = tag;
+        CurveLoops = curveLoops;
+    }
+
+    public int Tag { get; }
+    public IReadOnlyList<ScriptCurveLoop> CurveLoops { get; }
+    public IReadOnlySet<int> EmbeddedCurveTags => _embeddedCurveTags;
+
+    internal void AddEmbeddedCurves(IEnumerable<int> curveTags)
+        => _embeddedCurveTags.UnionWith(curveTags);
 
     public override string ToString()
         => $"Plane Surface({Tag}) = {{{string.Join(", ", CurveLoops.Select(loop => loop.Tag))}}};";

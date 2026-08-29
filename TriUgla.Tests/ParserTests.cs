@@ -255,4 +255,17 @@ public class ParserTests
         Assert.Equal(2, statement.CurveLoops.Items.Count);
         Assert.Empty(tree.Diagnostics);
     }
+
+    [Theory]
+    [InlineData("Line {18, 19} In Surface {1};")]
+    [InlineData("Curve {18, 19} In Surface {1};")]
+    public void Parse_CurvesInSurface_CreatesEmbeddingStatement(string source)
+    {
+        SyntaxTree tree = SyntaxTree.Parse(source);
+
+        var statement = Assert.IsType<CurvesInSurfaceStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Equal(2, statement.Curves.Items.Count);
+        Assert.Single(statement.Surfaces.Items);
+        Assert.Empty(tree.Diagnostics);
+    }
 }

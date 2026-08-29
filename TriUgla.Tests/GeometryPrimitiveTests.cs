@@ -291,4 +291,63 @@ public class GeometryPrimitiveTests
 
         Assert.Contains(expected, exception.Message);
     }
+
+    [Fact]
+    public void Evaluate_ComplexSurfaceWithEmbeddedLines_RunsAsSingleGmshStyleScript()
+    {
+        const string source = """
+            Point(1) = {0.0, 0.0, 0.0, 0.100};
+            Point(2) = {2.0, 0.0, 0.0, 0.100};
+            Point(3) = {2.0, 2.0, 0.0, 0.100};
+            Point(4) = {0.0, 2.0, 0.0, 0.100};
+            Point(5) = {0.4, 0.5, 0.0, 0.100};
+            Point(6) = {1.4, 0.5, 0.0, 0.100};
+            Point(7) = {1.4, 1.5, 0.0, 0.100};
+            Point(8) = {0.4, 1.5, 0.0, 0.100};
+            Line(1) = {1, 2};
+            Transfinite Curve{1} = 8 Using Progression 1;
+            Line(2) = {2, 3};
+            Transfinite Curve{2} = 8 Using Progression 1;
+            Line(3) = {3, 4};
+            Transfinite Curve{3} = 8 Using Progression 1;
+            Line(4) = {4, 1};
+            Transfinite Curve{4} = 8 Using Progression 1;
+            Line loop(1) = {1, 2, 3, 4};
+            Plane Surface(1) = {1};
+            Line(18) = {5, 6};
+            Line(19) = {5, 6};
+            Line(20) = {6, 7};
+            Line(21) = {7, 8};
+            Line(22) = {8, 5};
+            Transfinite Curve{18, 19, 20, 21, 22} = 4 Using Progression 1;
+            Line {18, 19, 20, 21, 22} In Surface {1};
+            """;
+        SyntaxTree tree = SyntaxTree.Parse(source);
+        var evaluator = new EvaluationVisitor();
+
+        Value result = evaluator.Evaluate(tree.Root);
+
+        Assert.Empty(tree.Diagnostics);
+        ScriptPlaneSurface surface = result.As<ScriptPlaneSurface>();
+        Assert.Equal([18, 19, 20, 21, 22], surface.EmbeddedCurveTags.Order());
+        Assert.Equal(5, evaluator.Geometry.TransfiniteCurves.Keys.Count(tag => tag >= 18));
+    }
+
+    [Theory]
+    [InlineData("Line {2} In Surface {1};", "Line(2)")]
+    [InlineData("Line {1} In Surface {2};", "Plane Surface(2)")]
+    public void Evaluate_InvalidEmbeddedCurveConstraint_ProvidesHelpfulError(
+        string constraint,
+        string expected)
+    {
+        const string prefix =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 0, 0}; Line(1) = {1, 2}; " +
+            "Curve Loop(1) = {1}; Plane Surface(1) = {1};";
+        var evaluator = new EvaluationVisitor();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            evaluator.Evaluate(SyntaxTree.Parse(prefix + constraint).Root));
+
+        Assert.Contains(expected, exception.Message);
+    }
 }

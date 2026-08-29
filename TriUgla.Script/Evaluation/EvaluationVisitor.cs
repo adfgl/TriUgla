@@ -868,6 +868,24 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         return _geometry.AddPlaneSurface(tag, loopTags);
     }
 
+    public Value VisitCurvesInSurfaceStatement(CurvesInSurfaceStmt node)
+    {
+        int[] curves = node.Curves.Items
+            .Select((curve, index) => RequireEntityTag(
+                Evaluate(curve),
+                $"Embedded curve tag at index {index}"))
+            .ToArray();
+        if (node.Surfaces.Items.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"Curve In Surface expects exactly one target surface, but received {node.Surfaces.Items.Count}. " +
+                "Hint: use Curve {curveTags} In Surface {surfaceTag}.");
+        }
+
+        int surface = RequireEntityTag(Evaluate(node.Surfaces.Items[0]), "Embedded curve target surface");
+        return _geometry.EmbedCurvesInSurface(curves, surface);
+    }
+
     static int RequireNodeCount(Value value)
     {
         if (!value.IsNumber || !double.IsFinite(value.Number) ||
