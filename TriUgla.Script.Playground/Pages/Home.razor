@@ -77,9 +77,11 @@
                           @oninput="UpdateSource"
                           @onkeydown="HandleEditorKeyDown"
                           onscroll="editorInterop.syncScroll(this)"
+                          wrap="off"
                           aria-label="Script source code"
                           aria-describedby="diagnostics-title"
                           spellcheck="false"></textarea>
+                <div id="lexeme-tooltip" class="lexeme-tooltip" role="tooltip" hidden></div>
             </div>
         </div>
     </section>
@@ -124,6 +126,7 @@
             <div class="diagnostics-heading">
                 <h2 id="diagnostics-title">Diagnostics</h2>
                 <span class="count error-count">@ErrorCount errors</span>
+                <span class="count warning-count">@WarningCount warnings</span>
                 <span class="count info-count">@InfoCount info</span>
             </div>
             <span class="run-time">Live syntax check</span>
@@ -241,6 +244,7 @@
 
     int LineCount => Math.Max(1, source.Count(character => character == '\n') + 1);
     int ErrorCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Error);
+    int WarningCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Warning);
     int InfoCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Info);
     string ElapsedText => $"{elapsed.TotalSeconds:0.000} s";
     IReadOnlyList<HighlightSegment> HighlightSegments => BuildHighlightSegments();
@@ -391,7 +395,7 @@
             .Take(tokens.Count - 1)
             .Select((token, index) => (token, index))
             .Where(item =>
-                item.token.Kind == TokenKind.Identifier &&
+                item.token.Kind is TokenKind.Identifier or TokenKind.Keyword &&
                 tokens[item.index + 1].Kind == TokenKind.LeftParenthesis)
             .Select(item => item.token.Span.Start)
             .ToHashSet();
@@ -410,10 +414,16 @@
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor");
+            var scriptObjects = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+            {
+                ["Mesh"] = new MeshScriptModel().PropertyNames
+            };
+            await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor", scriptObjects);
             await JS.InvokeVoidAsync("dockInterop.initialize", ".workspace");
             await JS.InvokeVoidAsync("meshViewer.initialize", "mesh-viewer");
         }
+
+        await JS.InvokeVoidAsync("editorInterop.setHoverDocumentation", "script-editor", BuildHoverDocumentation());
     }
 
     async Task GoToDiagnostic(Diagnostic diagnostic)
@@ -456,14 +466,25 @@
             int end = positions[index + 1];
             Token token = tokens.FirstOrDefault(item =>
                 item.Kind != TokenKind.EndOfFile && start >= item.Span.Start && start < item.Span.End);
-            bool hasError = diagnostics.Any(item =>
+            DiagnosticSeverity? severity = diagnostics
+                .Where(item =>
             {
                 int errorStart = Math.Clamp(item.Span.Start, 0, source.Length - 1);
                 int errorEnd = Math.Min(source.Length, errorStart + Math.Max(1, item.Span.Length));
                 return start < errorEnd && end > errorStart;
-            });
+            })
+                .Select(item => (DiagnosticSeverity?)item.Severity)
+                .OrderByDescending(item => item)
+                .FirstOrDefault();
             string tokenClass = token.Kind == TokenKind.EndOfFile ? "token-plain" : TokenClass(token);
-            segments.Add(new HighlightSegment(source[start..end], $"{tokenClass}{(hasError ? " token-error" : string.Empty)}"));
+            string diagnosticClass = severity switch
+            {
+                DiagnosticSeverity.Error => " token-error",
+                DiagnosticSeverity.Warning => " token-warning",
+                DiagnosticSeverity.Info => " token-info",
+                _ => string.Empty
+            };
+            segments.Add(new HighlightSegment(source[start..end], tokenClass + diagnosticClass));
         }
 
         return segments;
@@ -471,16 +492,79 @@
 
     string TokenClass(Token token) => token.Kind switch
     {
+        _ when functionTokenStarts.Contains(token.Span.Start) => "token-function",
         TokenKind.Keyword => "token-keyword",
         TokenKind.Number => "token-number",
         TokenKind.String => "token-string",
-        TokenKind.Identifier when functionTokenStarts.Contains(token.Span.Start) => "token-function",
         TokenKind.Identifier => "token-identifier",
         TokenKind.BadToken => "token-bad",
         _ => "token-symbol"
     };
 
+    IReadOnlyList<HoverDocumentation> BuildHoverDocumentation()
+    {
+        var items = new List<HoverDocumentation>();
+        for (int index = 0; index < tokens.Count; index++)
+        {
+            Token token = tokens[index];
+            if (token.Kind is TokenKind.EndOfFile or TokenKind.BadToken) continue;
+
+            string key = token.Text;
+            if (index >= 2 && tokens[index - 1].Kind == TokenKind.Dot)
+            {
+                key = $"{tokens[index - 2].Text}.{token.Text}";
+            }
+
+            if (!ScriptDocumentation.TryGet(key, out ScriptDocumentationEntry? documentation) &&
+                !TryGetGenericDocumentation(token, out documentation)) continue;
+            items.Add(new HoverDocumentation(
+                token.Span.Start,
+                token.Span.Length,
+                documentation.Name,
+                documentation.Signature,
+                documentation.Description,
+                documentation.AcceptedValues));
+        }
+        return items;
+    }
+
+    static bool TryGetGenericDocumentation(Token token, out ScriptDocumentationEntry documentation)
+    {
+        string? key = token.Kind switch
+        {
+            TokenKind.LeftBracket or TokenKind.RightBracket => "[]",
+            TokenKind.LeftBrace or TokenKind.RightBrace => "{}",
+            _ => token.Text
+        };
+        if (ScriptDocumentation.TryGet(key, out documentation!)) return true;
+
+        documentation = token.Kind switch
+        {
+            TokenKind.Number => new(
+                "Number literal",
+                token.Text,
+                "A double-precision numeric value. Decimal and scientific notation are supported."),
+            TokenKind.String => new(
+                "String literal",
+                token.Text,
+                "Text enclosed in double quotes. Escaped quotes and backslashes are supported."),
+            TokenKind.Identifier => new(
+                "Identifier",
+                token.Text,
+                "A case-sensitive name resolved from the current lexical scope."),
+            _ => null!
+        };
+        return documentation is not null;
+    }
+
     sealed record HighlightSegment(string Text, string CssClass);
+    sealed record HoverDocumentation(
+        int Start,
+        int Length,
+        string Name,
+        string Signature,
+        string Description,
+        string? AcceptedValues);
 
     public void Dispose()
     {

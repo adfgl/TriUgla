@@ -103,7 +103,7 @@ public class ParserTests
             "EndIf");
 
         var statement = Assert.IsType<IfStmt>(Assert.Single(tree.Root.Statements));
-        Assert.Empty(tree.Diagnostics);
+        Assert.DoesNotContain(tree.Diagnostics, item => item.Severity == DiagnosticSeverity.Error);
         Assert.Equal(3, statement.Branches.Count);
         Assert.NotNull(statement.Branches[0].Condition);
         Assert.NotNull(statement.Branches[1].Condition);
@@ -124,7 +124,7 @@ public class ParserTests
 
         var outer = Assert.IsType<IfStmt>(Assert.Single(tree.Root.Statements));
         Assert.IsType<IfStmt>(Assert.Single(outer.Branches[0].Statements));
-        Assert.Empty(tree.Diagnostics);
+        Assert.DoesNotContain(tree.Diagnostics, item => item.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]

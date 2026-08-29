@@ -12,6 +12,7 @@ public interface INodeVisitor<out TResult>
     TResult VisitCallExpression(CallExpr node);
     TResult VisitListExpression(ListExpr node);
     TResult VisitIndexExpression(IndexExpr node);
+    TResult VisitMemberAccessExpression(MemberAccessExpr node);
     TResult VisitExpressionStatement(ExpressionStmt node);
     TResult VisitAssignmentStatement(AssignmentStmt node);
     TResult VisitBlockStatement(BlockStmt node);
@@ -21,4 +22,5 @@ public interface INodeVisitor<out TResult>
     TResult VisitCurveLoopStatement(CurveLoopStmt node);
     TResult VisitPlaneSurfaceStatement(PlaneSurfaceStmt node);
     TResult VisitCurvesInSurfaceStatement(CurvesInSurfaceStmt node);
+    TResult VisitMeshCommandStatement(MeshCommandStmt node);
 }

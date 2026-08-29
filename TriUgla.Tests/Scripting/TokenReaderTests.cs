@@ -9,7 +9,7 @@ public class TokenReaderTests
     {
         var reader = new TokenReader("Point(1)");
 
-        Assert.Equal(TokenKind.Identifier, reader.Read().Kind);
+        Assert.Equal(TokenKind.Keyword, reader.Read().Kind);
         Assert.Equal(TokenKind.LeftParenthesis, reader.Read().Kind);
         Assert.Equal(TokenKind.Number, reader.Read().Kind);
         Assert.Equal(TokenKind.RightParenthesis, reader.Read().Kind);

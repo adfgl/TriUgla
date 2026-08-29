@@ -75,6 +75,12 @@ public sealed class Parser
             return ParseCurvesInSurfaceStatement();
         }
 
+        if ((IsIdentifier("Mesh") && _tokens.Peek(1).Kind != TokenKind.Dot) || IsIdentifier("Coherence") ||
+            IsIdentifier("RenumberMeshNodes") || IsIdentifier("RenumberMeshElements"))
+        {
+            return ParseMeshCommandStatement();
+        }
+
         Expr target = ParseExpression();
         Stmt statement;
 
@@ -92,6 +98,27 @@ public sealed class Parser
         }
 
         return statement;
+    }
+
+    MeshCommandStmt ParseMeshCommandStatement()
+    {
+        Token command = Read();
+        Token? mesh = null;
+        Expr? dimension = null;
+
+        if (string.Equals(command.Text, "Mesh", StringComparison.Ordinal))
+        {
+            dimension = ParseExpression();
+        }
+        else if (string.Equals(command.Text, "Coherence", StringComparison.Ordinal))
+        {
+            mesh = IsIdentifier("Mesh")
+                ? Read()
+                : Expect(TokenKind.Identifier, "TS1038", "Expected 'Mesh' after 'Coherence'.");
+        }
+
+        Token semicolon = ReadStatementEnd(dimension?.Span ?? mesh?.Span ?? command.Span);
+        return new MeshCommandStmt(command, mesh, dimension, semicolon);
     }
 
     TransfiniteCurveStmt ParseTransfiniteCurveStatement()
@@ -204,7 +231,7 @@ public sealed class Parser
             : ExpectKeyword(KeywordKind.In, "TS1032", "Expected 'In' after embedded curve tags.");
         Token surfaceKeyword = IsIdentifier("Surface")
             ? Read()
-            : Expect(TokenKind.Identifier, "TS1033", "Expected 'Surface' after 'In'.");
+            : ExpectWord("TS1033", "Expected 'Surface' after 'In'.");
         ListExpr surfaces = Peek().Kind == TokenKind.LeftBrace
             ? ParseList()
             : new ListExpr(
@@ -409,7 +436,7 @@ public sealed class Parser
     {
         Expr expression = ParsePrimary();
 
-        while (Peek().Kind is TokenKind.LeftParenthesis or TokenKind.LeftBracket)
+        while (Peek().Kind is TokenKind.LeftParenthesis or TokenKind.LeftBracket or TokenKind.Dot)
         {
             if (Peek().Kind == TokenKind.LeftParenthesis)
             {
@@ -421,7 +448,7 @@ public sealed class Parser
                     "Expected ')' after arguments.");
                 expression = new CallExpr(expression, leftParenthesis, arguments, rightParenthesis);
             }
-            else
+            else if (Peek().Kind == TokenKind.LeftBracket)
             {
                 Token leftBracket = Read();
                 Expr index = ParseExpression();
@@ -430,6 +457,15 @@ public sealed class Parser
                     "TS1017",
                     "Expected ']' after list index.");
                 expression = new IndexExpr(expression, leftBracket, index, rightBracket);
+            }
+            else
+            {
+                Token dot = Read();
+                Token member = Expect(
+                    TokenKind.Identifier,
+                    "TS1036",
+                    "Expected a property name after '.'.");
+                expression = new MemberAccessExpr(expression, dot, member);
             }
         }
 
@@ -443,6 +479,7 @@ public sealed class Parser
         switch (token.Kind)
         {
             case TokenKind.Identifier:
+            case TokenKind.Keyword:
                 return new NameExpr(Read());
 
             case TokenKind.Number:
@@ -522,7 +559,7 @@ public sealed class Parser
             string.Empty,
             new TextSpan(preceding.End, 0, preceding.Line, preceding.Column + preceding.Length));
 
-        if (next.Kind == TokenKind.Identifier && next.Span.Line > preceding.Line)
+        if (next.Kind is TokenKind.Identifier or TokenKind.Keyword && next.Span.Line > preceding.Line)
         {
             return missing;
         }
@@ -581,6 +618,22 @@ public sealed class Parser
             keyword);
     }
 
+    Token ExpectWord(string code, string message)
+    {
+        if (Peek().Kind is TokenKind.Identifier or TokenKind.Keyword)
+        {
+            return Read();
+        }
+
+        Token current = Peek();
+        ReportError(code, message, current.Span);
+        return new Token(TokenKind.Identifier, string.Empty, new TextSpan(
+            current.Span.Start,
+            0,
+            current.Span.Line,
+            current.Span.Column));
+    }
+
     void ReportError(string code, string message, TextSpan span)
     {
         if (_errorInStatement)
@@ -602,7 +655,7 @@ public sealed class Parser
     bool IsIdentifier(string text, int offset = 0, bool ignoreCase = false)
     {
         Token token = _tokens.Peek(offset);
-        return token.Kind == TokenKind.Identifier && string.Equals(
+        return token.Kind is TokenKind.Identifier or TokenKind.Keyword && string.Equals(
             token.Text,
             text,
             ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);

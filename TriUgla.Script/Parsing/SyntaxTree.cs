@@ -11,6 +11,14 @@ public sealed record SyntaxTree(
     {
         var parser = new Parser(source);
         CompilationUnit root = parser.ParseCompilationUnit();
-        return new SyntaxTree(source, root, parser.Diagnostics);
+        IReadOnlyList<Diagnostic> diagnostics = parser.Diagnostics;
+        if (!parser.Diagnostics.Any(item => item.Severity == DiagnosticSeverity.Error))
+        {
+            diagnostics = parser.Diagnostics
+                .Concat(new SemanticAnalyzer().Analyze(root))
+                .OrderBy(item => item.Span.Start)
+                .ToArray();
+        }
+        return new SyntaxTree(source, root, diagnostics);
     }
 }

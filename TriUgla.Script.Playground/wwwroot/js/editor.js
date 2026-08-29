@@ -1,11 +1,16 @@
 window.editorInterop = {
-    initialize(editorId) {
+    initialize(editorId, scriptObjects = {}) {
         const editor = document.getElementById(editorId);
         if (!editor || editor.dataset.initialized) return;
 
         editor.dataset.initialized = "true";
+        this.initializePropertyCompletion(editor, scriptObjects);
+        this.initializeScrollSync(editor);
+        this.initializeHoverDocumentation(editor);
         editor.addEventListener("keydown", event => {
             if (event.isComposing) return;
+
+            if (this.handleCompletionKey(editor, event)) return;
 
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
                 event.preventDefault();
@@ -38,6 +43,250 @@ window.editorInterop = {
             event.preventDefault();
             this.insertTab(editorId);
         });
+    },
+
+    initializeHoverDocumentation(editor) {
+        const tooltip = document.getElementById("lexeme-tooltip");
+        if (!tooltip) return;
+
+        editor._hoverDocumentation = { tooltip, items: [], current: null, timer: 0 };
+        editor.addEventListener("mousemove", event => this.updateHoverDocumentation(editor, event));
+        editor.addEventListener("mouseleave", () => this.hideHoverDocumentation(editor));
+        editor.addEventListener("scroll", () => this.hideHoverDocumentation(editor), { passive: true });
+        editor.addEventListener("input", () => this.hideHoverDocumentation(editor));
+    },
+
+    setHoverDocumentation(editorId, items) {
+        const editor = document.getElementById(editorId);
+        const state = editor?._hoverDocumentation;
+        if (!state) return;
+        state.items = Array.isArray(items) ? items : [];
+    },
+
+    updateHoverDocumentation(editor, event) {
+        const state = editor._hoverDocumentation;
+        if (!state) return;
+
+        const offset = this.sourceOffsetAt(editor, event.clientX, event.clientY);
+        const item = offset < 0
+            ? null
+            : state.items.find(candidate => offset >= candidate.start && offset < candidate.start + candidate.length);
+        if (item === state.current) return;
+
+        clearTimeout(state.timer);
+        state.timer = 0;
+        state.current = item;
+        state.tooltip.hidden = true;
+        if (!item) return;
+
+        state.timer = setTimeout(() => {
+            if (state.current !== item) return;
+            this.showHoverDocumentation(editor, item, event.clientX, event.clientY);
+        }, 280);
+    },
+
+    sourceOffsetAt(editor, clientX, clientY) {
+        const bounds = editor.getBoundingClientRect();
+        const style = getComputedStyle(editor);
+        const lineHeight = Number.parseFloat(style.lineHeight);
+        const paddingLeft = Number.parseFloat(style.paddingLeft);
+        const paddingTop = Number.parseFloat(style.paddingTop);
+        if (!Number.isFinite(lineHeight) || lineHeight <= 0) return -1;
+
+        const canvas = this._fontMeasureCanvas ??= document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        context.font = style.font;
+        const characterWidth = context.measureText("M").width;
+        const x = clientX - bounds.left - paddingLeft + editor.scrollLeft;
+        const y = clientY - bounds.top - paddingTop + editor.scrollTop;
+        if (x < 0 || y < 0 || characterWidth <= 0) return -1;
+
+        const lines = editor.value.split("\n");
+        const lineIndex = Math.floor(y / lineHeight);
+        if (lineIndex < 0 || lineIndex >= lines.length) return -1;
+        const column = Math.floor(x / characterWidth);
+        if (column < 0 || column >= lines[lineIndex].length) return -1;
+
+        let offset = column;
+        for (let index = 0; index < lineIndex; index++) offset += lines[index].length + 1;
+        return offset;
+    },
+
+    showHoverDocumentation(editor, item, clientX, clientY) {
+        const state = editor._hoverDocumentation;
+        const tooltip = state.tooltip;
+        const title = document.createElement("strong");
+        title.className = "lexeme-tooltip-title";
+        title.textContent = item.name;
+        const signature = document.createElement("code");
+        signature.className = "lexeme-tooltip-signature";
+        signature.textContent = item.signature;
+        const description = document.createElement("span");
+        description.className = "lexeme-tooltip-description";
+        description.textContent = item.description;
+        const children = [title, signature, description];
+        if (item.acceptedValues) {
+            const values = document.createElement("span");
+            values.className = "lexeme-tooltip-values";
+            values.textContent = `Accepts: ${item.acceptedValues}`;
+            children.push(values);
+        }
+        tooltip.replaceChildren(...children);
+        tooltip.hidden = false;
+
+        const surface = editor.closest(".code-surface");
+        const bounds = surface.getBoundingClientRect();
+        const tooltipBounds = tooltip.getBoundingClientRect();
+        const left = Math.min(bounds.width - tooltipBounds.width - 8, Math.max(8, clientX - bounds.left + 14));
+        const topBelow = clientY - bounds.top + 18;
+        const top = topBelow + tooltipBounds.height <= bounds.height - 8
+            ? topBelow
+            : Math.max(8, clientY - bounds.top - tooltipBounds.height - 12);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+    },
+
+    hideHoverDocumentation(editor) {
+        const state = editor?._hoverDocumentation;
+        if (!state) return;
+        clearTimeout(state.timer);
+        state.timer = 0;
+        state.current = null;
+        state.tooltip.hidden = true;
+    },
+
+    initializeScrollSync(editor) {
+        const highlights = document.getElementById("highlight-layer");
+        if (!highlights) return;
+
+        const synchronize = () => this.scheduleScrollSync(editor);
+        editor.addEventListener("scroll", synchronize, { passive: true });
+        editor.addEventListener("input", synchronize);
+
+        const observer = new MutationObserver(synchronize);
+        observer.observe(highlights, { childList: true, subtree: true, characterData: true });
+        editor._highlightObserver = observer;
+
+        if (window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(synchronize);
+            resizeObserver.observe(editor);
+            editor._highlightResizeObserver = resizeObserver;
+        }
+
+        synchronize();
+    },
+
+    scheduleScrollSync(editor) {
+        if (editor._scrollSyncFrame) cancelAnimationFrame(editor._scrollSyncFrame);
+        editor._scrollSyncFrame = requestAnimationFrame(() => {
+            editor._scrollSyncFrame = 0;
+            this.syncScroll(editor);
+        });
+    },
+
+    initializePropertyCompletion(editor, scriptObjects) {
+        const surface = editor.closest(".code-surface");
+        if (!surface) return;
+
+        const popup = document.createElement("div");
+        popup.className = "property-completion";
+        popup.setAttribute("role", "listbox");
+        popup.hidden = true;
+        surface.appendChild(popup);
+        editor._propertyCompletion = { popup, scriptObjects, matches: [], selected: 0, start: 0 };
+
+        const refresh = () => this.refreshPropertyCompletion(editor);
+        editor.addEventListener("input", refresh);
+        editor.addEventListener("click", refresh);
+        editor.addEventListener("keyup", event => {
+            if (!["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) refresh();
+        });
+        editor.addEventListener("blur", () => setTimeout(() => this.hidePropertyCompletion(editor), 120));
+    },
+
+    refreshPropertyCompletion(editor) {
+        const state = editor._propertyCompletion;
+        if (!state || editor.selectionStart !== editor.selectionEnd) return this.hidePropertyCompletion(editor);
+
+        const caret = editor.selectionStart;
+        const before = editor.value.slice(0, caret);
+        const match = /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(before);
+        if (!match) return this.hidePropertyCompletion(editor);
+
+        const properties = state.scriptObjects[match[1]];
+        if (!Array.isArray(properties)) return this.hidePropertyCompletion(editor);
+
+        const prefix = match[2] ?? "";
+        state.matches = properties.filter(name => name.startsWith(prefix));
+        state.selected = Math.min(state.selected, Math.max(0, state.matches.length - 1));
+        state.start = caret - prefix.length;
+        if (!state.matches.length) return this.hidePropertyCompletion(editor);
+
+        state.popup.replaceChildren(...state.matches.map((name, index) => {
+            const item = document.createElement("button");
+            item.type = "button";
+            item.className = "property-completion-item" + (index === state.selected ? " selected" : "");
+            item.textContent = name;
+            item.setAttribute("role", "option");
+            item.setAttribute("aria-selected", index === state.selected ? "true" : "false");
+            item.addEventListener("mousedown", event => {
+                event.preventDefault();
+                state.selected = index;
+                this.acceptPropertyCompletion(editor);
+            });
+            return item;
+        }));
+
+        const lineStart = before.lastIndexOf("\n") + 1;
+        const column = caret - lineStart;
+        const line = before.slice(0, caret).split("\n").length - 1;
+        state.popup.style.left = `${20 + column * 8.43 - editor.scrollLeft}px`;
+        state.popup.style.top = `${20 + (line + 1) * 24 - editor.scrollTop}px`;
+        state.popup.hidden = false;
+    },
+
+    handleCompletionKey(editor, event) {
+        const state = editor._propertyCompletion;
+        if (!state || state.popup.hidden) return false;
+
+        if (event.key === "Escape") {
+            event.preventDefault();
+            this.hidePropertyCompletion(editor);
+            return true;
+        }
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            const direction = event.key === "ArrowDown" ? 1 : -1;
+            state.selected = (state.selected + direction + state.matches.length) % state.matches.length;
+            this.refreshPropertyCompletion(editor);
+            state.popup.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
+            return true;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            this.acceptPropertyCompletion(editor);
+            return true;
+        }
+        return false;
+    },
+
+    acceptPropertyCompletion(editor) {
+        const state = editor._propertyCompletion;
+        const property = state?.matches[state.selected];
+        if (!property) return;
+
+        editor.setRangeText(property, state.start, editor.selectionStart, "end");
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        this.hidePropertyCompletion(editor);
+        editor.focus();
+    },
+
+    hidePropertyCompletion(editor) {
+        const state = editor._propertyCompletion;
+        if (!state) return;
+        state.popup.hidden = true;
+        state.matches = [];
+        state.selected = 0;
     },
 
     initializeSplitters(workspaceSelector) {
@@ -219,13 +468,14 @@ window.editorInterop = {
     },
 
     syncScroll(editor) {
+        if (!editor) return;
         const gutter = document.getElementById("line-numbers");
         if (gutter) gutter.scrollTop = editor.scrollTop;
 
         const highlights = document.getElementById("highlight-layer");
         if (highlights) {
-            highlights.scrollTop = editor.scrollTop;
-            highlights.scrollLeft = editor.scrollLeft;
+            if (highlights.scrollTop !== editor.scrollTop) highlights.scrollTop = editor.scrollTop;
+            if (highlights.scrollLeft !== editor.scrollLeft) highlights.scrollLeft = editor.scrollLeft;
         }
     },
 

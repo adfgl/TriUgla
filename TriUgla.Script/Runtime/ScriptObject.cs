@@ -2,6 +2,15 @@ namespace TriUgla.Script;
 
 public abstract class ScriptObject
 {
+    public virtual IReadOnlyList<string> PropertyNames => [];
+
+    public virtual Value GetProperty(string name)
+        => throw new InvalidOperationException(
+            $"{GetType().Name} does not contain a property definition named '{name}'.");
+
+    public virtual void SetProperty(string name, Value value)
+        => throw new InvalidOperationException(
+            $"{GetType().Name} does not contain a writable property definition named '{name}'.");
 }
 
 public sealed class ScriptString(string value) : ScriptObject

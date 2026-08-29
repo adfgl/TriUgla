@@ -5,16 +5,23 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
     const int MaximumLoopIterations = 1_000_000;
     readonly Scope _scope;
     readonly GeometryModel _geometry;
+    readonly MeshScriptModel _mesh;
     readonly IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>> _functions;
     readonly List<Value> _printedValues = [];
 
     public EvaluationVisitor(
         Scope? scope = null,
         IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>>? functions = null,
-        GeometryModel? geometry = null)
+        GeometryModel? geometry = null,
+        MeshScriptModel? mesh = null)
     {
         _scope = scope ?? new Scope();
         _geometry = geometry ?? new GeometryModel();
+        _mesh = mesh ?? new MeshScriptModel();
+        if (!_scope.Declare("Mesh", _mesh))
+        {
+            throw new ArgumentException("The supplied scope already declares the built-in object 'Mesh'.", nameof(scope));
+        }
         var availableFunctions = new Dictionary<string, Func<IReadOnlyList<Value>, Value>>(
             StringComparer.Ordinal)
         {
@@ -42,6 +49,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
     public Scope Scope => _scope;
     public GeometryModel Geometry => _geometry;
+    public MeshScriptModel Mesh => _mesh;
     public IReadOnlyList<Value> PrintedValues => _printedValues;
     public event Action<Value>? Printed;
 
@@ -605,6 +613,18 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         return list.Items[RequireListIndex(index, list.Items.Count, "list index")];
     }
 
+    public Value VisitMemberAccessExpression(MemberAccessExpr node)
+    {
+        Value target = Evaluate(node.Target);
+        if (!target.IsObject)
+        {
+            throw new InvalidOperationException(
+                $"Cannot read property '{node.Member.Text}' from a non-object value.");
+        }
+
+        return target.Object.GetProperty(node.Member.Text);
+    }
+
     public Value VisitExpressionStatement(ExpressionStmt node) => Evaluate(node.Expression);
 
     public Value VisitAssignmentStatement(AssignmentStmt node)
@@ -612,6 +632,21 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         if (node.Target is CallExpr primitive)
         {
             return EvaluatePrimitiveDeclaration(primitive, node.Value);
+        }
+
+
+        if (node.Target is MemberAccessExpr member)
+        {
+            Value target = Evaluate(member.Target);
+            if (!target.IsObject)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot assign property '{member.Member.Text}' on a non-object value.");
+            }
+
+            Value memberValue = Evaluate(node.Value);
+            target.Object.SetProperty(member.Member.Text, memberValue);
+            return memberValue;
         }
 
         if (node.Target is not NameExpr name)
@@ -626,6 +661,33 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
 
         return value;
+    }
+
+    public Value VisitMeshCommandStatement(MeshCommandStmt node)
+    {
+        MeshScriptCommandKind kind = node.Command.Text switch
+        {
+            "Mesh" => MeshScriptCommandKind.Generate,
+            "Coherence" => MeshScriptCommandKind.Coherence,
+            "RenumberMeshNodes" => MeshScriptCommandKind.RenumberNodes,
+            "RenumberMeshElements" => MeshScriptCommandKind.RenumberElements,
+            _ => throw new InvalidOperationException($"Unsupported mesh command '{node.Command.Text}'.")
+        };
+
+        int? dimension = null;
+        if (node.Dimension is not null)
+        {
+            double value = Evaluate(node.Dimension).Number;
+            if (!double.IsFinite(value) || value != Math.Truncate(value) || value is < 1 or > 3)
+            {
+                throw new InvalidOperationException("Mesh dimension must be an integer from 1 through 3.");
+            }
+
+            dimension = (int)value;
+        }
+
+        _mesh.AddCommand(kind, dimension);
+        return dimension ?? 0d;
     }
 
     Value EvaluatePrimitiveDeclaration(CallExpr target, Expr valueExpression)

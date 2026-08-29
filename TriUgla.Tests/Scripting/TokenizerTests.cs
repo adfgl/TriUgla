@@ -11,7 +11,7 @@ public class TokenizerTests
 
         Assert.Equal(
             [
-                TokenKind.Identifier,
+                TokenKind.Keyword,
                 TokenKind.LeftParenthesis,
                 TokenKind.Number,
                 TokenKind.RightParenthesis,
@@ -72,6 +72,42 @@ public class TokenizerTests
                 KeywordKind.Break,
                 KeywordKind.Continue,
                 KeywordKind.Return
+            ],
+            tokens.Take(tokens.Count - 1).Select(token => token.Keyword));
+    }
+
+    [Fact]
+    public void Tokenize_GmshStatementVocabulary_RecognizesEveryKeyword()
+    {
+        const string source =
+            "Transfinite Curve Line Loop Plane Surface Using Progression Bump " +
+            "Mesh Coherence RenumberMeshNodes RenumberMeshElements All " +
+            "Point Spline BSpline Bezier Circle";
+
+        IReadOnlyList<Token> tokens = Tokenize(source);
+
+        Assert.All(tokens.Take(tokens.Count - 1), token => Assert.Equal(TokenKind.Keyword, token.Kind));
+        Assert.Equal(
+            [
+                KeywordKind.Transfinite,
+                KeywordKind.Curve,
+                KeywordKind.Line,
+                KeywordKind.Loop,
+                KeywordKind.Plane,
+                KeywordKind.Surface,
+                KeywordKind.Using,
+                KeywordKind.Progression,
+                KeywordKind.Bump,
+                KeywordKind.Mesh,
+                KeywordKind.Coherence,
+                KeywordKind.RenumberMeshNodes,
+                KeywordKind.RenumberMeshElements,
+                KeywordKind.All,
+                KeywordKind.Point,
+                KeywordKind.Spline,
+                KeywordKind.BSpline,
+                KeywordKind.Bezier,
+                KeywordKind.Circle
             ],
             tokens.Take(tokens.Count - 1).Select(token => token.Keyword));
     }

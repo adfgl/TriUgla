@@ -97,6 +97,16 @@ public sealed record IndexExpr(
         => visitor.VisitIndexExpression(this);
 }
 
+public sealed record MemberAccessExpr(
+    Expr Target,
+    Token Dot,
+    Token Member)
+    : Expr(TextSpan.FromBounds(Target.Span, Member.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitMemberAccessExpression(this);
+}
+
 public sealed record ExpressionStmt(Expr Expression, Token Semicolon)
     : Stmt(TextSpan.FromBounds(Expression.Span, Semicolon.Span))
 {
@@ -225,4 +235,15 @@ public sealed record CurvesInSurfaceStmt(
 {
     public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
         => visitor.VisitCurvesInSurfaceStatement(this);
+}
+
+public sealed record MeshCommandStmt(
+    Token Command,
+    Token? MeshKeyword,
+    Expr? Dimension,
+    Token Semicolon)
+    : Stmt(TextSpan.FromBounds(Command.Span, Semicolon.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitMeshCommandStatement(this);
 }
