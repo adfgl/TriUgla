@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/dock.css" />
 </head>
 <body>
     <div id="app">
@@ -14,7 +15,23 @@
         An unexpected error occurred. <a href="." class="reload">Reload</a>
         <button type="button" class="dismiss">×</button>
     </div>
+    <script>
+        window.addEventListener("error", event => {
+            const host = document.getElementById("app");
+            if (!host || host.children.length > 1 || !host.querySelector(".loading")) return;
+            host.innerHTML = `<main class="startup-error" role="alert"><h1>TriUgla could not start</h1><p></p><button type="button" onclick="location.reload()">Reload application</button></main>`;
+            host.querySelector("p").textContent = event.message || "The browser could not initialize the application.";
+        });
+        window.addEventListener("unhandledrejection", event => {
+            const host = document.getElementById("app");
+            if (!host || !host.querySelector(".loading")) return;
+            host.innerHTML = `<main class="startup-error" role="alert"><h1>TriUgla could not start</h1><p></p><button type="button" onclick="location.reload()">Reload application</button></main>`;
+            const reason = event.reason;
+            host.querySelector("p").textContent = (reason && reason.message) || String(reason || "The application failed during startup.");
+        });
+    </script>
     <script src="js/editor.js"></script>
+    <script src="js/dock.js"></script>
     <script src="js/mesh-viewer.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>

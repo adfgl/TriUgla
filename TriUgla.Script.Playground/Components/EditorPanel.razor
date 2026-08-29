@@ -1,0 +1,55 @@
+<section class="editor-panel dock-panel" data-panel-id="editor" data-panel-title="main.tus" aria-labelledby="editor-label">
+    <div class="panel-bar">
+        <div class="file-name" id="editor-label">
+            <span class="status-dot @(Model.ErrorCount > 0 ? "has-errors" : null)" aria-hidden="true"></span>
+            main.tus
+        </div>
+        <div class="editor-actions">
+            @if (IsRunning || HasRun)
+            {
+                <span class="execution-time" aria-live="polite">@(IsRunning ? "Running" : Status) · @ElapsedText</span>
+            }
+            <span>@Model.LineCount lines</span>
+            <button class="run-button @(IsRunning ? "abort-button" : null)" type="button"
+                    @onclick="RunRequested"
+                    aria-label="@(IsRunning ? "Abort script execution" : "Run script")"
+                    aria-keyshortcuts="Control+Enter Meta+Enter">
+                @if (IsRunning)
+                {
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z" /></svg><span>Abort</span>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg><span>Run</span>
+                }
+                <kbd>Ctrl ↵</kbd>
+            </button>
+        </div>
+    </div>
+    <div class="editor-shell">
+        <div id="line-numbers" class="line-numbers" aria-hidden="true">
+            <div id="line-number-content" class="line-number-content">
+                @for (int line = 1; line <= Model.LineCount; line++) { <span>@line</span> }
+            </div>
+        </div>
+        <div class="code-surface">
+            <pre id="highlight-layer" class="highlight-layer" aria-hidden="true"><code id="highlight-code">@foreach (HighlightSegment segment in Model.Highlights)
+                {<span class="@segment.CssClass">@segment.Text</span>}</code></pre>
+            <textarea id="script-editor" class="script-editor" value="@Model.Source"
+                      @oninput="SourceChanged" @onkeydown="KeyDown" wrap="off"
+                      aria-label="Script source code" aria-describedby="diagnostics-title" spellcheck="false"></textarea>
+            <div id="lexeme-tooltip" class="lexeme-tooltip" role="tooltip" hidden></div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ScriptEditorViewModel Model { get; set; } = null!;
+    [Parameter] public bool IsRunning { get; set; }
+    [Parameter] public bool HasRun { get; set; }
+    [Parameter] public string Status { get; set; } = "Ready";
+    [Parameter] public string ElapsedText { get; set; } = "0.000 s";
+    [Parameter] public EventCallback RunRequested { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> SourceChanged { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> KeyDown { get; set; }
+}

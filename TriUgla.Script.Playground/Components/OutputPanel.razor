@@ -1,0 +1,16 @@
+<section class="output-panel dock-panel" data-panel-id="output" data-panel-title="Output" aria-labelledby="output-title" aria-live="polite">
+    <div class="panel-bar">
+        <h2 id="output-title">Output</h2>
+        @if (Output is not null)
+        {
+            <span class="output-status @(Failed ? "failed" : Status == "Aborted" ? "cancelled" : null)">@Status</span>
+        }
+    </div>
+    <pre class="output-content @(Failed ? "failed" : null)">@(Output ?? "Run the script to see its result.")</pre>
+</section>
+
+@code {
+    [Parameter] public string? Output { get; set; }
+    [Parameter] public string Status { get; set; } = "Ready";
+    [Parameter] public bool Failed { get; set; }
+}

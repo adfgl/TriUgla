@@ -30,61 +30,9 @@
     <div class="dock-host dock-center" data-dock="center">
         <div class="dock-tabs" role="tablist" aria-label="Center panels"></div>
         <div class="dock-content">
-    <section class="editor-panel dock-panel" data-panel-id="editor" data-panel-title="main.tus" aria-labelledby="editor-label">
-        <div class="panel-bar">
-            <div class="file-name" id="editor-label">
-                <span class="status-dot @(ErrorCount > 0 ? "has-errors" : null)" aria-hidden="true"></span>
-                main.tus
-            </div>
-            <div class="editor-actions">
-                @if (isRunning || hasRun)
-                {
-                    <span class="execution-time" aria-live="polite">@(isRunning ? "Running" : runStatus) · @ElapsedText</span>
-                }
-                <span>@LineCount lines</span>
-                <button class="run-button @(isRunning ? "abort-button" : null)"
-                        type="button"
-                        @onclick="HandleRunButton"
-                        aria-label="@(isRunning ? "Abort script execution" : "Run script")"
-                        aria-keyshortcuts="Control+Enter Meta+Enter">
-                    @if (isRunning)
-                    {
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z" /></svg>
-                        <span>Abort</span>
-                    }
-                    else
-                    {
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                        <span>Run</span>
-                    }
-                    <kbd>Ctrl ↵</kbd>
-                </button>
-            </div>
-        </div>
-        <div class="editor-shell">
-            <div id="line-numbers" class="line-numbers" aria-hidden="true">
-                @for (var line = 1; line <= LineCount; line++)
-                {
-                    <span>@line</span>
-                }
-            </div>
-            <div class="code-surface">
-                <pre id="highlight-layer" class="highlight-layer" aria-hidden="true"><code>@foreach (HighlightSegment segment in HighlightSegments)
-                    {<span class="@segment.CssClass">@segment.Text</span>}</code></pre>
-                <textarea id="script-editor"
-                          class="script-editor"
-                          value="@source"
-                          @oninput="UpdateSource"
-                          @onkeydown="HandleEditorKeyDown"
-                          onscroll="editorInterop.syncScroll(this)"
-                          wrap="off"
-                          aria-label="Script source code"
-                          aria-describedby="diagnostics-title"
-                          spellcheck="false"></textarea>
-                <div id="lexeme-tooltip" class="lexeme-tooltip" role="tooltip" hidden></div>
-            </div>
-        </div>
-    </section>
+            <EditorPanel Model="editor" IsRunning="isRunning" HasRun="hasRun" Status="@runStatus"
+                         ElapsedText="@ElapsedText" RunRequested="HandleRunButton"
+                         SourceChanged="UpdateSource" KeyDown="HandleEditorKeyDown" />
         </div>
     </div>
 
@@ -94,24 +42,7 @@
     <div class="dock-host dock-right" data-dock="right">
         <div class="dock-tabs" role="tablist" aria-label="Right panels"></div>
         <div class="dock-content">
-    <section class="viewer-panel dock-panel" data-panel-id="viewer" data-panel-title="3D View" aria-labelledby="viewer-title">
-        <div class="panel-bar viewer-bar">
-            <div>
-                <h2 id="viewer-title">3D view</h2>
-                <span class="camera-label">Orthographic orbit camera</span>
-            </div>
-            <div class="viewer-actions">
-                <button type="button" onclick="meshViewer.fit()" aria-label="Fit mesh in view">Fit</button>
-                <button type="button" onclick="meshViewer.reset()" aria-label="Reset camera">Reset</button>
-            </div>
-        </div>
-        <div class="viewer-surface">
-            <canvas id="mesh-viewer"
-                    tabindex="0"
-                    aria-label="Orthographic 3D mesh view. Drag to rotate, Shift-drag to pan, and scroll to zoom."></canvas>
-            <div class="viewer-help" aria-hidden="true">Drag rotate · Shift/right drag pan · Scroll zoom</div>
-        </div>
-    </section>
+            <ViewerPanel />
         </div>
     </div>
 
@@ -121,55 +52,8 @@
     <div class="dock-host dock-bottom" data-dock="bottom">
         <div class="dock-tabs" role="tablist" aria-label="Bottom panels"></div>
         <div class="dock-content">
-    <section class="diagnostics-panel dock-panel" data-panel-id="diagnostics" data-panel-title="Problems" aria-labelledby="diagnostics-title" aria-live="polite">
-        <div class="panel-bar diagnostics-bar">
-            <div class="diagnostics-heading">
-                <h2 id="diagnostics-title">Diagnostics</h2>
-                <span class="count error-count">@ErrorCount errors</span>
-                <span class="count warning-count">@WarningCount warnings</span>
-                <span class="count info-count">@InfoCount info</span>
-            </div>
-            <span class="run-time">Live syntax check</span>
-        </div>
-
-        <div class="diagnostics-list">
-            @if (diagnostics.Count == 0)
-            {
-                <div class="empty-state success-state">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6" /></svg>
-                    <div><strong>No errors found</strong><p>The script parsed successfully.</p></div>
-                </div>
-            }
-            else
-            {
-                @foreach (var diagnostic in diagnostics)
-                {
-                    <button class="diagnostic-row severity-@diagnostic.Severity.ToString().ToLowerInvariant()"
-                            type="button"
-                            @onclick="() => GoToDiagnostic(diagnostic)"
-                            aria-label="Go to line @diagnostic.Span.Line, column @diagnostic.Span.Column: @diagnostic.Message">
-                        <span class="severity-icon" aria-hidden="true">!</span>
-                        <span class="diagnostic-copy">
-                            <span><strong>@diagnostic.Code</strong> @diagnostic.Message</span>
-                            <span class="location">main.tus:@diagnostic.Span.Line:@diagnostic.Span.Column</span>
-                        </span>
-                        <svg class="jump-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
-                    </button>
-                }
-            }
-        </div>
-    </section>
-
-    <section class="output-panel dock-panel" data-panel-id="output" data-panel-title="Output" aria-labelledby="output-title" aria-live="polite">
-        <div class="panel-bar">
-            <h2 id="output-title">Output</h2>
-            @if (output is not null)
-            {
-                <span class="output-status @(runtimeFailed ? "failed" : runStatus == "Aborted" ? "cancelled" : null)">@runStatus</span>
-            }
-        </div>
-        <pre class="output-content @(runtimeFailed ? "failed" : null)">@(output ?? "Run the script to see its result.")</pre>
-    </section>
+            <DiagnosticsPanel Items="diagnostics" Selected="GoToDiagnostic" />
+            <OutputPanel Output="@output" Status="@runStatus" Failed="runtimeFailed" />
         </div>
     </div>
     </div>
@@ -229,9 +113,7 @@
         Print(Point(1));
         Print(Line(1));
         """;
-    IReadOnlyList<Diagnostic> diagnostics = [];
-    IReadOnlyList<Token> tokens = [];
-    IReadOnlySet<int> functionTokenStarts = new HashSet<int>();
+    ScriptEditorViewModel editor = null!;
     string? output;
     bool runtimeFailed;
     bool isRunning;
@@ -242,14 +124,10 @@
     readonly System.Diagnostics.Stopwatch executionWatch = new();
     readonly List<string> printedLines = [];
 
-    int LineCount => Math.Max(1, source.Count(character => character == '\n') + 1);
-    int ErrorCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Error);
-    int WarningCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Warning);
-    int InfoCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Info);
+    IReadOnlyList<Diagnostic> diagnostics => editor.Diagnostics;
     string ElapsedText => $"{elapsed.TotalSeconds:0.000} s";
-    IReadOnlyList<HighlightSegment> HighlightSegments => BuildHighlightSegments();
 
-    protected override void OnInitialized() => Analyze();
+    protected override void OnInitialized() => editor = new ScriptEditorViewModel(source);
 
     void UpdateSource(ChangeEventArgs args)
     {
@@ -257,7 +135,7 @@
         output = null;
         runtimeFailed = false;
         printedLines.Clear();
-        Analyze();
+        editor.Update(source);
     }
 
     async Task HandleRunButton()
@@ -387,20 +265,7 @@
     }
 
     SyntaxTree Analyze()
-    {
-        SyntaxTree tree = SyntaxTree.Parse(source);
-        diagnostics = tree.Diagnostics;
-        tokens = new Tokenizer(source).Tokenize();
-        functionTokenStarts = tokens
-            .Take(tokens.Count - 1)
-            .Select((token, index) => (token, index))
-            .Where(item =>
-                item.token.Kind is TokenKind.Identifier or TokenKind.Keyword &&
-                tokens[item.index + 1].Kind == TokenKind.LeftParenthesis)
-            .Select(item => item.token.Span.Start)
-            .ToHashSet();
-        return tree;
-    }
+        => editor.Analyze();
 
     void HandleEditorKeyDown(KeyboardEventArgs args)
     {
@@ -414,16 +279,36 @@
     {
         if (firstRender)
         {
-            var scriptObjects = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+            try
             {
-                ["Mesh"] = new MeshScriptModel().PropertyNames
-            };
-            await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor", scriptObjects);
-            await JS.InvokeVoidAsync("dockInterop.initialize", ".workspace");
-            await JS.InvokeVoidAsync("meshViewer.initialize", "mesh-viewer");
+                var scriptObjects = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+                {
+                    ["Mesh"] = new MeshScriptModel().PropertyNames
+                };
+                await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor", scriptObjects);
+                await JS.InvokeVoidAsync("dockInterop.initialize", ".workspace");
+                await JS.InvokeVoidAsync("meshViewer.initialize", "mesh-viewer");
+            }
+            catch (Exception exception)
+            {
+                output = $"Editor initialization failed: {exception.Message}";
+                runtimeFailed = true;
+                runStatus = "UI error";
+                StateHasChanged();
+                return;
+            }
         }
 
-        await JS.InvokeVoidAsync("editorInterop.setHoverDocumentation", "script-editor", BuildHoverDocumentation());
+        try
+        {
+            await JS.InvokeVoidAsync("editorInterop.setHoverDocumentation", "script-editor", editor.HoverDocumentation);
+        }
+        catch (Exception exception)
+        {
+            output = $"Documentation tooltip initialization failed: {exception.Message}";
+            runtimeFailed = true;
+            runStatus = "UI error";
+        }
     }
 
     async Task GoToDiagnostic(Diagnostic diagnostic)
@@ -435,136 +320,6 @@
             diagnostic.Span.Start,
             Math.Max(1, diagnostic.Span.Length));
     }
-
-    IReadOnlyList<HighlightSegment> BuildHighlightSegments()
-    {
-        if (source.Length == 0)
-        {
-            return [];
-        }
-
-        var boundaries = new SortedSet<int> { 0, source.Length };
-        foreach (Token token in tokens.Where(item => item.Kind != TokenKind.EndOfFile))
-        {
-            boundaries.Add(Math.Clamp(token.Span.Start, 0, source.Length));
-            boundaries.Add(Math.Clamp(token.Span.End, 0, source.Length));
-        }
-
-        foreach (Diagnostic diagnostic in diagnostics)
-        {
-            int start = Math.Clamp(diagnostic.Span.Start, 0, source.Length - 1);
-            int end = Math.Clamp(start + Math.Max(1, diagnostic.Span.Length), start + 1, source.Length);
-            boundaries.Add(start);
-            boundaries.Add(end);
-        }
-
-        int[] positions = boundaries.ToArray();
-        var segments = new List<HighlightSegment>(positions.Length - 1);
-        for (int index = 0; index < positions.Length - 1; index++)
-        {
-            int start = positions[index];
-            int end = positions[index + 1];
-            Token token = tokens.FirstOrDefault(item =>
-                item.Kind != TokenKind.EndOfFile && start >= item.Span.Start && start < item.Span.End);
-            DiagnosticSeverity? severity = diagnostics
-                .Where(item =>
-            {
-                int errorStart = Math.Clamp(item.Span.Start, 0, source.Length - 1);
-                int errorEnd = Math.Min(source.Length, errorStart + Math.Max(1, item.Span.Length));
-                return start < errorEnd && end > errorStart;
-            })
-                .Select(item => (DiagnosticSeverity?)item.Severity)
-                .OrderByDescending(item => item)
-                .FirstOrDefault();
-            string tokenClass = token.Kind == TokenKind.EndOfFile ? "token-plain" : TokenClass(token);
-            string diagnosticClass = severity switch
-            {
-                DiagnosticSeverity.Error => " token-error",
-                DiagnosticSeverity.Warning => " token-warning",
-                DiagnosticSeverity.Info => " token-info",
-                _ => string.Empty
-            };
-            segments.Add(new HighlightSegment(source[start..end], tokenClass + diagnosticClass));
-        }
-
-        return segments;
-    }
-
-    string TokenClass(Token token) => token.Kind switch
-    {
-        _ when functionTokenStarts.Contains(token.Span.Start) => "token-function",
-        TokenKind.Keyword => "token-keyword",
-        TokenKind.Number => "token-number",
-        TokenKind.String => "token-string",
-        TokenKind.Identifier => "token-identifier",
-        TokenKind.BadToken => "token-bad",
-        _ => "token-symbol"
-    };
-
-    IReadOnlyList<HoverDocumentation> BuildHoverDocumentation()
-    {
-        var items = new List<HoverDocumentation>();
-        for (int index = 0; index < tokens.Count; index++)
-        {
-            Token token = tokens[index];
-            if (token.Kind is TokenKind.EndOfFile or TokenKind.BadToken) continue;
-
-            string key = token.Text;
-            if (index >= 2 && tokens[index - 1].Kind == TokenKind.Dot)
-            {
-                key = $"{tokens[index - 2].Text}.{token.Text}";
-            }
-
-            if (!ScriptDocumentation.TryGet(key, out ScriptDocumentationEntry? documentation) &&
-                !TryGetGenericDocumentation(token, out documentation)) continue;
-            items.Add(new HoverDocumentation(
-                token.Span.Start,
-                token.Span.Length,
-                documentation.Name,
-                documentation.Signature,
-                documentation.Description,
-                documentation.AcceptedValues));
-        }
-        return items;
-    }
-
-    static bool TryGetGenericDocumentation(Token token, out ScriptDocumentationEntry documentation)
-    {
-        string? key = token.Kind switch
-        {
-            TokenKind.LeftBracket or TokenKind.RightBracket => "[]",
-            TokenKind.LeftBrace or TokenKind.RightBrace => "{}",
-            _ => token.Text
-        };
-        if (ScriptDocumentation.TryGet(key, out documentation!)) return true;
-
-        documentation = token.Kind switch
-        {
-            TokenKind.Number => new(
-                "Number literal",
-                token.Text,
-                "A double-precision numeric value. Decimal and scientific notation are supported."),
-            TokenKind.String => new(
-                "String literal",
-                token.Text,
-                "Text enclosed in double quotes. Escaped quotes and backslashes are supported."),
-            TokenKind.Identifier => new(
-                "Identifier",
-                token.Text,
-                "A case-sensitive name resolved from the current lexical scope."),
-            _ => null!
-        };
-        return documentation is not null;
-    }
-
-    sealed record HighlightSegment(string Text, string CssClass);
-    sealed record HoverDocumentation(
-        int Start,
-        int Length,
-        string Name,
-        string Signature,
-        string Description,
-        string? AcceptedValues);
 
     public void Dispose()
     {

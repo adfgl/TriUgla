@@ -1,0 +1,41 @@
+<section class="diagnostics-panel dock-panel" data-panel-id="diagnostics" data-panel-title="Problems" aria-labelledby="diagnostics-title" aria-live="polite">
+    <div class="panel-bar diagnostics-bar">
+        <div class="diagnostics-heading">
+            <h2 id="diagnostics-title">Diagnostics</h2>
+            <span class="count error-count">@ErrorCount errors</span>
+            <span class="count warning-count">@WarningCount warnings</span>
+            <span class="count info-count">@InfoCount info</span>
+        </div>
+        <span class="run-time">Live syntax check</span>
+    </div>
+    <div class="diagnostics-list">
+        @if (Items.Count == 0)
+        {
+            <div class="empty-state success-state">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6" /></svg>
+                <div><strong>No errors found</strong><p>The script parsed successfully.</p></div>
+            </div>
+        }
+        else
+        {
+            @foreach (Diagnostic diagnostic in Items)
+            {
+                <button class="diagnostic-row severity-@diagnostic.Severity.ToString().ToLowerInvariant()" type="button"
+                        @onclick="() => Selected.InvokeAsync(diagnostic)"
+                        aria-label="Go to line @diagnostic.Span.Line, column @diagnostic.Span.Column: @diagnostic.Message">
+                    <span class="severity-icon" aria-hidden="true">!</span>
+                    <span class="diagnostic-copy"><span><strong>@diagnostic.Code</strong> @diagnostic.Message</span><span class="location">main.tus:@diagnostic.Span.Line:@diagnostic.Span.Column</span></span>
+                    <svg class="jump-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                </button>
+            }
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<Diagnostic> Items { get; set; } = [];
+    [Parameter] public EventCallback<Diagnostic> Selected { get; set; }
+    int ErrorCount => Items.Count(item => item.Severity == DiagnosticSeverity.Error);
+    int WarningCount => Items.Count(item => item.Severity == DiagnosticSeverity.Warning);
+    int InfoCount => Items.Count(item => item.Severity == DiagnosticSeverity.Info);
+}
