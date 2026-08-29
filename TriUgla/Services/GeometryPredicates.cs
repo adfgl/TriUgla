@@ -12,6 +12,44 @@ public sealed class GeometryPredicates : IGeometry
     public int ExactOrientationComputations { get; private set; }
     public int ExactInCircleComputations { get; private set; }
 
+    /// <summary>
+    /// Classifies two closed segments: -1 disjoint, 0 endpoint/tangent contact,
+    /// 1 proper crossing, and 2 collinear overlap.
+    /// </summary>
+    public int Intersects(Vec2 p1, Vec2 p2, Vec2 q1, Vec2 q2)
+    {
+        int p1p2q1 = OrientSign(p1, p2, q1);
+        int p1p2q2 = OrientSign(p1, p2, q2);
+        int q1q2p1 = OrientSign(q1, q2, p1);
+        int q1q2p2 = OrientSign(q1, q2, p2);
+
+        if (p1p2q1 == 0 && p1p2q2 == 0 && q1q2p1 == 0 && q1q2p2 == 0)
+        {
+            return CollinearOverlap(p1, p2, q1, q2) ? 2 : -1;
+        }
+
+        if (p1p2q1 != 0 && p1p2q2 != 0 && q1q2p1 != 0 && q1q2p2 != 0)
+        {
+            return p1p2q1 != p1p2q2 && q1q2p1 != q1q2p2 ? 1 : -1;
+        }
+
+        if (p1p2q1 == 0 && OnSegment(p1, p2, q1)) return 0;
+        if (p1p2q2 == 0 && OnSegment(p1, p2, q2)) return 0;
+        if (q1q2p1 == 0 && OnSegment(q1, q2, p1)) return 0;
+        if (q1q2p2 == 0 && OnSegment(q1, q2, p2)) return 0;
+        return -1;
+    }
+
+    public static bool CollinearOverlap(Vec2 a, Vec2 b, Vec2 c, Vec2 d)
+        => Math.Max(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) <=
+               Math.Min(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) &&
+           Math.Max(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) <=
+               Math.Min(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+
+    public static bool OnSegment(Vec2 a, Vec2 b, Vec2 point)
+        => point.X >= Math.Min(a.X, b.X) && point.X <= Math.Max(a.X, b.X) &&
+           point.Y >= Math.Min(a.Y, b.Y) && point.Y <= Math.Max(a.Y, b.Y);
+
     public EOrientaiton Orient(Node a, Node b, Vec2 point)
     {
         ArgumentNullException.ThrowIfNull(a);

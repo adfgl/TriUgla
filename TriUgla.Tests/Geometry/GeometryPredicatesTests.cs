@@ -117,5 +117,26 @@ public class GeometryPredicatesTests
         Assert.Equal(0, predicates.ExactOrientationComputations);
     }
 
+    [Theory]
+    [InlineData(0, 0, 2, 2, 0, 2, 2, 0, 1)]
+    [InlineData(0, 0, 1, 0, 1, 0, 2, 1, 0)]
+    [InlineData(0, 0, 2, 0, 1, 0, 3, 0, 2)]
+    [InlineData(0, 0, 1, 0, 2, 0, 3, 0, -1)]
+    public void Intersects_ClassifiesSegmentRelationships(
+        double p1x,
+        double p1y,
+        double p2x,
+        double p2y,
+        double q1x,
+        double q1y,
+        double q2x,
+        double q2y,
+        int expected)
+        => Assert.Equal(expected, _geometry.Intersects(
+            new Vec2(p1x, p1y),
+            new Vec2(p2x, p2y),
+            new Vec2(q1x, q1y),
+            new Vec2(q2x, q2y)));
+
     static Node NodeAt(double x, double y) => new() { Position = new Vec2(x, y) };
 }
