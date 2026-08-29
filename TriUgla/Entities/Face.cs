@@ -5,6 +5,7 @@ namespace TriUgla;
 public class Face : MeshElement
 {
     public Edge Edge { get; set; } = null!;
+    public FaceKind Kind { get; internal set; }
 
     public double SignedArea
     {

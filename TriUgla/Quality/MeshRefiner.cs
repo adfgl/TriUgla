@@ -48,7 +48,7 @@ public sealed class MeshRefiner(
     {
         ArgumentNullException.ThrowIfNull(face);
         ArgumentNullException.ThrowIfNull(ranker);
-        if (face.Dead) return false;
+        if (!Processable(face)) return false;
 
         double badness = ranker.Rank(face);
         if (badness <= 0d || !ShouldRequeueFace(face, badness, settings)) return false;
@@ -123,7 +123,7 @@ public sealed class MeshRefiner(
     {
         foreach (Face face in faces)
         {
-            if (!face.Dead)
+            if (Processable(face))
             {
                 double badness = ranker.Rank(face);
                 if (badness > 0d && ShouldRequeueFace(face, badness, settings)) EnqueueFace(face);
@@ -182,7 +182,7 @@ public sealed class MeshRefiner(
 
         foreach (Face face in change.AffectedFaces.Concat(legalization.AffectedFaces))
         {
-            if (face.Dead) continue;
+            if (!Processable(face)) continue;
             double badness = ranker.Rank(face);
             if (badness > 0d && ShouldRequeueFace(face, badness, settings)) EnqueueFace(face);
         }
@@ -271,6 +271,9 @@ public sealed class MeshRefiner(
         => ReferenceEquals(first, second) ||
            first.Contains(second.NodeStart) ||
            first.Contains(second.NodeEnd);
+
+    static bool Processable(Face face)
+        => !face.Dead && face.Kind is FaceKind.Undefined or FaceKind.Island;
 
     static void Validate(in RefineSettings settings)
     {

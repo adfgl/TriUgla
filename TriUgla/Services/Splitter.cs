@@ -20,8 +20,8 @@ public sealed class Splitter : ISplitter
         (Edge da, Edge ad) = CreateTwins();
 
         Face abd = target;
-        Face bcd = new();
-        Face cad = new();
+        Face bcd = new() { Kind = target.Kind };
+        Face cad = new() { Kind = target.Kind };
 
         Linker.LinkTriangle(abd, ab, bd, da, a, b, d);
         Linker.LinkTriangle(bcd, bc, cd, db, b, c, d);
@@ -75,8 +75,8 @@ public sealed class Splitter : ISplitter
 
         Face cae = ab.Face;
         Face ade = ba.Face;
-        Face bce = new();
-        Face dbe = new();
+        Face bce = new() { Kind = cae.Kind };
+        Face dbe = new() { Kind = ade.Kind };
 
         Linker.LinkTriangle(cae, ca, ae, ec, c, a, e);
         Linker.LinkTriangle(bce, bc, ce, eb, b, c, e);
@@ -110,7 +110,7 @@ public sealed class Splitter : ISplitter
         Edge eb = new();
         (Edge ec, Edge ce) = CreateTwins();
         Face cae = ab.Face;
-        Face bce = new();
+        Face bce = new() { Kind = cae.Kind };
 
         Linker.LinkTriangle(cae, ca, ae, ec, c, a, node);
         Linker.LinkTriangle(bce, bc, ce, eb, b, c, node);
