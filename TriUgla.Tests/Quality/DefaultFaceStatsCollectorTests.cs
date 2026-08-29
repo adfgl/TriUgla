@@ -6,9 +6,12 @@ public class DefaultFaceStatsCollectorTests
     public void CollectsGeometryAndTargetArea()
     {
         Face face = QualityTestMesh.Triangle(
-            new Vec2(0, 0, 3),
-            new Vec2(4, 0, 6),
-            new Vec2(0, 3, 9));
+            new Vec2(0, 0),
+            new Vec2(4, 0),
+            new Vec2(0, 3),
+            new NodeData(0, 3),
+            new NodeData(0, 6),
+            new NodeData(0, 9));
 
         bool collected = new DefaultFaceStatsCollector().TryCollect(face, out FaceStats stats);
 

@@ -32,7 +32,7 @@ public sealed class NodeInserter(
         Vec2 position,
         LocateResult location)
     {
-        existing.Position = nodes.Create(position, location).Position;
+        existing.Data = nodes.Create(position, location).Data;
         return InsertNodeResult.ExistingNodeDataUpdated(existing, location);
     }
 

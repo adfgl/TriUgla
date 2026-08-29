@@ -5,6 +5,7 @@ public sealed class Node : MeshElement, IConstrainable
     int _constraints = 0;
 
     public Vec2 Position;
+    public NodeData Data;
     public Edge Edge = null!;
 
     public bool Constrained => _constraints > 0;

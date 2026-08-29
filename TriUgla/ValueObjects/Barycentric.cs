@@ -39,9 +39,12 @@ public readonly record struct Barycentric(double A, double B, double C)
     public Vec2 Interpolate(Vec2 a, Vec2 b, Vec2 c)
         => new(
             Interpolate(a.X, b.X, c.X),
-            Interpolate(a.Y, b.Y, c.Y),
-            Interpolate(a.Z, b.Z, c.Z),
-            Interpolate(a.W, b.W, c.W));
+            Interpolate(a.Y, b.Y, c.Y));
+
+    public NodeData Interpolate(NodeData a, NodeData b, NodeData c)
+        => new(
+            Interpolate(a.Elevation, b.Elevation, c.Elevation),
+            Interpolate(a.Area, b.Area, c.Area));
 
     public double Interpolate<T>(T a, T b, T c, Func<T, double> selector)
         => Interpolate(selector(a), selector(b), selector(c));

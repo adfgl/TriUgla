@@ -14,16 +14,16 @@ public class BarycentricTests
     }
 
     [Fact]
-    public void InterpolateVec2IncludesZWComponents()
+    public void InterpolateNodeDataIncludesElevationAndArea()
     {
         Barycentric weights = new(0.5, 0.25, 0.25);
 
-        Vec2 value = weights.Interpolate(
-            new Vec2(0, 0, 10, 20),
-            new Vec2(4, 0, 30, 40),
-            new Vec2(0, 4, 50, 60));
+        NodeData value = weights.Interpolate(
+            new NodeData(10, 20),
+            new NodeData(30, 40),
+            new NodeData(50, 60));
 
-        Assert.Equal(new Vec2(1, 1, 25, 35), value);
+        Assert.Equal(new NodeData(25, 35), value);
     }
 
     private static readonly Vec2 A = new(0, 0);

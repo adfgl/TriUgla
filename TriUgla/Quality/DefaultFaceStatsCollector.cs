@@ -29,7 +29,7 @@ public sealed class DefaultFaceStatsCollector : IFaceStatsCollector
             signedAreaTwice += start.Cross(end);
             minLen2 = Math.Min(minLen2, len2);
             maxLen2 = Math.Max(maxLen2, len2);
-            vertexAreaSum += start.Z;
+            vertexAreaSum += edge.NodeStart.Data.Area;
             xSum += start.X;
             ySum += start.Y;
             count++;

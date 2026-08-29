@@ -44,7 +44,8 @@ public class EdgeInserterTests
         EdgeInsertResult result = inserter.Insert(fixture.A, fixture.D);
 
         Node inserted = Assert.Single(result.InsertedNodes);
-        Assert.Equal(new Vec2(1, 1, 30, 40), inserted.Position);
+        Assert.Equal(new Vec2(1, 1), inserted.Position);
+        Assert.Equal(new NodeData(30, 40), inserted.Data);
         Assert.Equal(2, result.ConstrainedEdges.Count);
         Assert.All(result.ConstrainedEdges, edge => Assert.Equal(1, edge.ConstraintCount));
         Assert.Same(fixture.A, result.ConstrainedEdges[0].NodeStart);
@@ -85,7 +86,7 @@ public class EdgeInserterTests
     }
 
     static Node MakeNode(double x, double y, double z, double w)
-        => new() { Position = new Vec2(x, y, z, w) };
+        => new() { Position = new Vec2(x, y), Data = new NodeData(z, w) };
 
     sealed record Fixture(Node A, Node B, Node C, Node D);
 

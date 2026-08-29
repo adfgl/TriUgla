@@ -3,14 +3,17 @@ namespace TriUgla;
 public sealed class NodeFactory : INodeFactory
 {
     public Node Create(Vec2 position, LocateResult location)
-        => new() { Position = WithInterpolatedMetadata(position, location) };
+        => new()
+        {
+            Position = position,
+            Data = InterpolateData(position, location)
+        };
 
-    static Vec2 WithInterpolatedMetadata(Vec2 position, LocateResult location)
+    static NodeData InterpolateData(Vec2 position, LocateResult location)
     {
         if (location.Node is not null)
         {
-            Vec2 source = location.Node.Position;
-            return new(position.X, position.Y, source.Z, source.W);
+            return location.Node.Data;
         }
 
         if (location.Edge is not null)
@@ -18,8 +21,10 @@ public sealed class NodeFactory : INodeFactory
             Vec2 first = location.Edge.NodeStart.Position;
             Vec2 second = location.Edge.NodeEnd.Position;
             Barycentric weights = Barycentric.FromSegment(position, first, second);
-            Vec2 value = weights.Interpolate(first, second, Vec2.Zero);
-            return new(position.X, position.Y, value.Z, value.W);
+            return weights.Interpolate(
+                location.Edge.NodeStart.Data,
+                location.Edge.NodeEnd.Data,
+                default);
         }
 
         if (location.Face is not null)
@@ -35,13 +40,9 @@ public sealed class NodeFactory : INodeFactory
                 nodes[0].Position,
                 nodes[1].Position,
                 nodes[2].Position);
-            Vec2 value = weights.Interpolate(
-                nodes[0].Position,
-                nodes[1].Position,
-                nodes[2].Position);
-            return new(position.X, position.Y, value.Z, value.W);
+            return weights.Interpolate(nodes[0].Data, nodes[1].Data, nodes[2].Data);
         }
 
-        return position;
+        return default;
     }
 }

@@ -2,13 +2,19 @@ namespace TriUgla.Tests;
 
 static class QualityTestMesh
 {
-    public static Face Triangle(Vec2 a, Vec2 b, Vec2 c)
+    public static Face Triangle(
+        Vec2 a,
+        Vec2 b,
+        Vec2 c,
+        NodeData aData = default,
+        NodeData bData = default,
+        NodeData cData = default)
     {
         Node[] nodes =
         [
-            new Node { Position = a },
-            new Node { Position = b },
-            new Node { Position = c }
+            new Node { Position = a, Data = aData },
+            new Node { Position = b, Data = bData },
+            new Node { Position = c, Data = cData }
         ];
         Edge[] edges = [new(), new(), new()];
         Face face = new();

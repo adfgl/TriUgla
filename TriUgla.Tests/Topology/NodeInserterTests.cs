@@ -13,8 +13,7 @@ public class NodeInserterTests
         Assert.Equal(InsertNodeStatus.InsertedIntoFace, result.Status);
         Assert.NotNull(result.FaceSplit);
         Assert.Null(result.EdgeSplit);
-        Assert.Equal(15, result.Node!.Position.Z);
-        Assert.Equal(25, result.Node.Position.W);
+        Assert.Equal(new NodeData(15, 25), result.Node!.Data);
     }
 
     [Fact]
@@ -28,8 +27,7 @@ public class NodeInserterTests
         Assert.Equal(InsertNodeStatus.InsertedIntoEdge, result.Status);
         Assert.NotNull(result.EdgeSplit);
         Assert.Null(result.FaceSplit);
-        Assert.Equal(30, result.Node!.Position.Z);
-        Assert.Equal(40, result.Node.Position.W);
+        Assert.Equal(new NodeData(30, 40), result.Node!.Data);
     }
 
     [Fact]
@@ -37,12 +35,11 @@ public class NodeInserterTests
     {
         Fixture fixture = CreateFixture();
         NodeInserter inserter = CreateInserter(fixture.Mesh);
-        InsertNodeResult result = inserter.Insert(new Vec2(fixture.A.Position.X, fixture.A.Position.Y, 99, 99));
+        InsertNodeResult result = inserter.Insert(fixture.A.Position);
 
         Assert.Equal(InsertNodeStatus.ExistingNodeDataUpdated, result.Status);
         Assert.Same(fixture.A, result.Node);
-        Assert.Equal(0, result.Node!.Position.Z);
-        Assert.Equal(10, result.Node.Position.W);
+        Assert.Equal(new NodeData(0, 10), result.Node!.Data);
     }
 
     [Fact]
@@ -90,7 +87,7 @@ public class NodeInserterTests
     }
 
     static Node MakeNode(double x, double y, double z, double w)
-        => new() { Position = new Vec2(x, y, z, w) };
+        => new() { Position = new Vec2(x, y), Data = new NodeData(z, w) };
 
     sealed record Fixture(Mesh Mesh, Node A);
 }
