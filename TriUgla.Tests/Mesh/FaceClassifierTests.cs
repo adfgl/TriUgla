@@ -9,9 +9,12 @@ public class FaceClassifierTests
         chain.OutsideToIsland.Constrain(EdgeConstraintKind.Boundary);
         chain.IslandToLake.Constrain(EdgeConstraintKind.Boundary);
 
-        Mesh result = new FaceClassifier(chain.Mesh, chain.SuperStructure).Classify();
+        Face result = new FaceClassifier(
+            chain.Root,
+            chain.Traversal,
+            chain.SuperStructure).Classify();
 
-        Assert.Same(chain.Mesh, result);
+        Assert.Same(chain.Root, result);
         Assert.Equal(FaceKind.Outside, chain.Outside.Kind);
         Assert.Equal(FaceKind.Island, chain.Island.Kind);
         Assert.Equal(FaceKind.Lake, chain.Lake.Kind);
@@ -23,7 +26,7 @@ public class FaceClassifierTests
         Chain chain = CreateChain();
         chain.OutsideToIsland.Constrain(EdgeConstraintKind.Feature);
 
-        new FaceClassifier(chain.Mesh, chain.SuperStructure).Classify();
+        new FaceClassifier(chain.Root, chain.Traversal, chain.SuperStructure).Classify();
 
         Assert.All(
             new[] { chain.Outside, chain.Island, chain.Lake },
@@ -36,7 +39,7 @@ public class FaceClassifierTests
         Chain chain = CreateChain();
         chain.OutsideToIsland.Twin!.Constrain(EdgeConstraintKind.Boundary);
 
-        new FaceClassifier(chain.Mesh, chain.SuperStructure).Classify();
+        new FaceClassifier(chain.Root, chain.Traversal, chain.SuperStructure).Classify();
 
         Assert.Equal(FaceKind.Outside, chain.Outside.Kind);
         Assert.Equal(FaceKind.Island, chain.Island.Kind);
@@ -48,7 +51,7 @@ public class FaceClassifierTests
     {
         Chain chain = CreateChain();
         chain.OutsideToIsland.Constrain(EdgeConstraintKind.Boundary);
-        new FaceClassifier(chain.Mesh, chain.SuperStructure).Classify();
+        new FaceClassifier(chain.Root, chain.Traversal, chain.SuperStructure).Classify();
 
         FaceSplitResult split = new Splitter().Split(chain.Island, new Node());
 
@@ -62,7 +65,14 @@ public class FaceClassifierTests
         Face face = Triangle(new Node(), new Node(), new Node());
 
         Assert.Throws<InvalidOperationException>(
-            () => new FaceClassifier(new Mesh(face), structure).Classify());
+            () =>
+            {
+                var stamps = new StampSource();
+                new FaceClassifier(
+                    face,
+                    new MeshTraversal(face, stamps),
+                    structure).Classify();
+            });
     }
 
     static Chain CreateChain()
@@ -82,8 +92,10 @@ public class FaceClassifierTests
         Linker.LinkTwins(outsideToIsland, island.Edge);
         Linker.LinkTwins(islandToLake, lake.Edge);
 
+        var stamps = new StampSource();
         return new Chain(
-            new Mesh(outside),
+            outside,
+            new MeshTraversal(outside, stamps),
             structure,
             outside,
             island,
@@ -100,7 +112,8 @@ public class FaceClassifierTests
     }
 
     sealed record Chain(
-        Mesh Mesh,
+        Face Root,
+        MeshTraversal Traversal,
         SuperStructure SuperStructure,
         Face Outside,
         Face Island,

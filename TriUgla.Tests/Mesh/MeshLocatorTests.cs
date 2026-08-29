@@ -5,8 +5,8 @@ public class MeshLocatorTests
     [Fact]
     public void Locate_PointInsideFace_ReturnsFace()
     {
-        (Mesh mesh, Face first, _) = CreateMesh();
-        MeshLocator locator = CreateLocator(mesh);
+        (Face root, Face first, _) = CreateMesh();
+        MeshLocator locator = CreateLocator(root);
 
         LocateResult result = locator.Locate(new Vec2(0.25, 0.25));
 
@@ -17,8 +17,8 @@ public class MeshLocatorTests
     [Fact]
     public void Locate_PointAcrossTwin_WalksToNeighbour()
     {
-        (Mesh mesh, _, Face second) = CreateMesh();
-        MeshLocator locator = CreateLocator(mesh);
+        (Face root, _, Face second) = CreateMesh();
+        MeshLocator locator = CreateLocator(root);
 
         LocateResult result = locator.Locate(new Vec2(1.75, 1.75));
 
@@ -29,8 +29,8 @@ public class MeshLocatorTests
     [Fact]
     public void Locate_PointOnVertex_ReturnsNode()
     {
-        (Mesh mesh, Face first, _) = CreateMesh();
-        MeshLocator locator = CreateLocator(mesh);
+        (Face root, Face first, _) = CreateMesh();
+        MeshLocator locator = CreateLocator(root);
 
         LocateResult result = locator.Locate(first.Edge.NodeStart.Position);
 
@@ -41,8 +41,8 @@ public class MeshLocatorTests
     [Fact]
     public void Locate_PointOnSharedEdge_ReturnsEdge()
     {
-        (Mesh mesh, Face first, _) = CreateMesh();
-        MeshLocator locator = CreateLocator(mesh);
+        (Face root, Face first, _) = CreateMesh();
+        MeshLocator locator = CreateLocator(root);
 
         LocateResult result = locator.Locate(new Vec2(1, 1));
 
@@ -53,15 +53,15 @@ public class MeshLocatorTests
     [Fact]
     public void Locate_PointOutsideMesh_ReturnsEmpty()
     {
-        (Mesh mesh, _, _) = CreateMesh();
-        MeshLocator locator = CreateLocator(mesh);
+        (Face root, _, _) = CreateMesh();
+        MeshLocator locator = CreateLocator(root);
 
         LocateResult result = locator.Locate(new Vec2(3, 3));
 
         Assert.True(result.IsEmpty);
     }
 
-    static (Mesh Mesh, Face First, Face Second) CreateMesh()
+    static (Face Root, Face First, Face Second) CreateMesh()
     {
         var a = new Node { Position = new Vec2(0, 0) };
         var b = new Node { Position = new Vec2(2, 0) };
@@ -81,13 +81,13 @@ public class MeshLocatorTests
         Linker.LinkTriangle(second, cb, bd, dc, c, b, d);
         Linker.LinkTwins(bc, cb);
 
-        return (new Mesh(first), first, second);
+        return (first, first, second);
     }
 
-    static MeshLocator CreateLocator(Mesh mesh)
+    static MeshLocator CreateLocator(Face root)
     {
         var stamps = new StampSource();
-        var traversal = new MeshTraversal(mesh.Root, stamps);
-        return new MeshLocator(mesh, traversal, stamps);
+        var traversal = new MeshTraversal(root, stamps);
+        return new MeshLocator(root, traversal, stamps);
     }
 }

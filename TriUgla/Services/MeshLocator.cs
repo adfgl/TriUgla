@@ -7,11 +7,22 @@ public sealed class MeshLocator : IMeshLocator
     readonly StampSource _stamps;
     Face? _lastFound;
 
+    public MeshLocator(Face root, MeshTraversal traversal, StampSource stamps)
+        : this(new Mesh(root), traversal, stamps)
+    {
+    }
+
     public MeshLocator(Mesh mesh, MeshTraversal traversal, StampSource stamps)
     {
         _mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
         _traversal = traversal ?? throw new ArgumentNullException(nameof(traversal));
         _stamps = stamps ?? throw new ArgumentNullException(nameof(stamps));
+        if (!ReferenceEquals(mesh.Root, traversal.Root))
+        {
+            throw new ArgumentException(
+                "The root must match the traversal root.",
+                nameof(mesh));
+        }
     }
 
     public double Eps { get; set; } = 1e-6;

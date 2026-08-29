@@ -132,10 +132,9 @@ public class MeshRefinerTests
 
     static Fixture CreateFixture(Face face)
     {
-        var mesh = new Mesh(face);
         var stamps = new StampSource();
         var traversal = new MeshTraversal(face, stamps);
-        var locator = new MeshLocator(mesh, traversal, stamps);
+        var locator = new MeshLocator(face, traversal, stamps);
         var geometry = new GeometryPredicates();
         var splitter = new Splitter();
         var legalizer = new EdgeLegalizer(new EdgeFlipper(geometry));

@@ -3,6 +3,41 @@ namespace TriUgla.Tests;
 public class MeshTests
 {
     [Fact]
+    public void RootGetterRecoversFromDeadFace()
+    {
+        (RemoveNodeResult removal, Face deadFace) = RemoveInsertedCenter();
+        Linker.LinkTwins(deadFace.Edge, removal.Change.AffectedFaces[0].Edge);
+        var mesh = new Mesh(deadFace);
+
+        Face recovered = mesh.Root;
+
+        Assert.False(recovered.Dead);
+        Assert.Contains(recovered, removal.Change.AffectedFaces);
+        Assert.Same(recovered, mesh.Root);
+    }
+
+    [Fact]
+    public void RootGetterThrowsWhenNoLiveFaceIsReachable()
+    {
+        (_, Face deadFace) = RemoveInsertedCenter();
+        foreach (Edge edge in deadFace.Edges)
+        {
+            edge.Twin = null;
+            edge.Face = deadFace;
+            edge.NodeStart.Edge = edge;
+        }
+        var mesh = new Mesh(deadFace);
+
+        Assert.Throws<InvalidOperationException>(() => _ = mesh.Root);
+    }
+
+    [Fact]
+    public void MeshExposesOnlyRootProperty()
+        => Assert.Equal(
+            new[] { nameof(Mesh.Root) },
+            typeof(Mesh).GetProperties().Select(property => property.Name));
+
+    [Fact]
     public void TraversesEachElementOnce()
     {
         AssertTraversesEachElementOnce();
@@ -11,10 +46,10 @@ public class MeshTests
     static void AssertTraversesEachElementOnce()
     {
         Face root = CreateTwoTriangles();
-        var mesh = new Mesh(root);
-        MeshTraversal traversal = mesh.Traversal;
+        var mesher = new Mesher(root);
+        MeshTraversal traversal = mesher.Traversal;
 
-        Assert.Same(root, mesh.Root);
+        Assert.Same(root, mesher.Root);
         Assert.Equal(2, traversal.Faces().Count());
         Assert.Equal(6, traversal.Edges().Count());
         Assert.Equal(4, traversal.Nodes().Count());
@@ -29,9 +64,9 @@ public class MeshTests
     public void CanTraverseAcrossEdgeLimitsTraversal()
     {
         Face root = CreateTwoTriangles();
-        var mesh = new Mesh(root);
+        var mesher = new Mesher(root);
 
-        Face[] faces = mesh.Traversal
+        Face[] faces = mesher.Traversal
             .Faces(canTraverse: (_, _, _) => false)
             .ToArray();
 
@@ -42,38 +77,38 @@ public class MeshTests
     [Fact]
     public void LocateUsesMeshLocatorAndReturnsTypedResult()
     {
-        var mesh = new Mesh(CreateTwoTriangles());
+        var mesher = new Mesher(CreateTwoTriangles());
 
-        LocateResult result = mesh.Locate(new Vec2(0.25, 0.25));
+        LocateResult result = mesher.Locate(new Vec2(0.25, 0.25));
 
         Assert.True(result.IsFace);
-        Assert.Same(mesh.Root, result.Face);
+        Assert.Same(mesher.Root, result.Face);
     }
 
     [Fact]
     public void FindReturnsMostSpecificElementAtPoint()
     {
-        var mesh = new Mesh(CreateTwoTriangles());
-        Edge shared = mesh.Root.Edge.Next;
+        var mesher = new Mesher(CreateTwoTriangles());
+        Edge shared = mesher.Root.Edge.Next;
 
-        Assert.Same(shared.NodeStart, mesh.Find(shared.NodeStart.Position));
-        Assert.Same(shared, mesh.Find(new Vec2(1, 1)));
-        Assert.Same(mesh.Root, mesh.Find(new Vec2(0.25, 0.25)));
-        Assert.Null(mesh.Find(new Vec2(3, 3)));
+        Assert.Same(shared.NodeStart, mesher.Find(shared.NodeStart.Position));
+        Assert.Same(shared, mesher.Find(new Vec2(1, 1)));
+        Assert.Same(mesher.Root, mesher.Find(new Vec2(0.25, 0.25)));
+        Assert.Null(mesher.Find(new Vec2(3, 3)));
     }
 
     [Fact]
     public void ResetVisitStampsResetsAllReachableElements()
     {
-        var mesh = new Mesh(CreateTwoTriangles());
-        MeshSnapshot snapshot = mesh.Traversal.Snapshot();
+        var mesher = new Mesher(CreateTwoTriangles());
+        MeshSnapshot snapshot = mesher.Traversal.Snapshot();
         var stamp = new Stamp(42);
 
         MarkVisited(snapshot.Faces, stamp);
         MarkVisited(snapshot.Edges, stamp);
         MarkVisited(snapshot.Nodes, stamp);
 
-        mesh.Traversal.ResetVisitStamps();
+        mesher.Traversal.ResetVisitStamps();
 
         AssertReset(snapshot.Faces, stamp);
         AssertReset(snapshot.Edges, stamp);
@@ -120,6 +155,26 @@ public class MeshTests
         Linker.LinkTriangle(bottom, ba, ad, db, b, a, d);
 
         return top;
+    }
+
+    static (RemoveNodeResult Removal, Face DeadFace) RemoveInsertedCenter()
+    {
+        var mesher = new Mesher(CreateTriangle());
+        Node center = mesher.Insert(new Vec2(0.5, 0.5)).Node!;
+        RemoveNodeResult removal = new NodeRemover().Remove(center);
+        return (removal, removal.DeadFaces.First());
+    }
+
+    static Face CreateTriangle()
+    {
+        var face = new Face();
+        Linker.LinkTriangle(
+            face,
+            new Edge(), new Edge(), new Edge(),
+            new Node { Position = new Vec2(0, 0) },
+            new Node { Position = new Vec2(2, 0) },
+            new Node { Position = new Vec2(0, 2) });
+        return face;
     }
 
 }

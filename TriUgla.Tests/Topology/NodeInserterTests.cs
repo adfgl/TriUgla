@@ -6,7 +6,7 @@ public class NodeInserterTests
     public void Insert_InsideFace_InterpolatesZWAndSplitsFace()
     {
         Fixture fixture = CreateFixture();
-        NodeInserter inserter = CreateInserter(fixture.Mesh);
+        NodeInserter inserter = CreateInserter(fixture.Root);
 
         InsertNodeResult result = inserter.Insert(new Vec2(0.5, 0.5));
 
@@ -20,7 +20,7 @@ public class NodeInserterTests
     public void Insert_OnEdge_InterpolatesZWAndSplitsEdge()
     {
         Fixture fixture = CreateFixture();
-        NodeInserter inserter = CreateInserter(fixture.Mesh);
+        NodeInserter inserter = CreateInserter(fixture.Root);
 
         InsertNodeResult result = inserter.Insert(new Vec2(1, 1));
 
@@ -34,7 +34,7 @@ public class NodeInserterTests
     public void Insert_OnExistingNode_PreservesStoredZW()
     {
         Fixture fixture = CreateFixture();
-        NodeInserter inserter = CreateInserter(fixture.Mesh);
+        NodeInserter inserter = CreateInserter(fixture.Root);
         InsertNodeResult result = inserter.Insert(fixture.A.Position);
 
         Assert.Equal(InsertNodeStatus.ExistingNodeDataUpdated, result.Status);
@@ -46,7 +46,7 @@ public class NodeInserterTests
     public void Insert_OutsideMesh_ReturnsOutsideWithoutNode()
     {
         Fixture fixture = CreateFixture();
-        NodeInserter inserter = CreateInserter(fixture.Mesh);
+        NodeInserter inserter = CreateInserter(fixture.Root);
 
         InsertNodeResult result = inserter.Insert(new Vec2(3, 3));
 
@@ -55,14 +55,14 @@ public class NodeInserterTests
         Assert.True(result.Location.IsEmpty);
     }
 
-    static NodeInserter CreateInserter(Mesh mesh)
+    static NodeInserter CreateInserter(Face root)
     {
         var stamps = new StampSource();
-        var traversal = new MeshTraversal(mesh.Root, stamps);
+        var traversal = new MeshTraversal(root, stamps);
         return new NodeInserter(
             new NodeFactory(),
             new Splitter(),
-            new MeshLocator(mesh, traversal, stamps));
+            new MeshLocator(root, traversal, stamps));
     }
 
     static Fixture CreateFixture()
@@ -85,11 +85,11 @@ public class NodeInserterTests
         Linker.LinkTriangle(second, cb, bd, dc, c, b, d);
         Linker.LinkTwins(bc, cb);
 
-        return new Fixture(new Mesh(first), a);
+        return new Fixture(first, a);
     }
 
     static Node MakeNode(double x, double y, double z, double w)
         => new() { Position = new Vec2(x, y), Data = new NodeData(z, w) };
 
-    sealed record Fixture(Mesh Mesh, Node A);
+    sealed record Fixture(Face Root, Node A);
 }

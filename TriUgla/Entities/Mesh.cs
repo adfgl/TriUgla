@@ -2,40 +2,46 @@ namespace TriUgla;
 
 public sealed class Mesh
 {
-    readonly MeshLocator _locator;
+    Face _root;
 
     public Mesh(Face root)
+        => _root = root ?? throw new ArgumentNullException(nameof(root));
+
+    public Face Root
     {
-        ArgumentNullException.ThrowIfNull(root);
-        Root = root;
-        var stamps = new StampSource();
-        Traversal = new MeshTraversal(root, stamps);
-        _locator = new MeshLocator(this, Traversal, stamps);
-    }
-
-    public Face Root { get; private set; }
-    public MeshTraversal Traversal { get; }
-
-    public LocateResult Locate(Vec2 point, Face? from = null)
-        => _locator.Locate(point, from);
-
-    public MeshElement? Find(Vec2 point, Face? from = null)
-    {
-        LocateResult result = Locate(point, from);
-        return result.Node ?? (MeshElement?)result.Edge ?? result.Face;
-    }
-
-    internal IMeshLocator Locator => _locator;
-
-    internal void TopologyChanged(IReadOnlyList<Face> affectedFaces)
-    {
-        if (Root.Dead)
+        get
         {
-            Root = affectedFaces.FirstOrDefault(face => !face.Dead)
-                ?? throw new InvalidOperationException(
-                    "A topology change retired the mesh root without a replacement face.");
-            Traversal.SetRoot(Root);
+            if (!_root.Dead) return _root;
+
+            Face? replacement = FindLiveFace(_root);
+            _root = replacement ?? throw new InvalidOperationException(
+                "The mesh root is dead and no reachable live face exists.");
+            return _root;
         }
-        _locator.Reset();
+    }
+
+    internal void SetRoot(Face root)
+        => _root = root ?? throw new ArgumentNullException(nameof(root));
+
+    static Face? FindLiveFace(Face start)
+    {
+        var visited = new HashSet<Face>(ReferenceEqualityComparer.Instance) { start };
+        var stack = new Stack<Face>();
+        stack.Push(start);
+
+        while (stack.TryPop(out Face? face))
+        {
+            if (!face.Dead) return face;
+
+            foreach (Edge edge in face.Edges)
+            {
+                Face? neighbour = edge.Twin?.Face;
+                if (neighbour is not null && visited.Add(neighbour))
+                {
+                    stack.Push(neighbour);
+                }
+            }
+        }
+        return null;
     }
 }
