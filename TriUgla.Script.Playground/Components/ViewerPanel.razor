@@ -8,8 +8,19 @@
     </div>
     <div class="viewer-surface">
         <canvas id="mesh-viewer" tabindex="0" aria-label="Orthographic 3D mesh view. Drag to rotate, Shift-drag to pan, and scroll to zoom."></canvas>
-        <div class="mesh-legend" aria-label="Mesh face colors">
-            <span><i class="face-island" aria-hidden="true"></i>Island</span>
+        <div class="mesh-legend" role="group" aria-label="Toggle mesh face types">
+            <button type="button" data-face-kind="Island" aria-pressed="true"
+                    onclick="meshViewer.toggleFaceKind('Island')" title="Show or hide island triangles">
+                <i class="face-island" aria-hidden="true"></i>Island
+            </button>
+            <button type="button" data-face-kind="Lake" aria-pressed="true"
+                    onclick="meshViewer.toggleFaceKind('Lake')" title="Show or hide lake triangles">
+                <i class="face-lake" aria-hidden="true"></i>Lake
+            </button>
+            <button type="button" data-face-kind="Outside" aria-pressed="true"
+                    onclick="meshViewer.toggleFaceKind('Outside')" title="Show or hide outside triangles">
+                <i class="face-outside" aria-hidden="true"></i>Outside
+            </button>
         </div>
         <div class="viewer-help" aria-hidden="true">Drag rotate · Shift/right drag pan · Scroll zoom</div>
     </div>

@@ -41,10 +41,18 @@ window.editorInterop = {
         });
     },
     initializeHoverDocumentation(editor) {
-        const tooltip = document.getElementById("lexeme-tooltip");
-        if (!tooltip)
-            return;
-        editor._hoverDocumentation = { tooltip, items: [], current: null, timer: 0 };
+        const tooltip = document.createElement("div");
+        tooltip.className = "lexeme-tooltip";
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+        editor._hoverDocumentation = {
+            tooltip,
+            items: [],
+            hitRanges: [],
+            current: null,
+            timer: 0
+        };
         editor.addEventListener("mousemove", event => this.updateHoverDocumentation(editor, event));
         editor.addEventListener("mouseleave", () => this.hideHoverDocumentation(editor));
         editor.addEventListener("scroll", () => this.hideHoverDocumentation(editor), { passive: true });
@@ -56,15 +64,25 @@ window.editorInterop = {
         if (!state)
             return;
         state.items = Array.isArray(items) ? items : [];
+        state.hitRanges = this.documentationHitRanges(editor, state.items);
     },
     updateHoverDocumentation(editor, event) {
         const state = editor._hoverDocumentation;
         if (!state)
             return;
-        const offset = this.sourceOffsetAt(editor, event.clientX, event.clientY);
-        const item = offset < 0
-            ? null
-            : state.items.find(candidate => offset >= candidate.start && offset < candidate.start + candidate.length);
+        let hit = null;
+        let hitRect = null;
+        for (const candidate of state.hitRanges) {
+            const rect = [...candidate.range.getClientRects()].find(fragment =>
+                event.clientX >= fragment.left && event.clientX <= fragment.right &&
+                event.clientY >= fragment.top && event.clientY <= fragment.bottom);
+            if (rect) {
+                hit = candidate;
+                hitRect = rect;
+                break;
+            }
+        }
+        const item = hit?.item ?? null;
         if (item === state.current)
             return;
         clearTimeout(state.timer);
@@ -76,55 +94,46 @@ window.editorInterop = {
         state.timer = setTimeout(() => {
             if (state.current !== item)
                 return;
-            this.showHoverDocumentation(editor, item, event.clientX, event.clientY);
+            this.showHoverDocumentation(editor, item, hitRect);
         }, 280);
     },
-    sourceOffsetAt(editor, clientX, clientY) {
-        const bounds = editor.getBoundingClientRect();
-        const style = getComputedStyle(editor);
-        const lineHeight = Number.parseFloat(style.lineHeight);
-        const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
-        const paddingRight = Number.parseFloat(style.paddingRight) || 0;
-        const paddingTop = Number.parseFloat(style.paddingTop) || 0;
-        if (!Number.isFinite(lineHeight) || lineHeight <= 0)
-            return -1;
-        if (!this._fontMeasureCanvas)
-            this._fontMeasureCanvas = document.createElement("canvas");
-        const canvas = this._fontMeasureCanvas;
-        const context = canvas.getContext("2d");
-        context.font = style.font;
-        const characterWidth = context.measureText("M").width;
-        const x = clientX - bounds.left - paddingLeft + editor.scrollLeft;
-        const y = clientY - bounds.top - paddingTop + editor.scrollTop;
-        if (x < 0 || y < 0 || characterWidth <= 0)
-            return -1;
-        const lines = editor.value.split("\n");
-        const layout = editor._lineLayout;
-        const heights = layout?.heights?.length === lines.length
-            ? layout.heights
-            : lines.map(() => lineHeight);
-        let lineIndex = 0;
-        let lineTop = 0;
-        while (lineIndex < heights.length && y >= lineTop + heights[lineIndex]) {
-            lineTop += heights[lineIndex];
-            lineIndex++;
-        }
-        if (lineIndex < 0 || lineIndex >= lines.length)
-            return -1;
-        const contentWidth = Math.max(
-            characterWidth,
-            editor.clientWidth - paddingLeft - paddingRight);
-        const columnsPerVisualRow = Math.max(1, Math.floor(contentWidth / characterWidth));
-        const visualRow = Math.max(0, Math.floor((y - lineTop) / lineHeight));
-        const column = visualRow * columnsPerVisualRow + Math.floor(x / characterWidth);
-        if (column < 0 || column >= lines[lineIndex].length)
-            return -1;
-        let offset = column;
-        for (let index = 0; index < lineIndex; index++)
-            offset += lines[index].length + 1;
-        return offset;
+    documentationHitRanges(editor, items) {
+        const root = editor.closest(".code-surface")?.querySelector("#highlight-code");
+        if (!root)
+            return [];
+        return items.map(item => ({ item, range: this.textRange(root, item.start, item.length) }))
+            .filter(candidate => candidate.range);
     },
-    showHoverDocumentation(editor, item, clientX, clientY) {
+    textRange(root, start, length) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const range = document.createRange();
+        let offset = 0;
+        let startNode = null;
+        let startOffset = 0;
+        let endNode = null;
+        let endOffset = 0;
+        const end = start + length;
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const next = offset + node.data.length;
+            if (!startNode && start >= offset && start <= next) {
+                startNode = node;
+                startOffset = Math.min(node.data.length, start - offset);
+            }
+            if (end >= offset && end <= next) {
+                endNode = node;
+                endOffset = Math.min(node.data.length, end - offset);
+                break;
+            }
+            offset = next;
+        }
+        if (!startNode || !endNode)
+            return null;
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    },
+    showHoverDocumentation(editor, item, anchorRect) {
         const state = editor._hoverDocumentation;
         const tooltip = state.tooltip;
         const title = document.createElement("strong");
@@ -145,14 +154,18 @@ window.editorInterop = {
         }
         tooltip.replaceChildren(...children);
         tooltip.hidden = false;
-        const surface = editor.closest(".code-surface");
-        const bounds = surface.getBoundingClientRect();
         const tooltipBounds = tooltip.getBoundingClientRect();
-        const left = Math.min(bounds.width - tooltipBounds.width - 8, Math.max(8, clientX - bounds.left + 14));
-        const topBelow = clientY - bounds.top + 18;
-        const top = topBelow + tooltipBounds.height <= bounds.height - 8
+        const anchorLeft = anchorRect?.left ?? 8;
+        const anchorRight = anchorRect?.right ?? anchorLeft;
+        const anchorTop = anchorRect?.top ?? 8;
+        const anchorBottom = anchorRect?.bottom ?? anchorTop;
+        const left = Math.min(
+            window.innerWidth - tooltipBounds.width - 8,
+            Math.max(8, anchorRight + 10));
+        const topBelow = anchorBottom + 8;
+        const top = topBelow + tooltipBounds.height <= window.innerHeight - 8
             ? topBelow
-            : Math.max(8, clientY - bounds.top - tooltipBounds.height - 12);
+            : Math.max(8, anchorTop - tooltipBounds.height - 8);
         tooltip.style.left = `${left}px`;
         tooltip.style.top = `${top}px`;
     },
@@ -205,6 +218,9 @@ window.editorInterop = {
         const contentWidth = Math.max(1, editor.clientWidth - paddingLeft - paddingRight);
         const scrollbarWidth = Math.max(0, editor.offsetWidth - editor.clientWidth);
         surface.style.setProperty("--editor-scrollbar-width", `${scrollbarWidth}px`);
+        const highlights = surface.querySelector("#highlight-code");
+        if (highlights)
+            highlights.style.width = `${contentWidth}px`;
         let measure = editor._lineMeasure;
         if (!measure) {
             measure = document.createElement("div");

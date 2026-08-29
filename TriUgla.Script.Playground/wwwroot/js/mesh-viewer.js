@@ -6,6 +6,7 @@ window.meshViewer = {
     surfaces: [],
     meshNodes: [],
     meshFaces: [],
+    visibleFaceKinds: new Set(["Island", "Lake", "Outside", "Undefined"]),
     yaw: -.65,
     pitch: .65,
     scale: 80,
@@ -42,10 +43,24 @@ window.meshViewer = {
         this.lines = lines ?? [];
         this.surfaces = surfaces ?? [];
         this.meshNodes = meshNodes ?? [];
-        // The mesh model retains Outside/Lake/super faces for topology diagnostics,
-        // but the viewer is intentionally a land-only presentation.
-        this.meshFaces = (meshFaces ?? []).filter(face => face.kind === "Island");
+        this.meshFaces = meshFaces ?? [];
+        this.updateLegend();
         this.fit();
+    },
+    toggleFaceKind(kind) {
+        if (this.visibleFaceKinds.has(kind))
+            this.visibleFaceKinds.delete(kind);
+        else
+            this.visibleFaceKinds.add(kind);
+        this.updateLegend();
+        this.draw();
+    },
+    updateLegend() {
+        document.querySelectorAll(".mesh-legend [data-face-kind]").forEach(button => {
+            const visible = this.visibleFaceKinds.has(button.dataset.faceKind);
+            button.setAttribute("aria-pressed", String(visible));
+            button.classList.toggle("is-hidden", !visible);
+        });
     },
     reset() {
         this.yaw = -.65;
@@ -311,6 +326,7 @@ window.meshViewer = {
             Undefined: { fill: "rgba(245, 158, 11, .35)", stroke: "rgba(253, 230, 138, .8)", dash: [6, 3] }
         };
         const projected = this.meshFaces
+            .filter(face => this.visibleFaceKinds.has(face.kind))
             .map(face => ({ face, vertices: (face.vertices ?? []).map(vertex => this.project(vertex)) }))
             .filter(item => item.vertices.length >= 3)
             .sort((a, b) => {

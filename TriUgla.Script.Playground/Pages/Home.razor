@@ -200,7 +200,8 @@
             output = printedLines.Count > 0
                 ? string.Join(Environment.NewLine, printedLines)
                 : evaluator.Mesh.GeneratedMesh is ScriptMeshResult generatedMesh
-                    ? $"Mesh generated: {generatedMesh.Faces.Count} faces, {generatedMesh.SteinerNodes} Steiner nodes."
+                    ? $"Mesh generated: {generatedMesh.Faces.Count} faces, {generatedMesh.SteinerNodes} Steiner nodes." +
+                      $"{Environment.NewLine}{Environment.NewLine}{generatedMesh.Metrics}"
                     : result.ToString();
             runtimeFailed = false;
             runStatus = "Completed";
@@ -254,13 +255,12 @@
                     node.Z
                 }),
                 evaluator.Mesh.GeneratedMesh?.Faces
-                    .Where(face =>
-                        !face.ContainsSuperStructure &&
-                        face.Kind == FaceKind.Island)
                     .Select(face => new
                 {
                     face.SurfaceTag,
-                    Kind = face.Kind.ToString(),
+                    Kind = (face.ContainsSuperStructure
+                        ? FaceKind.Outside
+                        : face.Kind).ToString(),
                     face.Vertices
                 }) ?? []);
         }

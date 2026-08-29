@@ -351,9 +351,9 @@ h2 { margin: 0; font-size: .9rem; }
 }
 
 .lexeme-tooltip {
-    position: absolute;
-    z-index: 12;
-    width: min(390px, calc(100% - 16px));
+    position: fixed;
+    z-index: 10000;
+    width: min(390px, calc(100vw - 16px));
     display: grid;
     gap: 8px;
     border: 1px solid #52647d;
@@ -488,9 +488,22 @@ h2 { margin: 0; font-size: .9rem; }
     background: rgba(8, 15, 27, .88);
     color: #cbd5e1;
     font-size: .62rem;
-    pointer-events: none;
 }
-.mesh-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.mesh-legend button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 0 7px;
+    background: transparent;
+    color: #cbd5e1;
+    font: inherit;
+}
+.mesh-legend button:hover { border-color: #64748b; background: rgba(51, 65, 85, .55); }
+.mesh-legend button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 1px; }
+.mesh-legend button.is-hidden { opacity: .46; text-decoration: line-through; }
 .mesh-legend i { width: 12px; height: 8px; border: 1px solid currentColor; border-radius: 2px; }
 .mesh-legend .face-island { color: #5eead4; background: rgba(20, 184, 166, .72); }
 .mesh-legend .face-lake { color: #c4b5fd; background: repeating-linear-gradient(135deg, #8b5cf6 0 2px, #4c1d95 2px 4px); }

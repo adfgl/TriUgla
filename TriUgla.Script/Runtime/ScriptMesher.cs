@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace TriUgla.Script;
 
 public static class ScriptMesher
@@ -39,7 +41,10 @@ public static class ScriptMesher
                     options,
                     prepared.Positions,
                     cancellationToken);
-                SurfaceMesh result = CompleteSurface(surface.Tag, prepared.Mesher, inserted);
+                SurfaceMesh result = CompleteSurface(
+                    surface.Tag,
+                    prepared.Mesher,
+                    inserted);
                 faces.AddRange(result.Faces);
                 steinerNodes += result.SteinerNodes;
             }
@@ -49,7 +54,10 @@ public static class ScriptMesher
                     $"Plane Surface({surface.Tag}) could not be meshed: {exception.Message}", exception);
             }
         }
-        return new ScriptMeshResult(faces, steinerNodes);
+        return new ScriptMeshResult(
+            faces,
+            steinerNodes,
+            ScriptMeshMetrics.Calculate(faces));
     }
 
     public static async ValueTask<ScriptMeshResult> GenerateAsync(
@@ -83,7 +91,10 @@ public static class ScriptMesher
                     options,
                     prepared.Positions,
                     cancellationToken);
-                SurfaceMesh result = CompleteSurface(surface.Tag, prepared.Mesher, inserted);
+                SurfaceMesh result = CompleteSurface(
+                    surface.Tag,
+                    prepared.Mesher,
+                    inserted);
                 faces.AddRange(result.Faces);
                 steinerNodes += result.SteinerNodes;
             }
@@ -93,7 +104,10 @@ public static class ScriptMesher
                     $"Plane Surface({surface.Tag}) could not be meshed: {exception.Message}", exception);
             }
         }
-        return new ScriptMeshResult(faces, steinerNodes);
+        return new ScriptMeshResult(
+            faces,
+            steinerNodes,
+            ScriptMeshMetrics.Calculate(faces));
     }
 
     static PreparedSurface PrepareSurface(
@@ -108,26 +122,27 @@ public static class ScriptMesher
             .ToList();
         if (positions.Count < 3) throw new InvalidOperationException("the surface has fewer than three boundary points.");
 
-        double z = positions[0].Z;
-        if (positions.Any(position => Math.Abs(position.Z - z) > 1e-9))
-        {
-            throw new InvalidOperationException(
-                "all points must lie in one XY plane; non-constant Z coordinates were found.");
-        }
-
         Vec2 min = new(positions.Min(position => position.X), positions.Min(position => position.Y));
         Vec2 max = new(positions.Max(position => position.X), positions.Max(position => position.Y));
         if (min == max) throw new InvalidOperationException("the surface bounds have zero size.");
         Vec2 padding = Vec2.Make(Math.Max((max - min).Length * .1, 1e-6));
         var mesher = new Mesher(min - padding, max + padding);
-        foreach (Node node in mesher.SuperStructure!.Nodes) node.Data = new NodeData(z, 0d);
 
         var nodes = new Dictionary<Vec2, Node>();
         Node GetNode(CurvePosition position)
         {
             CurvePosition normalized = Normalize(position);
             var key = new Vec2(normalized.X, normalized.Y);
-            if (nodes.TryGetValue(key, out Node? existing)) return existing;
+            if (nodes.TryGetValue(key, out Node? existing))
+            {
+                if (Math.Abs(existing.Data.Elevation - normalized.Z) > 1e-6)
+                {
+                    throw new InvalidOperationException(
+                        $"points at XY ({key.X}, {key.Y}) have conflicting Z elevations " +
+                        $"{existing.Data.Elevation} and {normalized.Z}.");
+                }
+                return existing;
+            }
             InsertNodeResult insertion = mesher.Insert(key);
             Node node = insertion.Node ?? throw new InvalidOperationException(
                 $"point ({normalized.X}, {normalized.Y}) lies outside the meshing super structure.");
@@ -158,7 +173,10 @@ public static class ScriptMesher
         return new PreparedSurface(mesher, positions);
     }
 
-    static SurfaceMesh CompleteSurface(int surfaceTag, Mesher mesher, int steinerNodes)
+    static SurfaceMesh CompleteSurface(
+        int surfaceTag,
+        Mesher mesher,
+        int steinerNodes)
     {
         ScriptMeshFace[] faces = mesher.Traversal.Faces()
             .Where(face => !face.Dead)
@@ -301,14 +319,145 @@ public static class ScriptMesher
     static double Normalize(double value)
         => Math.Round(value, CoordinateDigits, MidpointRounding.AwayFromZero);
 
-    readonly record struct PreparedSurface(Mesher Mesher, IReadOnlyList<CurvePosition> Positions);
+    readonly record struct PreparedSurface(
+        Mesher Mesher,
+        IReadOnlyList<CurvePosition> Positions);
     readonly record struct SurfaceMesh(IReadOnlyList<ScriptMeshFace> Faces, int SteinerNodes);
 }
 
-public sealed record ScriptMeshResult(IReadOnlyList<ScriptMeshFace> Faces, int SteinerNodes);
+public sealed record ScriptMeshResult(
+    IReadOnlyList<ScriptMeshFace> Faces,
+    int SteinerNodes,
+    ScriptMeshMetrics Metrics);
 public sealed record ScriptMeshFace(
     int SurfaceTag,
     FaceKind Kind,
     bool ContainsSuperStructure,
     IReadOnlyList<ScriptMeshVertex> Vertices);
 public readonly record struct ScriptMeshVertex(double X, double Y, double Z);
+
+public sealed record ScriptMeshMetrics(
+    ScriptMeshMetric Angle,
+    ScriptMeshMetric EdgeLength,
+    ScriptMeshMetric FaceArea,
+    int DegenerateFaces)
+{
+    internal static ScriptMeshMetrics Calculate(IEnumerable<ScriptMeshFace> allFaces)
+    {
+        ScriptMeshFace[] faces = allFaces
+            .Where(face => face.Kind == FaceKind.Island && !face.ContainsSuperStructure)
+            .ToArray();
+        var angles = new List<double>(faces.Length * 3);
+        var areas = new List<double>(faces.Length);
+        var edgeLengths = new List<double>();
+        var edges = new HashSet<(int Surface, ScriptMeshVertex A, ScriptMeshVertex B)>();
+
+        foreach (ScriptMeshFace face in faces)
+        {
+            if (face.Vertices.Count != 3) continue;
+            ScriptMeshVertex a = face.Vertices[0];
+            ScriptMeshVertex b = face.Vertices[1];
+            ScriptMeshVertex c = face.Vertices[2];
+            areas.Add(TriangleArea(a, b, c));
+            angles.Add(AngleAt(a, b, c));
+            angles.Add(AngleAt(b, c, a));
+            angles.Add(AngleAt(c, a, b));
+
+            AddEdge(face.SurfaceTag, a, b, edges, edgeLengths);
+            AddEdge(face.SurfaceTag, b, c, edges, edgeLengths);
+            AddEdge(face.SurfaceTag, c, a, edges, edgeLengths);
+        }
+
+        return new ScriptMeshMetrics(
+            ScriptMeshMetric.From(angles),
+            ScriptMeshMetric.From(edgeLengths),
+            ScriptMeshMetric.From(areas),
+            areas.Count(area => !double.IsFinite(area) || area <= 1e-15));
+    }
+
+    public override string ToString()
+        => $"""
+            Mesh metrics
+            ------------
+            Angle       : {Angle.Format("°")}
+            Edge length : {EdgeLength.Format()}
+            Face area   : {FaceArea.Format()}
+            Degenerate  : {DegenerateFaces} faces
+            """;
+
+    static void AddEdge(
+        int surface,
+        ScriptMeshVertex first,
+        ScriptMeshVertex second,
+        HashSet<(int Surface, ScriptMeshVertex A, ScriptMeshVertex B)> edges,
+        List<double> lengths)
+    {
+        (ScriptMeshVertex a, ScriptMeshVertex b) = Compare(first, second) <= 0
+            ? (first, second)
+            : (second, first);
+        if (edges.Add((surface, a, b))) lengths.Add(Distance(a, b));
+    }
+
+    static int Compare(ScriptMeshVertex left, ScriptMeshVertex right)
+    {
+        int x = left.X.CompareTo(right.X);
+        if (x != 0) return x;
+        int y = left.Y.CompareTo(right.Y);
+        return y != 0 ? y : left.Z.CompareTo(right.Z);
+    }
+
+    static double AngleAt(ScriptMeshVertex center, ScriptMeshVertex first, ScriptMeshVertex second)
+    {
+        (double x, double y, double z) u = Subtract(first, center);
+        (double x, double y, double z) v = Subtract(second, center);
+        double denominator = Length(u) * Length(v);
+        if (denominator == 0d) return 0d;
+        double cosine = Math.Clamp((u.x * v.x + u.y * v.y + u.z * v.z) / denominator, -1d, 1d);
+        return Math.Acos(cosine) * 180d / Math.PI;
+    }
+
+    static double TriangleArea(ScriptMeshVertex a, ScriptMeshVertex b, ScriptMeshVertex c)
+    {
+        (double x, double y, double z) u = Subtract(b, a);
+        (double x, double y, double z) v = Subtract(c, a);
+        double x = u.y * v.z - u.z * v.y;
+        double y = u.z * v.x - u.x * v.z;
+        double z = u.x * v.y - u.y * v.x;
+        return Math.Sqrt(x * x + y * y + z * z) * .5d;
+    }
+
+    static double Distance(ScriptMeshVertex a, ScriptMeshVertex b)
+        => Length(Subtract(a, b));
+
+    static (double x, double y, double z) Subtract(ScriptMeshVertex a, ScriptMeshVertex b)
+        => (a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+
+    static double Length((double x, double y, double z) value)
+        => Math.Sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
+}
+
+public readonly record struct ScriptMeshMetric(int Count, double Min, double Average, double Max)
+{
+    internal static ScriptMeshMetric From(IReadOnlyCollection<double> values)
+        => values.Count == 0
+            ? default
+            : new(values.Count, values.Min(), values.Average(), values.Max());
+
+    public string Format(string? unit = null)
+    {
+        if (Count == 0) return "no data";
+        string suffix = unit is null ? string.Empty : $" {unit}";
+        return
+            $"min: {Number(Min)}{suffix}, " +
+            $"avg: {Number(Average)}{suffix}, " +
+            $"max: {Number(Max)}{suffix} " +
+            $"(n={Count})";
+    }
+
+    // Mesh dimensions can legitimately be far below 0.01. Fixed two-decimal
+    // formatting hid useful values as 0.00 and made healthy refinement look
+    // degenerate, so metrics retain six significant digits and use scientific
+    // notation automatically when the magnitude requires it.
+    static string Number(double value)
+        => value.ToString("G6", CultureInfo.InvariantCulture);
+}

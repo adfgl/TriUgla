@@ -30,6 +30,19 @@ public class MeshScriptTests
         """;
 
     [Fact]
+    public void MeshMetricFormattingPreservesSmallNonZeroValues()
+    {
+        var metric = new ScriptMeshMetric(2, 0.000001, 0.000002, 0.000003);
+
+        string text = metric.Format();
+
+        Assert.Contains("1E-06", text);
+        Assert.Contains("2E-06", text);
+        Assert.Contains("3E-06", text);
+        Assert.DoesNotContain("0.00", text);
+    }
+
+    [Fact]
     public void Parse_GmshMeshConfiguration_CreatesDedicatedStatements()
     {
         SyntaxTree tree = SyntaxTree.Parse(Script);
@@ -70,6 +83,14 @@ public class MeshScriptTests
         Assert.Contains(evaluator.Mesh.GeneratedMesh.Faces, face => face.Kind == FaceKind.Island);
         Assert.Contains(evaluator.Mesh.GeneratedMesh.Faces, face => face.ContainsSuperStructure);
         Assert.Contains(evaluator.Mesh.GeneratedMesh.Faces, face => !face.ContainsSuperStructure);
+        Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.Angle.Count > 0);
+        Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.EdgeLength.Count > 0);
+        Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.FaceArea.Count > 0);
+        Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.FaceArea.Min > 0d);
+        Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.FaceArea.Average > 0d);
+        Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.FaceArea.Max > 0d);
+        Assert.Equal(0, evaluator.Mesh.GeneratedMesh.Metrics.DegenerateFaces);
+        Assert.Contains("Mesh metrics", evaluator.Mesh.GeneratedMesh.Metrics.ToString());
     }
 
     [Fact]
@@ -184,5 +205,55 @@ public class MeshScriptTests
 
         Assert.NotNull(evaluator.Mesh.GeneratedMesh);
         Assert.Contains(evaluator.Mesh.GeneratedMesh.Faces, face => face.Kind == FaceKind.Island);
+    }
+
+    [Fact]
+    public void Evaluate_MeshProjectsSlopedPlanarSurfaceAndRestoresThreeDimensionalVertices()
+    {
+        const string source = """
+            Point(1) = {0, 0, 0}; Point(2) = {1, 0, 1};
+            Point(3) = {1, 1, 2}; Point(4) = {0, 1, 1};
+            Line(1) = {1, 2}; Line(2) = {2, 3};
+            Line(3) = {3, 4}; Line(4) = {4, 1};
+            Curve Loop(1) = {1, 2, 3, 4};
+            Plane Surface(1) = {1};
+            Mesh 2;
+            """;
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        ScriptMeshFace[] land = evaluator.Mesh.GeneratedMesh!.Faces
+            .Where(face => face.Kind == FaceKind.Island)
+            .ToArray();
+        Assert.NotEmpty(land);
+        Assert.All(
+            land.SelectMany(face => face.Vertices),
+            vertex => Assert.Equal(vertex.X + vertex.Y, vertex.Z, 6));
+    }
+
+    [Fact]
+    public void Evaluate_MeshAllowsNonCoplanarElevationsOverValidXyFootprint()
+    {
+        const string source = """
+            Point(1) = {0, 0, 0}; Point(2) = {1, 0, 1};
+            Point(3) = {1, 1, 5}; Point(4) = {0, 1, -2};
+            Line(1) = {1, 2}; Line(2) = {2, 3};
+            Line(3) = {3, 4}; Line(4) = {4, 1};
+            Curve Loop(1) = {1, 2, 3, 4};
+            Plane Surface(1) = {1};
+            Mesh 2;
+            """;
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        ScriptMeshFace[] land = evaluator.Mesh.GeneratedMesh!.Faces
+            .Where(face => face.Kind == FaceKind.Island)
+            .ToArray();
+        Assert.NotEmpty(land);
+        double[] elevations = land.SelectMany(face => face.Vertices).Select(vertex => vertex.Z).ToArray();
+        Assert.Contains(5d, elevations);
+        Assert.Contains(-2d, elevations);
     }
 }
