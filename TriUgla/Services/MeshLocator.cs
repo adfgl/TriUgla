@@ -16,6 +16,8 @@ public sealed class MeshLocator : IMeshLocator
 
     public double Eps { get; set; } = 1e-6;
 
+    internal void Reset() => _lastFound = null;
+
     public LocateResult Locate(Vec2 point, Face? from = null)
     {
         ValidateEpsilon();

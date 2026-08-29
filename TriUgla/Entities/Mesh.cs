@@ -13,7 +13,7 @@ public sealed class Mesh
         _locator = new MeshLocator(this, Traversal, stamps);
     }
 
-    public Face Root { get; }
+    public Face Root { get; private set; }
     public MeshTraversal Traversal { get; }
 
     public LocateResult Locate(Vec2 point, Face? from = null)
@@ -23,5 +23,19 @@ public sealed class Mesh
     {
         LocateResult result = Locate(point, from);
         return result.Node ?? (MeshElement?)result.Edge ?? result.Face;
+    }
+
+    internal IMeshLocator Locator => _locator;
+
+    internal void TopologyChanged(IReadOnlyList<Face> affectedFaces)
+    {
+        if (Root.Dead)
+        {
+            Root = affectedFaces.FirstOrDefault(face => !face.Dead)
+                ?? throw new InvalidOperationException(
+                    "A topology change retired the mesh root without a replacement face.");
+            Traversal.SetRoot(Root);
+        }
+        _locator.Reset();
     }
 }

@@ -4,7 +4,10 @@ public sealed class MeshTraversal(Face root, StampSource stamps) : IMeshTraversa
 {
     readonly StampSource _stamps = stamps ?? throw new ArgumentNullException(nameof(stamps));
 
-    public Face Root { get; } = root ?? throw new ArgumentNullException(nameof(root));
+    public Face Root { get; private set; } = root ?? throw new ArgumentNullException(nameof(root));
+
+    internal void SetRoot(Face root)
+        => Root = root ?? throw new ArgumentNullException(nameof(root));
 
     public IEnumerable<Face> Faces(Face? from = null, CanTraverseAcrossEdge? canTraverse = null)
     {
