@@ -57,10 +57,12 @@ public class NodeInserterTests
 
     static NodeInserter CreateInserter(Mesh mesh)
     {
+        var stamps = new StampSource();
+        var traversal = new MeshTraversal(mesh.Root, stamps);
         return new NodeInserter(
             new NodeFactory(),
             new Splitter(),
-            new MeshLocator(mesh));
+            new MeshLocator(mesh, traversal, stamps));
     }
 
     static Fixture CreateFixture()

@@ -6,7 +6,7 @@ public class MeshLocatorTests
     public void Locate_PointInsideFace_ReturnsFace()
     {
         (Mesh mesh, Face first, _) = CreateMesh();
-        var locator = new MeshLocator(mesh);
+        MeshLocator locator = CreateLocator(mesh);
 
         LocateResult result = locator.Locate(new Vec2(0.25, 0.25));
 
@@ -18,7 +18,7 @@ public class MeshLocatorTests
     public void Locate_PointAcrossTwin_WalksToNeighbour()
     {
         (Mesh mesh, _, Face second) = CreateMesh();
-        var locator = new MeshLocator(mesh);
+        MeshLocator locator = CreateLocator(mesh);
 
         LocateResult result = locator.Locate(new Vec2(1.75, 1.75));
 
@@ -30,7 +30,7 @@ public class MeshLocatorTests
     public void Locate_PointOnVertex_ReturnsNode()
     {
         (Mesh mesh, Face first, _) = CreateMesh();
-        var locator = new MeshLocator(mesh);
+        MeshLocator locator = CreateLocator(mesh);
 
         LocateResult result = locator.Locate(first.Edge.NodeStart.Position);
 
@@ -42,7 +42,7 @@ public class MeshLocatorTests
     public void Locate_PointOnSharedEdge_ReturnsEdge()
     {
         (Mesh mesh, Face first, _) = CreateMesh();
-        var locator = new MeshLocator(mesh);
+        MeshLocator locator = CreateLocator(mesh);
 
         LocateResult result = locator.Locate(new Vec2(1, 1));
 
@@ -54,7 +54,7 @@ public class MeshLocatorTests
     public void Locate_PointOutsideMesh_ReturnsEmpty()
     {
         (Mesh mesh, _, _) = CreateMesh();
-        var locator = new MeshLocator(mesh);
+        MeshLocator locator = CreateLocator(mesh);
 
         LocateResult result = locator.Locate(new Vec2(3, 3));
 
@@ -82,5 +82,12 @@ public class MeshLocatorTests
         Linker.LinkTwins(bc, cb);
 
         return (new Mesh(first), first, second);
+    }
+
+    static MeshLocator CreateLocator(Mesh mesh)
+    {
+        var stamps = new StampSource();
+        var traversal = new MeshTraversal(mesh.Root, stamps);
+        return new MeshLocator(mesh, traversal, stamps);
     }
 }

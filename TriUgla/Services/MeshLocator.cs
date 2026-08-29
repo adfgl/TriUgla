@@ -1,8 +1,18 @@
 namespace TriUgla;
 
-public sealed class MeshLocator(Mesh mesh) : IMeshLocator
+public sealed class MeshLocator : IMeshLocator
 {
+    readonly Mesh _mesh;
+    readonly MeshTraversal _traversal;
+    readonly StampSource _stamps;
     Face? _lastFound;
+
+    public MeshLocator(Mesh mesh, MeshTraversal traversal, StampSource stamps)
+    {
+        _mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
+        _traversal = traversal ?? throw new ArgumentNullException(nameof(traversal));
+        _stamps = stamps ?? throw new ArgumentNullException(nameof(stamps));
+    }
 
     public double Eps { get; set; } = 1e-6;
 
@@ -10,8 +20,8 @@ public sealed class MeshLocator(Mesh mesh) : IMeshLocator
     {
         ValidateEpsilon();
 
-        Face current = from ?? _lastFound ?? mesh.Root;
-        Stamp stamp = mesh.NextStamp();
+        Face current = from ?? _lastFound ?? _mesh.Root;
+        Stamp stamp = NextStamp();
         current.TryVisit(stamp);
 
         while (true)
@@ -102,5 +112,14 @@ public sealed class MeshLocator(Mesh mesh) : IMeshLocator
         {
             throw new InvalidOperationException("Eps must be a non-negative number.");
         }
+    }
+
+    Stamp NextStamp()
+    {
+        if (_stamps.TryNext(out Stamp stamp)) return stamp;
+        _traversal.ResetVisitStamps();
+        _stamps.Reset();
+        _stamps.TryNext(out stamp);
+        return stamp;
     }
 }

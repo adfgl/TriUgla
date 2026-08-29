@@ -12,13 +12,14 @@ public class MeshTests
     {
         Face root = CreateTwoTriangles();
         var mesh = new Mesh(root);
+        MeshTraversal traversal = mesh.Traversal;
 
         Assert.Same(root, mesh.Root);
-        Assert.Equal(2, mesh.Faces().Count());
-        Assert.Equal(6, mesh.Edges().Count());
-        Assert.Equal(4, mesh.Nodes().Count());
+        Assert.Equal(2, traversal.Faces().Count());
+        Assert.Equal(6, traversal.Edges().Count());
+        Assert.Equal(4, traversal.Nodes().Count());
 
-        MeshSnapshot snapshot = mesh.Snapshot();
+        MeshSnapshot snapshot = traversal.Snapshot();
         Assert.Equal(2, snapshot.Faces.Count);
         Assert.Equal(6, snapshot.Edges.Count);
         Assert.Equal(4, snapshot.Nodes.Count);
@@ -30,7 +31,7 @@ public class MeshTests
         Face root = CreateTwoTriangles();
         var mesh = new Mesh(root);
 
-        Face[] faces = mesh
+        Face[] faces = mesh.Traversal
             .Faces(canTraverse: (_, _, _) => false)
             .ToArray();
 
@@ -39,17 +40,40 @@ public class MeshTests
     }
 
     [Fact]
+    public void LocateUsesMeshLocatorAndReturnsTypedResult()
+    {
+        var mesh = new Mesh(CreateTwoTriangles());
+
+        LocateResult result = mesh.Locate(new Vec2(0.25, 0.25));
+
+        Assert.True(result.IsFace);
+        Assert.Same(mesh.Root, result.Face);
+    }
+
+    [Fact]
+    public void FindReturnsMostSpecificElementAtPoint()
+    {
+        var mesh = new Mesh(CreateTwoTriangles());
+        Edge shared = mesh.Root.Edge.Next;
+
+        Assert.Same(shared.NodeStart, mesh.Find(shared.NodeStart.Position));
+        Assert.Same(shared, mesh.Find(new Vec2(1, 1)));
+        Assert.Same(mesh.Root, mesh.Find(new Vec2(0.25, 0.25)));
+        Assert.Null(mesh.Find(new Vec2(3, 3)));
+    }
+
+    [Fact]
     public void ResetVisitStampsResetsAllReachableElements()
     {
         var mesh = new Mesh(CreateTwoTriangles());
-        MeshSnapshot snapshot = mesh.Snapshot();
+        MeshSnapshot snapshot = mesh.Traversal.Snapshot();
         var stamp = new Stamp(42);
 
         MarkVisited(snapshot.Faces, stamp);
         MarkVisited(snapshot.Edges, stamp);
         MarkVisited(snapshot.Nodes, stamp);
 
-        mesh.ResetVisitStamps();
+        mesh.Traversal.ResetVisitStamps();
 
         AssertReset(snapshot.Faces, stamp);
         AssertReset(snapshot.Edges, stamp);
@@ -77,10 +101,10 @@ public class MeshTests
 
     static Face CreateTwoTriangles()
     {
-        var a = new Node();
-        var b = new Node();
-        var c = new Node();
-        var d = new Node();
+        var a = new Node { Position = new Vec2(0, 0) };
+        var b = new Node { Position = new Vec2(2, 0) };
+        var c = new Node { Position = new Vec2(0, 2) };
+        var d = new Node { Position = new Vec2(2, 2) };
 
         var ab = new Edge();
         var bc = new Edge();
