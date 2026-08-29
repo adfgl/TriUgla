@@ -44,8 +44,7 @@ public class EdgeInserterTests
         EdgeInsertResult result = inserter.Insert(fixture.A, fixture.D);
 
         Node inserted = Assert.Single(result.InsertedNodes);
-        Assert.Equal(new Vec2(1, 1), inserted.Position);
-        Assert.Equal(30, Assert.IsType<TestData>(inserted.Data).Number);
+        Assert.Equal(new Vec2(1, 1, 30, 40), inserted.Position);
         Assert.Equal(2, result.ConstrainedEdges.Count);
         Assert.All(result.ConstrainedEdges, edge => Assert.Equal(1, edge.ConstraintCount));
         Assert.Same(fixture.A, result.ConstrainedEdges[0].NodeStart);
@@ -57,20 +56,19 @@ public class EdgeInserterTests
     static EdgeInserter CreateInserter()
     {
         var geometry = new InsertionGeometry();
-        var interpolator = new TestInterpolator();
         return new EdgeInserter(
             geometry,
             new EdgeFlipper(geometry),
-            new Splitter(interpolator),
-            new NodeFactory(interpolator));
+            new Splitter(),
+            new NodeFactory());
     }
 
     static Fixture CreateFixture()
     {
-        Node a = MakeNode(0, 0, 0);
-        Node b = MakeNode(2, 0, 20);
-        Node c = MakeNode(0, 2, 40);
-        Node d = MakeNode(2, 2, 60);
+        Node a = MakeNode(0, 0, 0, 10);
+        Node b = MakeNode(2, 0, 20, 30);
+        Node c = MakeNode(0, 2, 40, 50);
+        Node d = MakeNode(2, 2, 60, 70);
 
         var ab = new Edge();
         var bc = new Edge();
@@ -86,12 +84,8 @@ public class EdgeInserterTests
         return new Fixture(a, b, c, d);
     }
 
-    static Node MakeNode(double x, double y, double value)
-        => new()
-        {
-            Position = new Vec2(x, y),
-            Data = new TestData("source", value, null)
-        };
+    static Node MakeNode(double x, double y, double z, double w)
+        => new() { Position = new Vec2(x, y, z, w) };
 
     sealed record Fixture(Node A, Node B, Node C, Node D);
 

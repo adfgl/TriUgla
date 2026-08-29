@@ -7,7 +7,6 @@ public class MeshElement : IVisitable
 {
     Stamp _stamp = Stamp.None;
 
-    public ElementData? Data { get; set; }
     public bool Dead { get; private set; }
 
     public bool TryVisit(Stamp stamp)

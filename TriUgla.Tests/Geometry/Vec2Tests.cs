@@ -20,7 +20,7 @@ public class Vec2Tests
 
     [Fact]
     public void LengthSquared_ReturnsSumOfSquaredComponents()
-        => Assert.Equal(25, new Vec2(3, 4).LengthSquared);
+        => Assert.Equal(25, new Vec2(3, 4, 100, 200).LengthSquared);
 
     [Fact]
     public void Length_ReturnsVectorMagnitude()
@@ -57,7 +57,7 @@ public class Vec2Tests
 
     [Fact]
     public void Dot_ReturnsScalarProduct()
-        => Assert.Equal(16, new Vec2(1, 2).Dot(new Vec2(4, 6)));
+        => Assert.Equal(16, new Vec2(1, 2, 50, 60).Dot(new Vec2(4, 6, 70, 80)));
 
     [Fact]
     public void Cross_ReturnsSignedArea()
@@ -78,8 +78,8 @@ public class Vec2Tests
     [Fact]
     public void Lerp_AtHalfway_ReturnsMidpoint()
         => Assert.Equal(
-            new Vec2(2, 3.5),
-            Vec2.Lerp(new Vec2(1, 5), new Vec2(3, 2), 0.5));
+            new Vec2(2, 3.5, 20, 30),
+            Vec2.Lerp(new Vec2(1, 5, 10, 20), new Vec2(3, 2, 30, 40), 0.5));
 
     [Fact]
     public void Lerp_AtZero_ReturnsStart()
@@ -129,6 +129,6 @@ public class Vec2Tests
     }
 
     [Fact]
-    public void ToString_FormatsBothComponents()
-        => Assert.Equal($"({1.5}, {-2d})", new Vec2(1.5, -2).ToString());
+    public void ToString_FormatsAllComponents()
+        => Assert.Equal($"({1.5}, {-2d}, {3d}, {4d})", new Vec2(1.5, -2, 3, 4).ToString());
 }

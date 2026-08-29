@@ -1,12 +1,11 @@
 namespace TriUgla;
 
-public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISplitter
+public sealed class Splitter : ISplitter
 {
     public FaceSplitResult Split(Face target, Node node)
     {
         Edge ab = target.Edge;
         EnsureTriangle(ab);
-        EnsureDataCanBeTransferred(target);
 
         Edge bc = ab.Next;
         Edge ca = ab.Prev;
@@ -28,9 +27,6 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         Linker.LinkTriangle(bcd, bc, cd, db, b, c, d);
         Linker.LinkTriangle(cad, ca, ad, dc, c, a, d);
 
-        TransferData(abd, bcd);
-        TransferData(abd, cad);
-
         return new FaceSplitResult(new TopologyChange(
             [abd, bcd, cad],
             [ab, bc, ca]));
@@ -51,7 +47,6 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
 
         EnsureTriangle(ab);
         EnsureTriangle(ba);
-        EnsureDataCanBeTransferred(ab, ba, ab.Face, ba.Face);
 
         Edge bc = ab.Next;
         Edge ca = ab.Prev;
@@ -88,11 +83,6 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         ApplyConstraints(ae, eb, forwardConstraints);
         ApplyConstraints(ea, be, reverseConstraints);
 
-        TransferData(cae, bce);
-        TransferData(ade, dbe);
-        TransferData(ae, eb);
-        TransferData(ea, be);
-
         return new EdgeSplitResult(
             ae,
             eb,
@@ -107,23 +97,6 @@ public sealed class Splitter(IDataInterpolator? dataInterpolator = null) : ISpli
         var second = new Edge();
         Linker.LinkTwins(first, second);
         return (first, second);
-    }
-
-    void EnsureDataCanBeTransferred(params MeshElement[] sources)
-    {
-        if (dataInterpolator is null && sources.Any(source => source.Data is not null))
-        {
-            throw new InvalidOperationException(
-                "Cannot transfer element data without an IDataInterpolator.");
-        }
-    }
-
-    void TransferData(MeshElement source, MeshElement destination)
-    {
-        if (source.Data is not null)
-        {
-            destination.Data = dataInterpolator!.From(source.Data);
-        }
     }
 
     static void RemoveConstraints(Edge edge, int count)

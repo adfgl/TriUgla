@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public readonly record struct Vec2(double X, double Y)
+public readonly record struct Vec2(double X, double Y, double Z = 0d, double W = 1d)
 {
     public static readonly Vec2 Zero = new(0, 0);
     public static readonly Vec2 UnitX = new(1, 0);
@@ -37,23 +37,27 @@ public readonly record struct Vec2(double X, double Y)
     public double DistanceSquared(Vec2 other) => (other - this).LengthSquared;
 
     public static Vec2 Lerp(Vec2 from, Vec2 to, double amount)
-        => from + (to - from) * amount;
+        => new(
+            from.X + (to.X - from.X) * amount,
+            from.Y + (to.Y - from.Y) * amount,
+            from.Z + (to.Z - from.Z) * amount,
+            from.W + (to.W - from.W) * amount);
 
     public static Vec2 operator +(Vec2 left, Vec2 right)
-        => new(left.X + right.X, left.Y + right.Y);
+        => new(left.X + right.X, left.Y + right.Y, left.Z, left.W);
 
     public static Vec2 operator -(Vec2 left, Vec2 right)
-        => new(left.X - right.X, left.Y - right.Y);
+        => new(left.X - right.X, left.Y - right.Y, left.Z, left.W);
 
-    public static Vec2 operator -(Vec2 value) => new(-value.X, -value.Y);
+    public static Vec2 operator -(Vec2 value) => new(-value.X, -value.Y, value.Z, value.W);
 
     public static Vec2 operator *(Vec2 value, double scalar)
-        => new(value.X * scalar, value.Y * scalar);
+        => new(value.X * scalar, value.Y * scalar, value.Z, value.W);
 
     public static Vec2 operator *(double scalar, Vec2 value) => value * scalar;
 
     public static Vec2 operator /(Vec2 value, double scalar)
-        => new(value.X / scalar, value.Y / scalar);
+        => new(value.X / scalar, value.Y / scalar, value.Z, value.W);
 
-    public override string ToString() => $"({X}, {Y})";
+    public override string ToString() => $"({X}, {Y}, {Z}, {W})";
 }

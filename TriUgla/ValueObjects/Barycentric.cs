@@ -2,6 +2,21 @@ namespace TriUgla;
 
 public readonly record struct Barycentric(double A, double B, double C)
 {
+    public static Barycentric FromSegment(Vec2 point, Vec2 start, Vec2 end)
+    {
+        Vec2 direction = end - start;
+        if (direction.LengthSquared == 0d)
+        {
+            return new Barycentric(1d, 0d, 0d);
+        }
+
+        double amount = Math.Clamp(
+            (point - start).Dot(direction) / direction.LengthSquared,
+            0d,
+            1d);
+        return new Barycentric(1d - amount, amount, 0d);
+    }
+
     public static Barycentric From(Vec2 point, Vec2 a, Vec2 b, Vec2 c)
     {
         double area = (b - a).Cross(c - a);
@@ -20,6 +35,13 @@ public readonly record struct Barycentric(double A, double B, double C)
 
     public double Interpolate(double a, double b, double c)
         => A * a + B * b + C * c;
+
+    public Vec2 Interpolate(Vec2 a, Vec2 b, Vec2 c)
+        => new(
+            Interpolate(a.X, b.X, c.X),
+            Interpolate(a.Y, b.Y, c.Y),
+            Interpolate(a.Z, b.Z, c.Z),
+            Interpolate(a.W, b.W, c.W));
 
     public double Interpolate<T>(T a, T b, T c, Func<T, double> selector)
         => Interpolate(selector(a), selector(b), selector(c));

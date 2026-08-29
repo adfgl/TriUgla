@@ -2,6 +2,30 @@ namespace TriUgla.Tests;
 
 public class BarycentricTests
 {
+    [Fact]
+    public void FromSegmentProducesTwoPointBarycentricWeights()
+    {
+        Barycentric weights = Barycentric.FromSegment(
+            new Vec2(1, 0),
+            new Vec2(0, 0),
+            new Vec2(4, 0));
+
+        Assert.Equal(new Barycentric(0.75, 0.25, 0), weights);
+    }
+
+    [Fact]
+    public void InterpolateVec2IncludesZWComponents()
+    {
+        Barycentric weights = new(0.5, 0.25, 0.25);
+
+        Vec2 value = weights.Interpolate(
+            new Vec2(0, 0, 10, 20),
+            new Vec2(4, 0, 30, 40),
+            new Vec2(0, 4, 50, 60));
+
+        Assert.Equal(new Vec2(1, 1, 25, 35), value);
+    }
+
     private static readonly Vec2 A = new(0, 0);
     private static readonly Vec2 B = new(2, 0);
     private static readonly Vec2 C = new(0, 2);

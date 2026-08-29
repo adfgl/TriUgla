@@ -42,28 +42,6 @@ public class EdgeSplitTests
     }
 
     [Fact]
-    public void Split_CopiesFaceAndHalfEdgeDataToNewElements()
-    {
-        Fixture f = CreateFixture();
-        f.Target.Face.Data = new TestData("top", 0, null);
-        f.Twin.Face.Data = new TestData("bottom", 0, null);
-        f.Target.Data = new TestData("forward", 0, null);
-        f.Twin.Data = new TestData("reverse", 0, null);
-
-        EdgeSplitResult result = new Splitter(new TestInterpolator())
-            .Split(f.Target, new Node());
-
-        Assert.Equal("top", GetColor(result.Change.AffectedFaces[0]));
-        Assert.Equal("top", GetColor(result.Change.AffectedFaces[1]));
-        Assert.Equal("bottom", GetColor(result.Change.AffectedFaces[2]));
-        Assert.Equal("bottom", GetColor(result.Change.AffectedFaces[3]));
-        Assert.Equal("forward", GetColor(result.SecondHalf));
-        Assert.Equal("reverse", GetColor(result.SecondHalf.Twin!));
-        Assert.NotSame(f.Target.Data, result.SecondHalf.Data);
-        Assert.NotSame(f.Twin.Data, result.SecondHalf.Twin!.Data);
-    }
-
-    [Fact]
     public void Split_TransmitsDirectedConstraintCountsToBothHalves()
     {
         Fixture f = CreateFixture();
@@ -80,9 +58,6 @@ public class EdgeSplitTests
         Assert.Equal(1, result.SecondHalf.Twin!.ConstraintCount);
         Assert.True(inserted.Constrained);
     }
-
-    static string GetColor(MeshElement element)
-        => Assert.IsType<TestData>(element.Data).Color;
 
     static void AssertTriangle(
         Face face,

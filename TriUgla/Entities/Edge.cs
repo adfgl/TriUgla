@@ -11,6 +11,19 @@ public class Edge : MeshElement, IConstrainable
     public Edge? Twin { get; set; }
     public Node NodeEnd => Next.NodeStart;
 
+    public double LengthSquared
+    {
+        get
+        {
+            Node? end = Next?.NodeStart;
+            return NodeStart is null || end is null
+                ? 0d
+                : NodeStart.Position.DistanceSquared(end.Position);
+        }
+    }
+
+    public double Length => Math.Sqrt(LengthSquared);
+
     public int ConstraintCount => _constraints;
     public bool Constrained => _constraints > 0;
     public bool OrTwinConstrained => Constrained || (Twin != null && Twin.Constrained);

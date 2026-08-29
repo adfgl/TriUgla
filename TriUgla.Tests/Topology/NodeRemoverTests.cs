@@ -6,8 +6,6 @@ public class NodeRemoverTests
     public void Remove_RetriangulatesCavityAndPreservesBoundaryContext()
     {
         Fixture fixture = CreateFixture();
-        var edgeData = new TestData("boundary", 7, null);
-        fixture.AB.Data = edgeData;
         fixture.AB.Constrain();
 
         RemoveNodeResult result = new NodeRemover().Remove(fixture.Center);
@@ -23,7 +21,6 @@ public class NodeRemoverTests
         Assert.All(result.Change.AffectedFaces, AssertTriangle);
 
         Assert.False(fixture.AB.Dead);
-        Assert.Same(edgeData, fixture.AB.Data);
         Assert.Equal(1, fixture.AB.ConstraintCount);
         Assert.Contains(result.Change.AffectedFaces, face => ReferenceEquals(face, fixture.AB.Face));
     }
@@ -46,27 +43,6 @@ public class NodeRemoverTests
         Assert.Same(internalEdges[0], internalEdges[1].Twin);
         Assert.Same(internalEdges[0].NodeStart, internalEdges[1].NodeEnd);
         Assert.Same(internalEdges[0].NodeEnd, internalEdges[1].NodeStart);
-    }
-
-    [Fact]
-    public void Remove_ReusesFacesAndPreservesTheirData()
-    {
-        Fixture fixture = CreateFixture();
-        ElementData[] originalData = fixture.Faces
-            .Select((_, index) => (ElementData)new TestData($"face-{index}", index, null))
-            .ToArray();
-
-        for (int index = 0; index < fixture.Faces.Length; index++)
-        {
-            fixture.Faces[index].Data = originalData[index];
-        }
-        Dictionary<Face, ElementData> context = fixture.Faces
-            .ToDictionary(face => face, face => face.Data!);
-
-        RemoveNodeResult result = new NodeRemover().Remove(fixture.Center);
-
-        Assert.All(result.Change.AffectedFaces, face =>
-            Assert.Same(context[face], face.Data));
     }
 
     [Fact]
