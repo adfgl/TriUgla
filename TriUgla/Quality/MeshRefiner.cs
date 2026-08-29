@@ -259,22 +259,11 @@ public sealed class MeshRefiner(
     static bool TryCircumcenter(Face face, out Vec2 center)
     {
         Edge edge = face.Edge;
-        Vec2 a = edge.NodeStart.Position;
-        Vec2 b = edge.NodeEnd.Position;
-        Vec2 c = edge.Next.NodeEnd.Position;
-        double d = 2d * (a.X * (b.Y - c.Y) + b.X * (c.Y - a.Y) + c.X * (a.Y - b.Y));
-        if (Math.Abs(d) <= 1e-24)
-        {
-            center = default;
-            return false;
-        }
-
-        double a2 = a.LengthSquared;
-        double b2 = b.LengthSquared;
-        double c2 = c.LengthSquared;
-        center = new Vec2(
-            (a2 * (b.Y - c.Y) + b2 * (c.Y - a.Y) + c2 * (a.Y - b.Y)) / d,
-            (a2 * (c.X - b.X) + b2 * (a.X - c.X) + c2 * (b.X - a.X)) / d);
+        Circle circle = Circle.From3(
+            edge.NodeStart.Position,
+            edge.NodeEnd.Position,
+            edge.Next.NodeEnd.Position);
+        center = circle.Center;
         return double.IsFinite(center.X) && double.IsFinite(center.Y);
     }
 
