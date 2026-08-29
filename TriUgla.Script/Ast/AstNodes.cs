@@ -86,6 +86,17 @@ public sealed record ListExpr(
         => visitor.VisitListExpression(this);
 }
 
+public sealed record IndexExpr(
+    Expr Target,
+    Token LeftBracket,
+    Expr Index,
+    Token RightBracket)
+    : Expr(TextSpan.FromBounds(Target.Span, RightBracket.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitIndexExpression(this);
+}
+
 public sealed record ExpressionStmt(Expr Expression, Token Semicolon)
     : Stmt(TextSpan.FromBounds(Expression.Span, Semicolon.Span))
 {
@@ -153,4 +164,52 @@ public sealed record ForStmt(
 {
     public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
         => visitor.VisitForStatement(this);
+}
+
+public sealed record TransfiniteCurveStmt(
+    Token TransfiniteKeyword,
+    Token CurveKeyword,
+    Token LeftBrace,
+    IReadOnlyList<Expr> Curves,
+    Token RightBrace,
+    Token EqualsToken,
+    Expr NodeCount,
+    Token? UsingKeyword,
+    Token? DistributionKeyword,
+    Expr? Coefficient,
+    Token Semicolon)
+    : Stmt(TextSpan.FromBounds(TransfiniteKeyword.Span, Semicolon.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitTransfiniteCurveStatement(this);
+}
+
+public sealed record CurveLoopStmt(
+    Token CurveOrLineKeyword,
+    Token LoopKeyword,
+    Token LeftParenthesis,
+    Expr Tag,
+    Token RightParenthesis,
+    Token EqualsToken,
+    ListExpr Curves,
+    Token Semicolon)
+    : Stmt(TextSpan.FromBounds(CurveOrLineKeyword.Span, Semicolon.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitCurveLoopStatement(this);
+}
+
+public sealed record PlaneSurfaceStmt(
+    Token PlaneKeyword,
+    Token SurfaceKeyword,
+    Token LeftParenthesis,
+    Expr Tag,
+    Token RightParenthesis,
+    Token EqualsToken,
+    ListExpr CurveLoops,
+    Token Semicolon)
+    : Stmt(TextSpan.FromBounds(PlaneKeyword.Span, Semicolon.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitPlaneSurfaceStatement(this);
 }

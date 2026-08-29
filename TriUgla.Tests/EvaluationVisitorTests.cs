@@ -219,6 +219,29 @@ public class EvaluationVisitorTests
             evaluator.PrintedValues.Select(value => value.ToString()));
     }
 
+    [Fact]
+    public async Task EvaluateAsync_Cancellation_StopsRunningLoop()
+    {
+        SyntaxTree tree = SyntaxTree.Parse(
+            "For i In {1:1000000}\n" +
+            "  Print(i);\n" +
+            "EndFor");
+        using var cancellation = new CancellationTokenSource();
+        var evaluator = new EvaluationVisitor();
+        evaluator.Printed += _ =>
+        {
+            if (evaluator.PrintedValues.Count == 3)
+            {
+                cancellation.Cancel();
+            }
+        };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await evaluator.EvaluateAsync(tree.Root, cancellation.Token));
+
+        Assert.Equal(["1", "2", "3"], evaluator.PrintedValues.Select(value => value.ToString()));
+    }
+
     [Theory]
     [InlineData("({1, 2, 3} + {4, 5, 6});", new[] { 5d, 7d, 9d })]
     [InlineData("({1, 2, 3} + 10);", new[] { 11d, 12d, 13d })]

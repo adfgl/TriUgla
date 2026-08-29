@@ -33,6 +33,18 @@ public sealed class TokenReader
         return _lookAhead.Value;
     }
 
+    public Token Peek(int offset)
+    {
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        }
+
+        return offset == 0
+            ? Peek()
+            : _tokens[Math.Min(_position + offset, _tokens.Count - 1)];
+    }
+
     public Token Read()
     {
         Token token = _lookAhead ?? Current;

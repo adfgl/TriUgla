@@ -54,6 +54,21 @@ public sealed class Parser
             return ParseBlock();
         }
 
+        if (IsIdentifier("Transfinite") && IsIdentifier("Curve", 1))
+        {
+            return ParseTransfiniteCurveStatement();
+        }
+
+        if ((IsIdentifier("Curve") || IsIdentifier("Line")) && IsIdentifier("Loop", 1, ignoreCase: true))
+        {
+            return ParseCurveLoopStatement();
+        }
+
+        if (IsIdentifier("Plane") && IsIdentifier("Surface", 1))
+        {
+            return ParsePlaneSurfaceStatement();
+        }
+
         Expr target = ParseExpression();
         Stmt statement;
 
@@ -71,6 +86,107 @@ public sealed class Parser
         }
 
         return statement;
+    }
+
+    TransfiniteCurveStmt ParseTransfiniteCurveStatement()
+    {
+        Token transfinite = Read();
+        Token curve = Read();
+        Token leftBrace = Expect(TokenKind.LeftBrace, "TS1018", "Expected '{' after 'Transfinite Curve'.");
+        IReadOnlyList<Expr> curves = ParseSeparatedExpressions(TokenKind.RightBrace);
+        Token rightBrace = Expect(TokenKind.RightBrace, "TS1019", "Expected '}' after transfinite curve tags.");
+        Token equals = Expect(TokenKind.Equals, "TS1020", "Expected '=' after transfinite curve tags.");
+        Expr nodeCount = ParseExpression();
+        Token? usingKeyword = null;
+        Token? distributionKeyword = null;
+        Expr? coefficient = null;
+
+        if (IsIdentifier("Using"))
+        {
+            usingKeyword = Read();
+            if (IsIdentifier("Progression") || IsIdentifier("Bump"))
+            {
+                distributionKeyword = Read();
+            }
+            else
+            {
+                ReportError(
+                    "TS1021",
+                    "Expected 'Progression' or 'Bump' after 'Using'.",
+                    Peek().Span);
+                distributionKeyword = Peek().Kind == TokenKind.EndOfFile
+                    ? new Token(TokenKind.Identifier, string.Empty, Peek().Span)
+                    : Read();
+            }
+
+            coefficient = ParseExpression();
+        }
+
+        Token semicolon = ReadStatementEnd(coefficient?.Span ?? nodeCount.Span);
+        return new TransfiniteCurveStmt(
+            transfinite,
+            curve,
+            leftBrace,
+            curves,
+            rightBrace,
+            equals,
+            nodeCount,
+            usingKeyword,
+            distributionKeyword,
+            coefficient,
+            semicolon);
+    }
+
+    CurveLoopStmt ParseCurveLoopStatement()
+    {
+        Token curveOrLine = Read();
+        Token loop = Read();
+        Token leftParenthesis = Expect(TokenKind.LeftParenthesis, "TS1022", "Expected '(' after 'Curve Loop'.");
+        Expr tag = ParseExpression();
+        Token rightParenthesis = Expect(TokenKind.RightParenthesis, "TS1023", "Expected ')' after curve loop tag.");
+        Token equals = Expect(TokenKind.Equals, "TS1024", "Expected '=' after curve loop tag.");
+        ListExpr curves = Peek().Kind == TokenKind.LeftBrace
+            ? ParseList()
+            : new ListExpr(
+                Expect(TokenKind.LeftBrace, "TS1025", "Expected '{' before curve loop tags."),
+                [],
+                Expect(TokenKind.RightBrace, "TS1026", "Expected '}' after curve loop tags."));
+        Token semicolon = ReadStatementEnd(curves.Span);
+        return new CurveLoopStmt(
+            curveOrLine,
+            loop,
+            leftParenthesis,
+            tag,
+            rightParenthesis,
+            equals,
+            curves,
+            semicolon);
+    }
+
+    PlaneSurfaceStmt ParsePlaneSurfaceStatement()
+    {
+        Token plane = Read();
+        Token surface = Read();
+        Token leftParenthesis = Expect(TokenKind.LeftParenthesis, "TS1027", "Expected '(' after 'Plane Surface'.");
+        Expr tag = ParseExpression();
+        Token rightParenthesis = Expect(TokenKind.RightParenthesis, "TS1028", "Expected ')' after plane surface tag.");
+        Token equals = Expect(TokenKind.Equals, "TS1029", "Expected '=' after plane surface tag.");
+        ListExpr loops = Peek().Kind == TokenKind.LeftBrace
+            ? ParseList()
+            : new ListExpr(
+                Expect(TokenKind.LeftBrace, "TS1030", "Expected '{' before plane surface curve loops."),
+                [],
+                Expect(TokenKind.RightBrace, "TS1031", "Expected '}' after plane surface curve loops."));
+        Token semicolon = ReadStatementEnd(loops.Span);
+        return new PlaneSurfaceStmt(
+            plane,
+            surface,
+            leftParenthesis,
+            tag,
+            rightParenthesis,
+            equals,
+            loops,
+            semicolon);
     }
 
     IfStmt ParseIfStatement()
@@ -261,15 +377,28 @@ public sealed class Parser
     {
         Expr expression = ParsePrimary();
 
-        while (Peek().Kind == TokenKind.LeftParenthesis)
+        while (Peek().Kind is TokenKind.LeftParenthesis or TokenKind.LeftBracket)
         {
-            Token leftParenthesis = Read();
-            IReadOnlyList<Expr> arguments = ParseSeparatedExpressions(TokenKind.RightParenthesis);
-            Token rightParenthesis = Expect(
-                TokenKind.RightParenthesis,
-                "TS1002",
-                "Expected ')' after arguments.");
-            expression = new CallExpr(expression, leftParenthesis, arguments, rightParenthesis);
+            if (Peek().Kind == TokenKind.LeftParenthesis)
+            {
+                Token leftParenthesis = Read();
+                IReadOnlyList<Expr> arguments = ParseSeparatedExpressions(TokenKind.RightParenthesis);
+                Token rightParenthesis = Expect(
+                    TokenKind.RightParenthesis,
+                    "TS1002",
+                    "Expected ')' after arguments.");
+                expression = new CallExpr(expression, leftParenthesis, arguments, rightParenthesis);
+            }
+            else
+            {
+                Token leftBracket = Read();
+                Expr index = ParseExpression();
+                Token rightBracket = Expect(
+                    TokenKind.RightBracket,
+                    "TS1017",
+                    "Expected ']' after list index.");
+                expression = new IndexExpr(expression, leftBracket, index, rightBracket);
+            }
         }
 
         return expression;
@@ -437,6 +566,15 @@ public sealed class Parser
 
     bool IsKeyword(KeywordKind keyword)
         => Peek().Kind == TokenKind.Keyword && Peek().Keyword == keyword;
+
+    bool IsIdentifier(string text, int offset = 0, bool ignoreCase = false)
+    {
+        Token token = _tokens.Peek(offset);
+        return token.Kind == TokenKind.Identifier && string.Equals(
+            token.Text,
+            text,
+            ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
 
     static string Display(Token token)
         => token.Kind == TokenKind.EndOfFile ? "end of file" : token.Text;

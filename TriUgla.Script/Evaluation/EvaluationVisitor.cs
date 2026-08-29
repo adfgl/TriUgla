@@ -4,14 +4,17 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 {
     const int MaximumLoopIterations = 1_000_000;
     readonly Scope _scope;
+    readonly GeometryModel _geometry;
     readonly IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>> _functions;
     readonly List<Value> _printedValues = [];
 
     public EvaluationVisitor(
         Scope? scope = null,
-        IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>>? functions = null)
+        IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>>? functions = null,
+        GeometryModel? geometry = null)
     {
         _scope = scope ?? new Scope();
+        _geometry = geometry ?? new GeometryModel();
         var availableFunctions = new Dictionary<string, Func<IReadOnlyList<Value>, Value>>(
             StringComparer.Ordinal)
         {
@@ -38,6 +41,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
     }
 
     public Scope Scope => _scope;
+    public GeometryModel Geometry => _geometry;
     public IReadOnlyList<Value> PrintedValues => _printedValues;
     public event Action<Value>? Printed;
 
@@ -45,6 +49,145 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
     {
         ArgumentNullException.ThrowIfNull(node);
         return node.Accept(this);
+    }
+
+    public async ValueTask<Value> EvaluateAsync(
+        AstNode node,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        cancellationToken.ThrowIfCancellationRequested();
+        return node switch
+        {
+            CompilationUnit compilation => await EvaluateStatementsAsync(
+                compilation.Statements,
+                cancellationToken),
+            BlockStmt block => await EvaluateBlockAsync(block, cancellationToken),
+            IfStmt conditional => await EvaluateIfAsync(conditional, cancellationToken),
+            ForStmt loop => await EvaluateForAsync(loop, cancellationToken),
+            _ => Evaluate(node)
+        };
+    }
+
+    async ValueTask<Value> EvaluateBlockAsync(BlockStmt node, CancellationToken cancellationToken)
+    {
+        using (_scope.Open())
+        {
+            return await EvaluateStatementsAsync(node.Statements, cancellationToken);
+        }
+    }
+
+    async ValueTask<Value> EvaluateIfAsync(IfStmt node, CancellationToken cancellationToken)
+    {
+        foreach (ConditionalBranch branch in node.Branches)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (branch.Condition is null || Evaluate(branch.Condition).Number != 0d)
+            {
+                return await EvaluateStatementsAsync(branch.Statements, cancellationToken);
+            }
+        }
+
+        return 0d;
+    }
+
+    async ValueTask<Value> EvaluateForAsync(ForStmt node, CancellationToken cancellationToken)
+    {
+        if (node.Items is not null)
+        {
+            return await EvaluateExplicitLoopAsync(node, cancellationToken);
+        }
+
+        double start = Evaluate(node.Start!).Number;
+        double end = Evaluate(node.End!).Number;
+        double step = node.Step is null ? 1d : Evaluate(node.Step).Number;
+        if (step == 0d || double.IsNaN(step))
+        {
+            throw new InvalidOperationException("Loop step must be a non-zero number.");
+        }
+
+        Value result = 0d;
+        int iterations = 0;
+        using (_scope.Open())
+        {
+            if (node.Iterator is Token iterator)
+            {
+                _scope.Declare(iterator.Text, start);
+            }
+
+            for (double current = start;
+                 step > 0d ? current <= end : current >= end;
+                 current += step)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (++iterations > MaximumLoopIterations)
+                {
+                    throw new InvalidOperationException(
+                        $"Loop exceeded the limit of {MaximumLoopIterations} iterations.");
+                }
+
+                if (node.Iterator is Token currentIterator)
+                {
+                    _scope.TryAssign(currentIterator.Text, current);
+                }
+
+                result = await EvaluateStatementsAsync(node.Statements, cancellationToken);
+                if ((iterations & 127) == 0)
+                {
+                    await Task.Yield();
+                }
+            }
+        }
+
+        return result;
+    }
+
+    async ValueTask<Value> EvaluateExplicitLoopAsync(ForStmt node, CancellationToken cancellationToken)
+    {
+        Value result = 0d;
+        int iterations = 0;
+        using (_scope.Open())
+        {
+            if (node.Iterator is not Token iterator)
+            {
+                throw new InvalidOperationException(
+                    "An explicit value loop requires an iterator name. Hint: use 'For item In { ... }'.");
+            }
+
+            _scope.Declare(iterator.Text, 0d);
+            foreach (Expr item in node.Items!)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (++iterations > MaximumLoopIterations)
+                {
+                    throw new InvalidOperationException(
+                        $"Loop exceeded the limit of {MaximumLoopIterations} iterations.");
+                }
+
+                _scope.TryAssign(iterator.Text, Evaluate(item));
+                result = await EvaluateStatementsAsync(node.Statements, cancellationToken);
+                if ((iterations & 127) == 0)
+                {
+                    await Task.Yield();
+                }
+            }
+        }
+
+        return result;
+    }
+
+    async ValueTask<Value> EvaluateStatementsAsync(
+        IReadOnlyList<Stmt> statements,
+        CancellationToken cancellationToken)
+    {
+        Value result = 0d;
+        foreach (Stmt statement in statements)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            result = await EvaluateAsync(statement, cancellationToken);
+        }
+
+        return result;
     }
 
     public Value VisitCompilationUnit(CompilationUnit node)
@@ -401,6 +544,11 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
     public Value VisitCallExpression(CallExpr node)
     {
+        if (node.Callee is NameExpr primitiveName && primitiveName.Name.Text is "Point" or "Line")
+        {
+            return ResolvePrimitive(node, primitiveName.Name.Text);
+        }
+
         if (node.Callee is not NameExpr name || !_functions.TryGetValue(name.Name.Text, out var function))
         {
             throw new InvalidOperationException("Only registered named functions can be called.");
@@ -410,13 +558,61 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         return function(arguments);
     }
 
+    Value ResolvePrimitive(CallExpr call, string primitiveName)
+    {
+        if (call.Arguments.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"{primitiveName} lookup expects exactly one tag, but received {call.Arguments.Count}. " +
+                $"Hint: use {primitiveName}(tag), for example {primitiveName}(1).");
+        }
+
+        int tag = RequireEntityTag(Evaluate(call.Arguments[0]), $"{primitiveName} lookup tag");
+        ScriptObject? primitive = primitiveName == "Point"
+            ? _geometry.Points.GetValueOrDefault(tag)
+            : _geometry.Lines.GetValueOrDefault(tag);
+        if (primitive is null)
+        {
+            throw new InvalidOperationException(
+                $"{primitiveName}({tag}) is not registered. " +
+                $"Hint: declare {primitiveName}({tag}) before using it.");
+        }
+
+        return primitive;
+    }
+
     public Value VisitListExpression(ListExpr node)
         => new ScriptList(node.Items.Select(Evaluate));
+
+    public Value VisitIndexExpression(IndexExpr node)
+    {
+        Value target = Evaluate(node.Target);
+        if (target.ObjectOrNull() is not ScriptList list)
+        {
+            throw new InvalidOperationException(
+                $"Index access cannot be applied to {Describe(target)}. " +
+                "Hint: use square brackets only after a list or matrix expression.");
+        }
+
+        Value index = Evaluate(node.Index);
+        if (index.ObjectOrNull() is ScriptList indices)
+        {
+            return new ScriptList(indices.Items.Select((item, position) =>
+                list.Items[RequireListIndex(item, list.Items.Count, $"index list position {position}")]));
+        }
+
+        return list.Items[RequireListIndex(index, list.Items.Count, "list index")];
+    }
 
     public Value VisitExpressionStatement(ExpressionStmt node) => Evaluate(node.Expression);
 
     public Value VisitAssignmentStatement(AssignmentStmt node)
     {
+        if (node.Target is CallExpr primitive)
+        {
+            return EvaluatePrimitiveDeclaration(primitive, node.Value);
+        }
+
         if (node.Target is not NameExpr name)
         {
             throw new InvalidOperationException("Assignment targets must be variable names.");
@@ -429,6 +625,126 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
 
         return value;
+    }
+
+    Value EvaluatePrimitiveDeclaration(CallExpr target, Expr valueExpression)
+    {
+        if (target.Callee is not NameExpr name)
+        {
+            throw new InvalidOperationException(
+                "Primitive declaration target is invalid. Hint: use Point(tag) or Line(tag).");
+        }
+
+        string primitiveName = name.Name.Text;
+        if (primitiveName is not "Point" and not "Line")
+        {
+            throw new InvalidOperationException(
+                $"Assignment to function call '{primitiveName}(...)' is not supported. " +
+                "Hint: assign to a variable, Point(tag), or Line(tag).");
+        }
+
+        if (target.Arguments.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"{primitiveName} expects exactly one tag inside parentheses, but received {target.Arguments.Count}. " +
+                $"Hint: use {primitiveName}(1) = {{...}}.");
+        }
+
+        int tag = RequireEntityTag(Evaluate(target.Arguments[0]), $"{primitiveName} tag");
+        Value value = Evaluate(valueExpression);
+        if (value.ObjectOrNull() is not ScriptList parameters)
+        {
+            throw new InvalidOperationException(
+                $"{primitiveName} {tag} requires a list on the right-hand side. " +
+                $"Hint: use {primitiveName}({tag}) = {{...}}.");
+        }
+
+        return primitiveName == "Point"
+            ? CreatePoint(tag, parameters)
+            : CreateLine(tag, parameters);
+    }
+
+    Value CreatePoint(int tag, ScriptList parameters)
+    {
+        if (parameters.Items.Count is not 3 and not 4)
+        {
+            throw new InvalidOperationException(
+                $"Point {tag} expects 3 coordinates and an optional mesh size, but received " +
+                $"{parameters.Items.Count} values. Hint: use Point({tag}) = {{x, y, z}} or {{x, y, z, meshSize}}.");
+        }
+
+        double[] values = parameters.Items
+            .Select((value, index) => RequirePrimitiveNumber("Point", tag, value, index))
+            .ToArray();
+        return _geometry.AddPoint(
+            tag,
+            values[0],
+            values[1],
+            values[2],
+            values.Length == 4 ? values[3] : null);
+    }
+
+    Value CreateLine(int tag, ScriptList parameters)
+    {
+        if (parameters.Items.Count != 2)
+        {
+            throw new InvalidOperationException(
+                $"Line {tag} expects exactly 2 point tags, but received {parameters.Items.Count}. " +
+                $"Hint: use Line({tag}) = {{startPointTag, endPointTag}}.");
+        }
+
+        int start = RequireEntityTag(parameters.Items[0], $"Line {tag} start point");
+        int end = RequireEntityTag(parameters.Items[1], $"Line {tag} end point");
+        return _geometry.AddLine(tag, start, end);
+    }
+
+    static double RequirePrimitiveNumber(string primitive, int tag, Value value, int index)
+    {
+        if (!value.IsNumber || !double.IsFinite(value.Number))
+        {
+            throw new InvalidOperationException(
+                $"{primitive} {tag} value at index {index} must be a finite number. " +
+                "Hint: replace it with a numeric expression.");
+        }
+
+        return value.Number;
+    }
+
+    static int RequireEntityTag(Value value, string description)
+    {
+        if (!value.IsNumber || !double.IsFinite(value.Number) ||
+            value.Number <= 0d || value.Number != Math.Truncate(value.Number) ||
+            value.Number > int.MaxValue)
+        {
+            throw new InvalidOperationException(
+                $"{description} must be a positive whole number. Hint: use an integer tag such as 1.");
+        }
+
+        return (int)value.Number;
+    }
+
+    static int RequireListIndex(Value value, int count, string description)
+    {
+        if (!value.IsNumber || !double.IsFinite(value.Number) ||
+            value.Number != Math.Truncate(value.Number))
+        {
+            throw new InvalidOperationException(
+                $"The {description} must be a whole number, but received {Describe(value)}. " +
+                "Hint: use a zero-based integer index such as 0.");
+        }
+
+        int index = value.Number is >= int.MinValue and <= int.MaxValue
+            ? (int)value.Number
+            : int.MinValue;
+        if (index < 0 || index >= count)
+        {
+            string available = count == 0 ? "the list is empty" : $"valid indices are 0 through {count - 1}";
+            throw new InvalidOperationException(
+                $"List index {value.Number} is out of range; {available}. " +
+                "Hint: choose an index within the list bounds.");
+        }
+
+        return index;
     }
 
     public Value VisitBlockStatement(BlockStmt node)
@@ -496,6 +812,101 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
 
         return result;
+    }
+
+    public Value VisitTransfiniteCurveStatement(TransfiniteCurveStmt node)
+    {
+        bool selectsAll = node.Curves.Count == 1 &&
+            node.Curves[0] is NameExpr { Name.Text: "All" };
+        if (!selectsAll && node.Curves.Any(curve => curve is NameExpr { Name.Text: "All" }))
+        {
+            throw new InvalidOperationException(
+                "Transfinite Curve selector 'All' cannot be combined with explicit curve tags.");
+        }
+
+        int[] curves = selectsAll
+            ? _geometry.Lines.Keys.Order().ToArray()
+            : node.Curves
+                .Select((curve, index) => RequireOrientedCurveTag(
+                    Evaluate(curve),
+                    $"Transfinite Curve tag at index {index}"))
+                .ToArray();
+        int nodeCount = RequireNodeCount(Evaluate(node.NodeCount));
+        TransfiniteCurveDistribution distribution = node.DistributionKeyword?.Text switch
+        {
+            null or "Progression" => TransfiniteCurveDistribution.Progression,
+            "Bump" => TransfiniteCurveDistribution.Bump,
+            string option => throw new InvalidOperationException(
+                $"Unsupported Transfinite Curve distribution '{option}'. " +
+                "Hint: use 'Using Progression value' or 'Using Bump value'.")
+        };
+        double coefficient = node.Coefficient is null
+            ? 1d
+            : RequireTransfiniteCoefficient(Evaluate(node.Coefficient), distribution);
+        return _geometry.SetTransfiniteCurves(curves, nodeCount, distribution, coefficient);
+    }
+
+    public Value VisitCurveLoopStatement(CurveLoopStmt node)
+    {
+        int tag = RequireEntityTag(Evaluate(node.Tag), "Curve Loop tag");
+        int[] curves = node.Curves.Items
+            .Select((curve, index) => RequireOrientedCurveTag(
+                Evaluate(curve),
+                $"Curve Loop {tag} curve at index {index}"))
+            .ToArray();
+        return _geometry.AddCurveLoop(tag, curves);
+    }
+
+    public Value VisitPlaneSurfaceStatement(PlaneSurfaceStmt node)
+    {
+        int tag = RequireEntityTag(Evaluate(node.Tag), "Plane Surface tag");
+        int[] loopTags = node.CurveLoops.Items
+            .Select((loop, index) => RequireEntityTag(
+                Evaluate(loop),
+                $"Plane Surface {tag} curve loop at index {index}"))
+            .ToArray();
+        return _geometry.AddPlaneSurface(tag, loopTags);
+    }
+
+    static int RequireNodeCount(Value value)
+    {
+        if (!value.IsNumber || !double.IsFinite(value.Number) ||
+            value.Number < 2d || value.Number != Math.Truncate(value.Number) ||
+            value.Number > int.MaxValue)
+        {
+            throw new InvalidOperationException(
+                "Transfinite Curve node count must be a whole number of at least 2. " +
+                "Hint: the count includes both end points.");
+        }
+
+        return (int)value.Number;
+    }
+
+    static int RequireOrientedCurveTag(Value value, string description)
+    {
+        if (!value.IsNumber || !double.IsFinite(value.Number) || value.Number == 0d ||
+            value.Number != Math.Truncate(value.Number) ||
+            value.Number < int.MinValue + 1d || value.Number > int.MaxValue)
+        {
+            throw new InvalidOperationException(
+                $"{description} must be a non-zero whole number. " +
+                "Hint: use a positive curve tag or a negative tag to reverse its orientation.");
+        }
+
+        return (int)value.Number;
+    }
+
+    static double RequireTransfiniteCoefficient(
+        Value value,
+        TransfiniteCurveDistribution distribution)
+    {
+        if (!value.IsNumber || !double.IsFinite(value.Number) || value.Number <= 0d)
+        {
+            throw new InvalidOperationException(
+                $"Transfinite Curve {distribution} coefficient must be a finite positive number.");
+        }
+
+        return value.Number;
     }
 
     Value EvaluateExplicitLoop(ForStmt node)

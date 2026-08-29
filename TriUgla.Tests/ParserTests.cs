@@ -188,4 +188,71 @@ public class ParserTests
 
         Assert.Equal("TS1016", diagnostic.Code);
     }
+
+    [Fact]
+    public void Parse_ListIndexing_CreatesChainedIndexExpressions()
+    {
+        SyntaxTree tree = SyntaxTree.Parse("matrix[1][2];");
+
+        var statement = Assert.IsType<ExpressionStmt>(Assert.Single(tree.Root.Statements));
+        var outer = Assert.IsType<IndexExpr>(statement.Expression);
+        Assert.IsType<IndexExpr>(outer.Target);
+        Assert.IsType<LiteralExpr>(outer.Index);
+        Assert.Empty(tree.Diagnostics);
+    }
+
+    [Fact]
+    public void Parse_MultiIndexSelection_UsesListAsIndex()
+    {
+        SyntaxTree tree = SyntaxTree.Parse("values[{0, 2}];");
+
+        var statement = Assert.IsType<ExpressionStmt>(Assert.Single(tree.Root.Statements));
+        var index = Assert.IsType<IndexExpr>(statement.Expression);
+        Assert.IsType<ListExpr>(index.Index);
+        Assert.Empty(tree.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData("Transfinite Curve{1} = 11;")]
+    [InlineData("Transfinite Curve{All} = 11;")]
+    [InlineData("Transfinite Curve{-1, 3} = count Using Progression 1.2;")]
+    [InlineData("Transfinite Curve{1, 2} = 20 Using Bump 0.25;")]
+    public void Parse_TransfiniteCurve_CreatesDedicatedStatement(string source)
+    {
+        SyntaxTree tree = SyntaxTree.Parse(source);
+
+        Assert.IsType<TransfiniteCurveStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Empty(tree.Diagnostics);
+    }
+
+    [Fact]
+    public void Parse_TransfiniteCurveWithUnknownDistribution_ReportsFocusedDiagnostic()
+    {
+        Diagnostic diagnostic = Assert.Single(
+            SyntaxTree.Parse("Transfinite Curve{1} = 11 Using Beta 2;").Diagnostics);
+
+        Assert.Equal("TS1021", diagnostic.Code);
+    }
+
+    [Theory]
+    [InlineData("Line Loop(1) = {1, 2, -3};")]
+    [InlineData("Line loop(1) = {1, 2, -3};")]
+    [InlineData("Curve Loop(1) = {1, 2, -3};")]
+    public void Parse_CurveLoop_SupportsGmshNamesAndLegacyLineLoop(string source)
+    {
+        SyntaxTree tree = SyntaxTree.Parse(source);
+
+        Assert.IsType<CurveLoopStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Empty(tree.Diagnostics);
+    }
+
+    [Fact]
+    public void Parse_PlaneSurface_CreatesDedicatedStatement()
+    {
+        SyntaxTree tree = SyntaxTree.Parse("Plane Surface(1) = {1, 2};");
+
+        var statement = Assert.IsType<PlaneSurfaceStmt>(Assert.Single(tree.Root.Statements));
+        Assert.Equal(2, statement.CurveLoops.Items.Count);
+        Assert.Empty(tree.Diagnostics);
+    }
 }

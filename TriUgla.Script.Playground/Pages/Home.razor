@@ -1,5 +1,6 @@
 @page "/"
 @inject IJSRuntime JS
+@implements IDisposable
 
 <main class="workspace">
     <header class="app-header">
@@ -7,20 +8,58 @@
             <p class="eyebrow">TriUgla / browser playground</p>
             <h1>Script editor</h1>
         </div>
-        <button class="run-button" type="button" @onclick="RunScript" aria-keyshortcuts="Control+Enter Meta+Enter">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-            Run script
-            <kbd>Ctrl ↵</kbd>
-        </button>
     </header>
 
-    <section class="editor-panel" aria-labelledby="editor-label">
+    <div class="dock-layout" aria-label="Dockable workspace">
+    <div class="dock-host dock-top" data-dock="top">
+        <div class="dock-tabs" role="tablist" aria-label="Top panels"></div>
+        <div class="dock-content"></div>
+    </div>
+
+    <div class="dock-splitter dock-top-splitter" data-resize-dock="top" role="separator" tabindex="0"
+         aria-label="Resize top dock" aria-orientation="horizontal"></div>
+
+    <div class="dock-host dock-left" data-dock="left">
+        <div class="dock-tabs" role="tablist" aria-label="Left panels"></div>
+        <div class="dock-content"></div>
+    </div>
+
+    <div class="dock-splitter dock-left-splitter" data-resize-dock="left" role="separator" tabindex="0"
+         aria-label="Resize left dock" aria-orientation="vertical"></div>
+
+    <div class="dock-host dock-center" data-dock="center">
+        <div class="dock-tabs" role="tablist" aria-label="Center panels"></div>
+        <div class="dock-content">
+    <section class="editor-panel dock-panel" data-panel-id="editor" data-panel-title="main.tus" aria-labelledby="editor-label">
         <div class="panel-bar">
             <div class="file-name" id="editor-label">
                 <span class="status-dot @(ErrorCount > 0 ? "has-errors" : null)" aria-hidden="true"></span>
                 main.tus
             </div>
-            <span>@LineCount lines</span>
+            <div class="editor-actions">
+                @if (isRunning || hasRun)
+                {
+                    <span class="execution-time" aria-live="polite">@(isRunning ? "Running" : runStatus) · @ElapsedText</span>
+                }
+                <span>@LineCount lines</span>
+                <button class="run-button @(isRunning ? "abort-button" : null)"
+                        type="button"
+                        @onclick="HandleRunButton"
+                        aria-label="@(isRunning ? "Abort script execution" : "Run script")"
+                        aria-keyshortcuts="Control+Enter Meta+Enter">
+                    @if (isRunning)
+                    {
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z" /></svg>
+                        <span>Abort</span>
+                    }
+                    else
+                    {
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                        <span>Run</span>
+                    }
+                    <kbd>Ctrl ↵</kbd>
+                </button>
+            </div>
         </div>
         <div class="editor-shell">
             <div id="line-numbers" class="line-numbers" aria-hidden="true">
@@ -44,8 +83,43 @@
             </div>
         </div>
     </section>
+        </div>
+    </div>
 
-    <section class="diagnostics-panel" aria-labelledby="diagnostics-title" aria-live="polite">
+    <div class="dock-splitter dock-right-splitter" data-resize-dock="right" role="separator" tabindex="0"
+         aria-label="Resize right dock" aria-orientation="vertical"></div>
+
+    <div class="dock-host dock-right" data-dock="right">
+        <div class="dock-tabs" role="tablist" aria-label="Right panels"></div>
+        <div class="dock-content">
+    <section class="viewer-panel dock-panel" data-panel-id="viewer" data-panel-title="3D View" aria-labelledby="viewer-title">
+        <div class="panel-bar viewer-bar">
+            <div>
+                <h2 id="viewer-title">3D view</h2>
+                <span class="camera-label">Orthographic orbit camera</span>
+            </div>
+            <div class="viewer-actions">
+                <button type="button" onclick="meshViewer.fit()" aria-label="Fit mesh in view">Fit</button>
+                <button type="button" onclick="meshViewer.reset()" aria-label="Reset camera">Reset</button>
+            </div>
+        </div>
+        <div class="viewer-surface">
+            <canvas id="mesh-viewer"
+                    tabindex="0"
+                    aria-label="Orthographic 3D mesh view. Drag to rotate, Shift-drag to pan, and scroll to zoom."></canvas>
+            <div class="viewer-help" aria-hidden="true">Drag rotate · Shift/right drag pan · Scroll zoom</div>
+        </div>
+    </section>
+        </div>
+    </div>
+
+    <div class="dock-splitter dock-bottom-splitter" data-resize-dock="bottom" role="separator" tabindex="0"
+         aria-label="Resize bottom dock" aria-orientation="horizontal"></div>
+
+    <div class="dock-host dock-bottom" data-dock="bottom">
+        <div class="dock-tabs" role="tablist" aria-label="Bottom panels"></div>
+        <div class="dock-content">
+    <section class="diagnostics-panel dock-panel" data-panel-id="diagnostics" data-panel-title="Problems" aria-labelledby="diagnostics-title" aria-live="polite">
         <div class="panel-bar diagnostics-bar">
             <div class="diagnostics-heading">
                 <h2 id="diagnostics-title">Diagnostics</h2>
@@ -83,30 +157,92 @@
         </div>
     </section>
 
-    <section class="output-panel" aria-labelledby="output-title" aria-live="polite">
+    <section class="output-panel dock-panel" data-panel-id="output" data-panel-title="Output" aria-labelledby="output-title" aria-live="polite">
         <div class="panel-bar">
             <h2 id="output-title">Output</h2>
             @if (output is not null)
             {
-                <span class="output-status @(runtimeFailed ? "failed" : null)">@(runtimeFailed ? "Runtime error" : "Completed")</span>
+                <span class="output-status @(runtimeFailed ? "failed" : runStatus == "Aborted" ? "cancelled" : null)">@runStatus</span>
             }
         </div>
         <pre class="output-content @(runtimeFailed ? "failed" : null)">@(output ?? "Run the script to see its result.")</pre>
     </section>
+        </div>
+    </div>
+    </div>
 </main>
 
 @code {
-    string source = "matrix = {\n  {1, 2, 3},\n  {4, 5, 6},\n  {7, 8, 9}\n};\n\nvector = {11, 22, 33};\nPrint(matrix * vector);";
+    string source = """
+        // Build a twelve-sided 3D prism frame.
+        sides = 12;
+        radius = 2.5;
+        height = 3;
+        meshSize = 0.15;
+        pi = 3.141592653589793;
+
+        // Generate the lower and upper point rings.
+        For i In {0:sides - 1}
+          angle = 2 * pi * i / sides;
+          x = radius * Cos(angle);
+          y = radius * Sin(angle);
+
+          lowerTag = i + 1;
+          upperTag = i + 101;
+          Point(lowerTag) = {x, y, 0, meshSize};
+          Point(upperTag) = {x, y, height, meshSize};
+        EndFor
+
+        // Connect each ring and add the vertical supports.
+        For i In {0:sides - 1}
+          lowerStart = i + 1;
+          upperStart = i + 101;
+          lowerEnd = i + 2;
+          upperEnd = i + 102;
+
+          If (i == sides - 1)
+            lowerEnd = 1;
+            upperEnd = 101;
+          EndIf
+
+          Line(i + 1) = {lowerStart, lowerEnd};
+          Line(i + 101) = {upperStart, upperEnd};
+          Line(i + 201) = {lowerStart, upperStart};
+        EndFor
+
+        // Exercise list indexing and matrix-vector multiplication.
+        dimensions = {radius * 2, radius * 2, height};
+        transform = {
+          {1, 0, 0},
+          {0, 1, 0},
+          {0, 0, 2}
+        };
+        scaledDimensions = transform * dimensions;
+
+        Print("Prism dimensions:");
+        Print(scaledDimensions);
+        Print("Height:");
+        Print(scaledDimensions[2]);
+        Print(Point(1));
+        Print(Line(1));
+        """;
     IReadOnlyList<Diagnostic> diagnostics = [];
     IReadOnlyList<Token> tokens = [];
     IReadOnlySet<int> functionTokenStarts = new HashSet<int>();
     string? output;
     bool runtimeFailed;
+    bool isRunning;
+    bool hasRun;
+    string runStatus = "Ready";
+    TimeSpan elapsed;
+    CancellationTokenSource? executionCancellation;
+    readonly System.Diagnostics.Stopwatch executionWatch = new();
     readonly List<string> printedLines = [];
 
     int LineCount => Math.Max(1, source.Count(character => character == '\n') + 1);
     int ErrorCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Error);
     int InfoCount => diagnostics.Count(item => item.Severity == DiagnosticSeverity.Info);
+    string ElapsedText => $"{elapsed.TotalSeconds:0.000} s";
     IReadOnlyList<HighlightSegment> HighlightSegments => BuildHighlightSegments();
 
     protected override void OnInitialized() => Analyze();
@@ -120,30 +256,111 @@
         Analyze();
     }
 
-    void RunScript()
+    async Task HandleRunButton()
     {
+        if (isRunning)
+        {
+            executionCancellation?.Cancel();
+            return;
+        }
+
+        await RunScript();
+    }
+
+    async Task RunScript()
+    {
+        if (isRunning)
+        {
+            return;
+        }
+
+        executionCancellation?.Dispose();
+        executionCancellation = new CancellationTokenSource();
+        CancellationToken cancellationToken = executionCancellation.Token;
+        isRunning = true;
+        hasRun = true;
+        runtimeFailed = false;
+        runStatus = "Running";
+        elapsed = TimeSpan.Zero;
+        executionWatch.Restart();
+        _ = UpdateElapsedAsync();
+        StateHasChanged();
+
+        await JS.InvokeVoidAsync("dockInterop.reveal", "output");
         SyntaxTree tree = Analyze();
         if (tree.HasErrors)
         {
             output = "Execution stopped because the script contains syntax errors.";
             runtimeFailed = true;
+            runStatus = "Syntax error";
+            await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>());
+            FinishRun();
             return;
         }
 
+        var evaluator = new EvaluationVisitor();
         try
         {
             printedLines.Clear();
-            var evaluator = new EvaluationVisitor();
             evaluator.Printed += OnPrinted;
-            Value result = evaluator.Evaluate(tree.Root);
+            Value result = await evaluator.EvaluateAsync(tree.Root, cancellationToken);
             output = printedLines.Count == 0 ? result.ToString() : string.Join(Environment.NewLine, printedLines);
             runtimeFailed = false;
+            runStatus = "Completed";
+            await JS.InvokeVoidAsync(
+                "meshViewer.setScene",
+                evaluator.Geometry.Points.Values.Select(point => new { point.Tag, point.X, point.Y, point.Z }),
+                evaluator.Geometry.Lines.Values.Select(line => new
+                {
+                    line.Tag,
+                    StartTag = line.Start.Tag,
+                    EndTag = line.End.Tag
+                }),
+                evaluator.Geometry.PlaneSurfaces.Values.Select(surface => new
+                {
+                    surface.Tag,
+                    Loops = surface.CurveLoops.Select(loop => loop.OrientedCurveTags)
+                }));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            const string cancelledMessage = "Execution aborted by user.";
+            output = printedLines.Count == 0
+                ? cancelledMessage
+                : $"{string.Join(Environment.NewLine, printedLines)}{Environment.NewLine}{cancelledMessage}";
+            runtimeFailed = false;
+            runStatus = "Aborted";
         }
         catch (Exception exception) when (exception is InvalidOperationException or InvalidCastException)
         {
             output = exception.Message;
             runtimeFailed = true;
+            runStatus = "Runtime error";
+            await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>());
         }
+        finally
+        {
+            evaluator.Printed -= OnPrinted;
+            FinishRun();
+        }
+    }
+
+    async Task UpdateElapsedAsync()
+    {
+        while (isRunning)
+        {
+            await Task.Delay(100);
+            elapsed = executionWatch.Elapsed;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void FinishRun()
+    {
+        executionWatch.Stop();
+        elapsed = executionWatch.Elapsed;
+        isRunning = false;
+        StateHasChanged();
     }
 
     void OnPrinted(Value value)
@@ -173,7 +390,7 @@
     {
         if (args.Key == "Enter" && (args.CtrlKey || args.MetaKey))
         {
-            RunScript();
+            _ = HandleRunButton();
         }
     }
 
@@ -182,11 +399,14 @@
         if (firstRender)
         {
             await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor");
+            await JS.InvokeVoidAsync("dockInterop.initialize", ".workspace");
+            await JS.InvokeVoidAsync("meshViewer.initialize", "mesh-viewer");
         }
     }
 
     async Task GoToDiagnostic(Diagnostic diagnostic)
     {
+        await JS.InvokeVoidAsync("dockInterop.reveal", "editor");
         await JS.InvokeVoidAsync(
             "editorInterop.selectRange",
             "script-editor",
@@ -249,4 +469,10 @@
     };
 
     sealed record HighlightSegment(string Text, string CssClass);
+
+    public void Dispose()
+    {
+        executionCancellation?.Cancel();
+        executionCancellation?.Dispose();
+    }
 }
