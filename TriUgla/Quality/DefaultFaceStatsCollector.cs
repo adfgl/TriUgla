@@ -12,7 +12,6 @@ public sealed class DefaultFaceStatsCollector : IFaceStatsCollector
             return false;
         }
 
-        double signedAreaTwice = 0d;
         double minLen2 = double.PositiveInfinity;
         double maxLen2 = 0d;
         double vertexAreaSum = 0d;
@@ -23,10 +22,8 @@ public sealed class DefaultFaceStatsCollector : IFaceStatsCollector
         foreach (Edge edge in face.Edges)
         {
             Vec2 start = edge.NodeStart.Position;
-            Vec2 end = edge.NodeEnd.Position;
             double len2 = edge.LengthSquared;
 
-            signedAreaTwice += start.Cross(end);
             minLen2 = Math.Min(minLen2, len2);
             maxLen2 = Math.Max(maxLen2, len2);
             vertexAreaSum += edge.NodeStart.Data.Area;
@@ -42,7 +39,7 @@ public sealed class DefaultFaceStatsCollector : IFaceStatsCollector
         }
 
         stats = new FaceStats(
-            signedAreaTwice * 0.5d,
+            face.SignedArea,
             minLen2,
             maxLen2,
             vertexAreaSum / count,
