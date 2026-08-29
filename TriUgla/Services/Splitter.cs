@@ -35,9 +35,12 @@ public sealed class Splitter : ISplitter
     public EdgeSplitResult Split(Edge target, Node node)
     {
         Edge ab = target;
-        Edge ba = ab.Twin
-            ?? throw new InvalidOperationException(
-                "Cannot split a boundary edge without a twin.");
+        if (ab.Twin is null)
+        {
+            return SplitBoundary(ab, node);
+        }
+
+        Edge ba = ab.Twin;
 
         if (!ReferenceEquals(ba.Twin, ab))
         {
@@ -89,6 +92,34 @@ public sealed class Splitter : ISplitter
             new TopologyChange(
                 [cae, bce, ade, dbe],
                 [ca, bc, ad, db]));
+    }
+
+    static EdgeSplitResult SplitBoundary(Edge ab, Node node)
+    {
+        EnsureTriangle(ab);
+
+        Edge bc = ab.Next;
+        Edge ca = ab.Prev;
+        Node a = ab.NodeStart;
+        Node b = bc.NodeStart;
+        Node c = ca.NodeStart;
+        int constraints = ab.ConstraintCount;
+        RemoveConstraints(ab, constraints);
+
+        Edge ae = ab;
+        Edge eb = new();
+        (Edge ec, Edge ce) = CreateTwins();
+        Face cae = ab.Face;
+        Face bce = new();
+
+        Linker.LinkTriangle(cae, ca, ae, ec, c, a, node);
+        Linker.LinkTriangle(bce, bc, ce, eb, b, c, node);
+        ApplyConstraints(ae, eb, constraints);
+
+        return new EdgeSplitResult(
+            ae,
+            eb,
+            new TopologyChange([cae, bce], [ca, bc]));
     }
 
     static (Edge First, Edge Second) CreateTwins()

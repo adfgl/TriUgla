@@ -31,14 +31,29 @@ public class EdgeSplitTests
     }
 
     [Fact]
-    public void SplitRejectsBoundaryEdge()
+    public void SplitBoundaryEdgeCreatesTwoTriangles()
     {
-        var edge = new Edge();
+        Node a = new();
+        Node b = new();
+        Node c = new();
+        Node midpoint = new();
+        Edge ab = new();
+        Edge bc = new();
+        Edge ca = new();
+        Linker.LinkTriangle(new Face(), ab, bc, ca, a, b, c);
+        ab.Constrain();
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => new Splitter().Split(edge, new Node()));
+        EdgeSplitResult result = new Splitter().Split(ab, midpoint);
 
-        Assert.Contains("boundary edge without a twin", error.Message);
+        Assert.Equal(2, result.Change.AffectedFaces.Count);
+        Assert.Null(result.FirstHalf.Twin);
+        Assert.Null(result.SecondHalf.Twin);
+        Assert.Same(a, result.FirstHalf.NodeStart);
+        Assert.Same(midpoint, result.FirstHalf.NodeEnd);
+        Assert.Same(midpoint, result.SecondHalf.NodeStart);
+        Assert.Same(b, result.SecondHalf.NodeEnd);
+        Assert.Equal(1, result.FirstHalf.ConstraintCount);
+        Assert.Equal(1, result.SecondHalf.ConstraintCount);
     }
 
     [Fact]
