@@ -109,6 +109,37 @@ public class MeshRefinerTests
             new RefineSettings(-1, 0, 0)));
     }
 
+    [Fact]
+    public void RefineObservesCancellationBeforeProcessingWork()
+    {
+        Fixture fixture = CreateFixture();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() => fixture.Refiner.Refine(
+            [fixture.Face],
+            AreaRanker(1),
+            new RefineSettings(10, 8, 1e-4),
+            cancellation.Token));
+        Assert.Single(fixture.Traversal.Faces());
+    }
+
+    [Fact]
+    public async Task RefineAsyncObservesCancellationBeforeProcessingWork()
+    {
+        Fixture fixture = CreateFixture();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await fixture.Refiner.RefineAsync(
+                [fixture.Face],
+                AreaRanker(1),
+                new RefineSettings(10, 8, 1e-4),
+                cancellation.Token));
+        Assert.Single(fixture.Traversal.Faces());
+    }
+
     static FaceRanker AreaRanker(double maxArea)
     {
         var ranker = new FaceRanker();

@@ -186,7 +186,7 @@
             output = "Execution stopped because the script contains syntax errors.";
             runtimeFailed = true;
             runStatus = "Syntax error";
-            await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>());
+            await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>());
             FinishRun();
             return;
         }
@@ -197,7 +197,11 @@
             printedLines.Clear();
             evaluator.Printed += OnPrinted;
             Value result = await evaluator.EvaluateAsync(tree.Root, cancellationToken);
-            output = printedLines.Count == 0 ? result.ToString() : string.Join(Environment.NewLine, printedLines);
+            output = printedLines.Count > 0
+                ? string.Join(Environment.NewLine, printedLines)
+                : evaluator.Mesh.GeneratedMesh is ScriptMeshResult generatedMesh
+                    ? $"Mesh generated: {generatedMesh.Faces.Count} faces, {generatedMesh.SteinerNodes} Steiner nodes."
+                    : result.ToString();
             runtimeFailed = false;
             runStatus = "Completed";
             namedPoints = evaluator.Geometry.PhysicalPoints.Values
@@ -248,7 +252,17 @@
                     node.X,
                     node.Y,
                     node.Z
-                }));
+                }),
+                evaluator.Mesh.GeneratedMesh?.Faces
+                    .Where(face =>
+                        !face.ContainsSuperStructure &&
+                        face.Kind == FaceKind.Island)
+                    .Select(face => new
+                {
+                    face.SurfaceTag,
+                    Kind = face.Kind.ToString(),
+                    face.Vertices
+                }) ?? []);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -265,7 +279,7 @@
             namedPoints = [];
             runtimeFailed = true;
             runStatus = "Runtime error";
-            await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>());
+            await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>());
         }
         finally
         {

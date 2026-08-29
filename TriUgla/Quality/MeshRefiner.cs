@@ -19,6 +19,13 @@ public sealed class MeshRefiner(
         IEnumerable<Face> faces,
         FaceRanker ranker,
         in RefineSettings settings)
+        => Refine(faces, ranker, in settings, CancellationToken.None);
+
+    public int Refine(
+        IEnumerable<Face> faces,
+        FaceRanker ranker,
+        in RefineSettings settings,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(faces);
         ArgumentNullException.ThrowIfNull(ranker);
@@ -30,6 +37,46 @@ public sealed class MeshRefiner(
         while ((_edgeQueue.Count > 0 || _faceQueue.Count > 0) &&
                inserted < settings.MaxSteiners)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (TryDequeueEdge(out Edge edge))
+            {
+                if (ProcessEncroachedSegment(edge, ranker, settings)) inserted++;
+                continue;
+            }
+
+            if (TryDequeueFace(out Face face) && ProcessBadFace(face, ranker, settings))
+            {
+                inserted++;
+            }
+        }
+        return inserted;
+    }
+
+    public async ValueTask<int> RefineAsync(
+        IEnumerable<Face> faces,
+        FaceRanker ranker,
+        RefineSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(faces);
+        ArgumentNullException.ThrowIfNull(ranker);
+        Validate(settings);
+        Clear();
+        FillQueues(faces, ranker, settings);
+
+        int inserted = 0;
+        int operations = 0;
+        while ((_edgeQueue.Count > 0 || _faceQueue.Count > 0) &&
+               inserted < settings.MaxSteiners)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if ((++operations & 31) == 0)
+            {
+                // Blazor WebAssembly normally shares the browser UI thread. Yielding
+                // periodically lets click events (especially Stop) run during refinement.
+                await Task.Yield();
+            }
+
             if (TryDequeueEdge(out Edge edge))
             {
                 if (ProcessEncroachedSegment(edge, ranker, settings)) inserted++;

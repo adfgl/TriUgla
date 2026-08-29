@@ -8,6 +8,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
     readonly MeshScriptModel _mesh;
     readonly IReadOnlyDictionary<string, Func<IReadOnlyList<Value>, Value>> _functions;
     readonly List<Value> _printedValues = [];
+    CancellationToken _cancellationToken;
 
     public EvaluationVisitor(
         Scope? scope = null,
@@ -64,6 +65,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(node);
+        _cancellationToken = cancellationToken;
         cancellationToken.ThrowIfCancellationRequested();
         return node switch
         {
@@ -73,8 +75,20 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
             BlockStmt block => await EvaluateBlockAsync(block, cancellationToken),
             IfStmt conditional => await EvaluateIfAsync(conditional, cancellationToken),
             ForStmt loop => await EvaluateForAsync(loop, cancellationToken),
+            MeshCommandStmt meshCommand => await EvaluateMeshCommandAsync(
+                meshCommand,
+                cancellationToken),
             _ => Evaluate(node)
         };
+    }
+
+    async ValueTask<Value> EvaluateMeshCommandAsync(
+        MeshCommandStmt node,
+        CancellationToken cancellationToken)
+    {
+        (MeshScriptCommandKind kind, int? dimension) = ReadMeshCommand(node);
+        await _mesh.ExecuteCommandAsync(kind, _geometry, dimension, cancellationToken);
+        return dimension ?? 0d;
     }
 
     async ValueTask<Value> EvaluateBlockAsync(BlockStmt node, CancellationToken cancellationToken)
@@ -665,6 +679,13 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
     public Value VisitMeshCommandStatement(MeshCommandStmt node)
     {
+        (MeshScriptCommandKind kind, int? dimension) = ReadMeshCommand(node);
+        _mesh.ExecuteCommand(kind, _geometry, dimension, _cancellationToken);
+        return dimension ?? 0d;
+    }
+
+    (MeshScriptCommandKind Kind, int? Dimension) ReadMeshCommand(MeshCommandStmt node)
+    {
         MeshScriptCommandKind kind = node.Command.Text switch
         {
             "Mesh" => MeshScriptCommandKind.Generate,
@@ -686,8 +707,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
             dimension = (int)value;
         }
 
-        _mesh.AddCommand(kind, dimension);
-        return dimension ?? 0d;
+        return (kind, dimension);
     }
 
     Value EvaluatePrimitiveDeclaration(CallExpr target, Expr valueExpression)

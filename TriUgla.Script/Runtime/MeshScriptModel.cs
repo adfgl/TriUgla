@@ -30,6 +30,7 @@ public sealed class MeshScriptModel : ScriptObject
 
     public IReadOnlyDictionary<string, double> Options => _readOnlyOptions;
     public IReadOnlyList<MeshScriptCommand> Commands => _commands;
+    public ScriptMeshResult? GeneratedMesh { get; private set; }
     public override IReadOnlyList<string> PropertyNames => SupportedOptions;
 
     public override Value GetProperty(string name)
@@ -57,8 +58,55 @@ public sealed class MeshScriptModel : ScriptObject
         _options[name] = value.Number;
     }
 
-    internal void AddCommand(MeshScriptCommandKind kind, int? dimension = null)
-        => _commands.Add(new MeshScriptCommand(kind, dimension));
+    internal void ExecuteCommand(
+        MeshScriptCommandKind kind,
+        GeometryModel geometry,
+        int? dimension = null,
+        CancellationToken cancellationToken = default)
+    {
+        _commands.Add(new MeshScriptCommand(kind, dimension));
+        if (kind != MeshScriptCommandKind.Generate) return;
+
+        int requestedDimension = dimension ?? 3;
+        try
+        {
+            GeneratedMesh = ScriptMesher.Generate(
+                geometry,
+                this,
+                requestedDimension,
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            throw new InvalidOperationException(
+                $"Mesh {requestedDimension} failed: {exception.Message}", exception);
+        }
+    }
+
+    internal async ValueTask ExecuteCommandAsync(
+        MeshScriptCommandKind kind,
+        GeometryModel geometry,
+        int? dimension = null,
+        CancellationToken cancellationToken = default)
+    {
+        _commands.Add(new MeshScriptCommand(kind, dimension));
+        if (kind != MeshScriptCommandKind.Generate) return;
+
+        int requestedDimension = dimension ?? 3;
+        try
+        {
+            GeneratedMesh = await ScriptMesher.GenerateAsync(
+                geometry,
+                this,
+                requestedDimension,
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            throw new InvalidOperationException(
+                $"Mesh {requestedDimension} failed: {exception.Message}", exception);
+        }
+    }
 }
 
 public readonly record struct MeshScriptCommand(MeshScriptCommandKind Kind, int? Dimension = null);

@@ -5,6 +5,7 @@ window.meshViewer = {
     lines: [],
     surfaces: [],
     meshNodes: [],
+    meshFaces: [],
     yaw: -.65,
     pitch: .65,
     scale: 80,
@@ -36,11 +37,14 @@ window.meshViewer = {
         this.canvas.addEventListener("keydown", event => this.keyDown(event));
         this.resize();
     },
-    setScene(points, lines, surfaces, meshNodes) {
+    setScene(points, lines, surfaces, meshNodes, meshFaces) {
         this.points = points ?? [];
         this.lines = lines ?? [];
         this.surfaces = surfaces ?? [];
         this.meshNodes = meshNodes ?? [];
+        // The mesh model retains Outside/Lake/super faces for topology diagnostics,
+        // but the viewer is intentionally a land-only presentation.
+        this.meshFaces = (meshFaces ?? []).filter(face => face.kind === "Island");
         this.fit();
     },
     reset() {
@@ -53,7 +57,9 @@ window.meshViewer = {
     fit() {
         if (!this.canvas)
             return;
-        if (this.points.length === 0) {
+        const meshVertices = this.meshFaces.flatMap(face => face.vertices ?? []);
+        const scenePoints = [...this.points, ...meshVertices];
+        if (scenePoints.length === 0) {
             this.center = { x: 0, y: 0, z: 0 };
             this.scale = 80;
             this.panX = 0;
@@ -61,9 +67,9 @@ window.meshViewer = {
             this.draw();
             return;
         }
-        const xs = this.points.map(point => point.x);
-        const ys = this.points.map(point => point.y);
-        const zs = this.points.map(point => point.z);
+        const xs = scenePoints.map(point => point.x);
+        const ys = scenePoints.map(point => point.y);
+        const zs = scenePoints.map(point => point.z);
         const min = { x: Math.min(...xs), y: Math.min(...ys), z: Math.min(...zs) };
         const max = { x: Math.max(...xs), y: Math.max(...ys), z: Math.max(...zs) };
         this.center = {
@@ -225,16 +231,20 @@ window.meshViewer = {
         ctx.fillStyle = "#080f1b";
         ctx.fillRect(0, 0, width, height);
         this.drawGrid(ctx);
-        if (this.points.length === 0) {
+        if (this.points.length === 0 && this.meshFaces.length === 0) {
             ctx.fillStyle = "#64748b";
             ctx.font = "12px system-ui";
             ctx.textAlign = "center";
-            ctx.fillText("Run a script with Point and Line primitives", width / 2, height / 2);
+            ctx.fillText("Run a geometry script or generate a mesh with Mesh 2", width / 2, height / 2);
             return;
         }
         const byTag = new Map(this.points.map(point => [point.tag, point]));
         const linesByTag = new Map(this.lines.map(line => [line.tag, line]));
-        this.drawSurfaces(ctx, byTag, linesByTag);
+        // Avoid drawing the translucent CAD surface below a generated mesh. It can
+        // visually resemble unfiltered mesh faces around holes and boundaries.
+        if (this.meshFaces.length === 0)
+            this.drawSurfaces(ctx, byTag, linesByTag);
+        this.drawMeshFaces(ctx);
         ctx.lineCap = "round";
         ctx.lineWidth = 2.6;
         ctx.strokeStyle = "#7dd3fc";
@@ -292,6 +302,37 @@ window.meshViewer = {
                     item.screen.y + 7);
             }
         }
+    },
+    drawMeshFaces(ctx) {
+        const styles = {
+            Island: { fill: "rgba(20, 184, 166, .50)", stroke: "rgba(153, 246, 228, .88)", dash: [] },
+            Lake: { fill: "rgba(139, 92, 246, .38)", stroke: "rgba(221, 214, 254, .88)", dash: [4, 3] },
+            Outside: { fill: "rgba(51, 65, 85, .30)", stroke: "rgba(148, 163, 184, .48)", dash: [1, 3] },
+            Undefined: { fill: "rgba(245, 158, 11, .35)", stroke: "rgba(253, 230, 138, .8)", dash: [6, 3] }
+        };
+        const projected = this.meshFaces
+            .map(face => ({ face, vertices: (face.vertices ?? []).map(vertex => this.project(vertex)) }))
+            .filter(item => item.vertices.length >= 3)
+            .sort((a, b) => {
+                const depth = item => item.vertices.reduce((sum, vertex) => sum + vertex.depth, 0) / item.vertices.length;
+                return depth(a) - depth(b);
+            });
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 1;
+        for (const item of projected) {
+            const style = styles[item.face.kind] ?? styles.Undefined;
+            ctx.beginPath();
+            ctx.moveTo(item.vertices[0].x, item.vertices[0].y);
+            for (let index = 1; index < item.vertices.length; index++)
+                ctx.lineTo(item.vertices[index].x, item.vertices[index].y);
+            ctx.closePath();
+            ctx.fillStyle = style.fill;
+            ctx.fill();
+            ctx.setLineDash(style.dash);
+            ctx.strokeStyle = style.stroke;
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
     },
     drawSurfaces(ctx, pointsByTag, linesByTag) {
         const projectedSurfaces = this.surfaces

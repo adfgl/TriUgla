@@ -83,8 +83,9 @@ window.editorInterop = {
         const bounds = editor.getBoundingClientRect();
         const style = getComputedStyle(editor);
         const lineHeight = Number.parseFloat(style.lineHeight);
-        const paddingLeft = Number.parseFloat(style.paddingLeft);
-        const paddingTop = Number.parseFloat(style.paddingTop);
+        const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+        const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+        const paddingTop = Number.parseFloat(style.paddingTop) || 0;
         if (!Number.isFinite(lineHeight) || lineHeight <= 0)
             return -1;
         if (!this._fontMeasureCanvas)
@@ -98,10 +99,24 @@ window.editorInterop = {
         if (x < 0 || y < 0 || characterWidth <= 0)
             return -1;
         const lines = editor.value.split("\n");
-        const lineIndex = Math.floor(y / lineHeight);
+        const layout = editor._lineLayout;
+        const heights = layout?.heights?.length === lines.length
+            ? layout.heights
+            : lines.map(() => lineHeight);
+        let lineIndex = 0;
+        let lineTop = 0;
+        while (lineIndex < heights.length && y >= lineTop + heights[lineIndex]) {
+            lineTop += heights[lineIndex];
+            lineIndex++;
+        }
         if (lineIndex < 0 || lineIndex >= lines.length)
             return -1;
-        const column = Math.floor(x / characterWidth);
+        const contentWidth = Math.max(
+            characterWidth,
+            editor.clientWidth - paddingLeft - paddingRight);
+        const columnsPerVisualRow = Math.max(1, Math.floor(contentWidth / characterWidth));
+        const visualRow = Math.max(0, Math.floor((y - lineTop) / lineHeight));
+        const column = visualRow * columnsPerVisualRow + Math.floor(x / characterWidth);
         if (column < 0 || column >= lines[lineIndex].length)
             return -1;
         let offset = column;

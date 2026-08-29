@@ -283,7 +283,7 @@ public sealed class GeometryModel
         return nodes;
     }
 
-    static double[] TransfiniteFractions(TransfiniteCurveConstraint constraint)
+    internal static double[] TransfiniteFractions(TransfiniteCurveConstraint constraint)
     {
         int segmentCount = constraint.NodeCount - 1;
         var logarithmicWeights = new double[segmentCount];

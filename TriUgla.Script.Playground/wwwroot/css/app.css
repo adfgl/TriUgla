@@ -476,6 +476,25 @@ h2 { margin: 0; font-size: .9rem; }
     font-size: .58rem;
     pointer-events: none;
 }
+.mesh-legend {
+    position: absolute;
+    left: 10px;
+    bottom: 9px;
+    display: flex;
+    gap: 10px;
+    border: 1px solid rgba(71, 85, 105, .7);
+    border-radius: 6px;
+    padding: 5px 8px;
+    background: rgba(8, 15, 27, .88);
+    color: #cbd5e1;
+    font-size: .62rem;
+    pointer-events: none;
+}
+.mesh-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.mesh-legend i { width: 12px; height: 8px; border: 1px solid currentColor; border-radius: 2px; }
+.mesh-legend .face-island { color: #5eead4; background: rgba(20, 184, 166, .72); }
+.mesh-legend .face-lake { color: #c4b5fd; background: repeating-linear-gradient(135deg, #8b5cf6 0 2px, #4c1d95 2px 4px); }
+.mesh-legend .face-outside { color: #94a3b8; background: rgba(51, 65, 85, .72); }
 
 .loading, .not-found { min-height: 100vh; display: grid; place-content: center; text-align: center; color: var(--muted); }
 .not-found a { color: var(--accent); }
@@ -501,6 +520,7 @@ h2 { margin: 0; font-size: .9rem; }
     .diagnostic-row { min-height: 56px; padding: 7px 12px; }
     .info-count { display: none; }
     .camera-label, .viewer-help { display: none; }
+    .mesh-legend { gap: 6px; font-size: .56rem; }
     .viewer-actions button { min-width: 40px; min-height: 40px; padding-inline: 6px; }
 }
 
