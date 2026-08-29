@@ -11,6 +11,7 @@ public class RefineSettingsTests
         Assert.Equal(8, settings.FaceStagnationBudget);
         Assert.Equal(1e-4, settings.ImproveEps);
         Assert.False(settings.ContinueOnFaceStagnation);
+        Assert.False(settings.UseSteinerBudget);
     }
 
     [Fact]
@@ -27,5 +28,13 @@ public class RefineSettingsTests
         RefineSettings settings = new(10, 3, 1e-6, true);
 
         Assert.True(settings.ContinueOnFaceStagnation);
+    }
+
+    [Fact]
+    public void ExplicitSettingsKeepSteinerBudgetForCompatibility()
+    {
+        RefineSettings settings = new(10, 3, 1e-6);
+
+        Assert.True(settings.UseSteinerBudget);
     }
 }

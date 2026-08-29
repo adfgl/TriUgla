@@ -2,11 +2,24 @@
     <div class="panel-bar diagnostics-bar">
         <div class="diagnostics-heading">
             <h2 id="diagnostics-title">Diagnostics</h2>
-            <span class="count error-count">@ErrorCount errors</span>
-            <span class="count warning-count">@WarningCount warnings</span>
-            <span class="count info-count">@InfoCount info</span>
         </div>
-        <span class="run-time">Live syntax check</span>
+        <div class="diagnostic-filters" role="group" aria-label="Filter diagnostics by severity">
+            <button type="button" class="diagnostic-filter severity-error @(showErrors ? "is-active" : null)"
+                    aria-pressed="@showErrors" @onclick="ToggleErrors">
+                <span class="filter-symbol" aria-hidden="true">×</span>
+                <span>Errors</span><span class="filter-count">@ErrorCount</span>
+            </button>
+            <button type="button" class="diagnostic-filter severity-warning @(showWarnings ? "is-active" : null)"
+                    aria-pressed="@showWarnings" @onclick="ToggleWarnings">
+                <span class="filter-symbol" aria-hidden="true">!</span>
+                <span>Warnings</span><span class="filter-count">@WarningCount</span>
+            </button>
+            <button type="button" class="diagnostic-filter severity-info @(showInfo ? "is-active" : null)"
+                    aria-pressed="@showInfo" @onclick="ToggleInfo">
+                <span class="filter-symbol" aria-hidden="true">i</span>
+                <span>Info</span><span class="filter-count">@InfoCount</span>
+            </button>
+        </div>
     </div>
     <div class="diagnostics-list">
         @if (Items.Count == 0)
@@ -16,15 +29,21 @@
                 <div><strong>No errors found</strong><p>The script parsed successfully.</p></div>
             </div>
         }
+        else if (FilteredItems.Count == 0)
+        {
+            <div class="empty-state filtered-empty-state">
+                <div><strong>No matching diagnostics</strong><p>Enable a severity filter to show hidden results.</p></div>
+            </div>
+        }
         else
         {
-            @foreach (Diagnostic diagnostic in Items)
+            @foreach (Diagnostic diagnostic in FilteredItems)
             {
                 <button class="diagnostic-row severity-@diagnostic.Severity.ToString().ToLowerInvariant()" type="button"
                         @onclick="() => Selected.InvokeAsync(diagnostic)"
                         aria-label="Go to line @diagnostic.Span.Line, column @diagnostic.Span.Column: @diagnostic.Message">
-                    <span class="severity-icon" aria-hidden="true">!</span>
-                    <span class="diagnostic-copy"><span><strong>@diagnostic.Code</strong> @diagnostic.Message</span><span class="location">main.tus:@diagnostic.Span.Line:@diagnostic.Span.Column</span></span>
+                    <span class="severity-icon" aria-hidden="true">@SeveritySymbol(diagnostic.Severity)</span>
+                    <span class="diagnostic-copy"><span><strong>@diagnostic.Code</strong> @diagnostic.Message</span><span class="location">@Location(diagnostic)</span></span>
                     <svg class="jump-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
                 </button>
             }
@@ -35,7 +54,38 @@
 @code {
     [Parameter] public IReadOnlyList<Diagnostic> Items { get; set; } = [];
     [Parameter] public EventCallback<Diagnostic> Selected { get; set; }
+    [Parameter] public string? SourceName { get; set; }
+    bool showErrors = true;
+    bool showWarnings = true;
+    bool showInfo = true;
+
     int ErrorCount => Items.Count(item => item.Severity == DiagnosticSeverity.Error);
     int WarningCount => Items.Count(item => item.Severity == DiagnosticSeverity.Warning);
     int InfoCount => Items.Count(item => item.Severity == DiagnosticSeverity.Info);
+    IReadOnlyList<Diagnostic> FilteredItems => Items.Where(IsVisible).ToArray();
+
+    bool IsVisible(Diagnostic diagnostic) => diagnostic.Severity switch
+    {
+        DiagnosticSeverity.Error => showErrors,
+        DiagnosticSeverity.Warning => showWarnings,
+        DiagnosticSeverity.Info => showInfo,
+        _ => true
+    };
+
+    static string SeveritySymbol(DiagnosticSeverity severity) => severity switch
+    {
+        DiagnosticSeverity.Error => "×",
+        DiagnosticSeverity.Warning => "!",
+        DiagnosticSeverity.Info => "i",
+        _ => "•"
+    };
+
+    void ToggleErrors() => showErrors = !showErrors;
+    void ToggleWarnings() => showWarnings = !showWarnings;
+    void ToggleInfo() => showInfo = !showInfo;
+
+    string Location(Diagnostic diagnostic)
+        => string.IsNullOrWhiteSpace(SourceName)
+            ? $"Line {diagnostic.Span.Line}, column {diagnostic.Span.Column}"
+            : $"{SourceName}:{diagnostic.Span.Line}:{diagnostic.Span.Column}";
 }

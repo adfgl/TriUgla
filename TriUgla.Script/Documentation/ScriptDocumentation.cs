@@ -87,7 +87,9 @@ public static class ScriptDocumentation
         AddOption(entries, "CharacteristicLengthExtendFromBoundary", "Extends boundary characteristic lengths into surface interiors.", "0 = disabled, 1 = enabled");
         AddOption(entries, "CharacteristicLengthMin", "Sets the lower bound for generated element size.", "finite number greater than or equal to 0");
         AddOption(entries, "CharacteristicLengthMax", "Sets the upper bound for generated element size.", "finite number greater than or equal to 0");
-        AddOption(entries, "RefinementContinueOnStagnation", "Keeps retrying non-improving faces instead of applying the face-progress stop. The Steiner limit and user cancellation still stop refinement.", "0 = stop after the stagnation allowance, 1 = continue");
+        AddOption(entries, "RefinementContinueOnStagnation", "Keeps retrying non-improving faces instead of applying the face-progress stop. User cancellation remains available.", "0 = stop after the stagnation allowance, 1 = continue");
+        AddOption(entries, "RefinementUseBudget", "Uses an unsafe hard Steiner-node limit instead of relying only on the refinement protocol to finish. Reaching the limit may return a mesh that does not satisfy its requested quality.", "0 = protocol-driven completion (default), 1 = enable the hard budget");
+        AddOption(entries, "RefinementSteinerBudget", "Sets the maximum number of Steiner nodes when Mesh.RefinementUseBudget is enabled.", "non-negative integer; default 10000");
         AddOption(entries, "SubdivisionAlgorithm", "Selects the algorithm used to subdivide generated elements.", "integer Gmsh subdivision algorithm code; 0 = none");
         AddOption(entries, "RecombinationAlgorithm", "Selects the triangle-to-quadrangle recombination algorithm.", "integer Gmsh recombination algorithm code");
         AddOption(entries, "RecombineAll", "Requests recombination on every eligible surface.", "0 = disabled, 1 = enabled");

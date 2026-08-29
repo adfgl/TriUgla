@@ -1,16 +1,22 @@
-<section class="editor-panel" aria-labelledby="editor-label">
+<section class="editor-panel" aria-label="Script editor">
     <div class="panel-bar">
-        <div class="file-name" id="editor-label">
+        <div class="file-name">
             <span class="status-dot @(Model.ErrorCount > 0 ? "has-errors" : null)" aria-hidden="true"></span>
-            main.tus
+            @if (!string.IsNullOrWhiteSpace(FileName))
+            {
+                <span>@FileName</span>
+            }
         </div>
         <div class="editor-actions">
-            @if (IsRunning || HasRun)
-            {
-                <span class="execution-time" aria-live="polite">@(IsRunning ? "Running" : Status) · @ElapsedText</span>
-            }
-            <span>@Model.LineCount lines</span>
             <div class="editor-command-group" role="toolbar" aria-label="Script editing commands">
+                <button class="editor-command-button" type="button" @onclick="OpenRequested"
+                        title="Open script from file" aria-label="Open script from file">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v1H7.2a2 2 0 0 0-1.9 1.37L3 17.3V6zm4.2 5H22l-3 8H4.53l2.67-8z" /></svg>
+                </button>
+                <button class="editor-command-button" type="button" @onclick="SaveRequested"
+                        title="Save script to file" aria-label="Save script to file">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3h2zm2 2v6h10V5H7zm0 10v4h10v-4H7z" /></svg>
+                </button>
                 <button class="editor-command-button text-command" type="button" @onclick="CommentRequested" title="Comment selected lines" aria-label="Comment selected lines">//</button>
                 <button class="editor-command-button text-command" type="button" @onclick="UncommentRequested" title="Uncomment selected lines" aria-label="Uncomment selected lines">//̸</button>
                 <button class="editor-command-button run-command" type="button" @onclick="RunRequested" disabled="@IsRunning"
@@ -26,17 +32,28 @@
     </div>
     <div class="editor-shell">
         <div id="line-numbers" class="line-numbers" aria-hidden="true">
-            <div id="line-number-content" class="line-number-content">
-                @for (int line = 1; line <= Model.LineCount; line++) { <span>@line</span> }
-            </div>
+            <div id="line-number-content" class="line-number-content"></div>
         </div>
         <div class="code-surface">
             <pre id="highlight-layer" class="highlight-layer" aria-hidden="true"><code id="highlight-code">@foreach (HighlightSegment segment in Model.Highlights)
                 {<span class="@segment.CssClass">@segment.Text</span>}</code></pre>
             <textarea id="script-editor" class="script-editor" value="@Model.Source"
-                      @oninput="SourceChanged" @onkeydown="KeyDown" wrap="soft"
+                      @oninput="SourceChanged" @onkeydown="KeyDown" wrap="off"
                       aria-label="Script source code" aria-describedby="diagnostics-title" spellcheck="false"></textarea>
         </div>
+    </div>
+    <div class="editor-status-bar">
+        <span>@Model.LineCount @(Model.LineCount == 1 ? "line" : "lines")</span>
+        @if (IsRunning || HasRun)
+        {
+            <span class="execution-time" aria-live="polite">
+                @(IsRunning ? "Running" : Status)@if (!string.IsNullOrEmpty(ElapsedText)) {<text> · @ElapsedText</text>}
+            </span>
+        }
+        else
+        {
+            <span>Ready</span>
+        }
     </div>
 </section>
 
@@ -45,9 +62,12 @@
     [Parameter] public bool IsRunning { get; set; }
     [Parameter] public bool HasRun { get; set; }
     [Parameter] public string Status { get; set; } = "Ready";
-    [Parameter] public string ElapsedText { get; set; } = "0.000 s";
+    [Parameter] public string? FileName { get; set; }
+    [Parameter] public string? ElapsedText { get; set; }
     [Parameter] public EventCallback RunRequested { get; set; }
     [Parameter] public EventCallback StopRequested { get; set; }
+    [Parameter] public EventCallback OpenRequested { get; set; }
+    [Parameter] public EventCallback SaveRequested { get; set; }
     [Parameter] public EventCallback CommentRequested { get; set; }
     [Parameter] public EventCallback UncommentRequested { get; set; }
     [Parameter] public EventCallback<ChangeEventArgs> SourceChanged { get; set; }

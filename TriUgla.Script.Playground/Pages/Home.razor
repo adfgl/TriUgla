@@ -12,15 +12,23 @@
 
     <div class="workspace-layout" aria-label="Script and mesh workspace">
         <div class="workspace-column workspace-left">
-            <EditorPanel Model="editor" IsRunning="isRunning" HasRun="hasRun" Status="@runStatus"
+            <EditorPanel Model="editor" FileName="@scriptFileName" IsRunning="isRunning" HasRun="hasRun" Status="@runStatus"
                          ElapsedText="@ElapsedText" RunRequested="HandleRunButton"
-                         StopRequested="StopScript" CommentRequested="CommentSelection" UncommentRequested="UncommentSelection"
+                         StopRequested="StopScript" OpenRequested="OpenScript" SaveRequested="SaveScript"
+                         CommentRequested="CommentSelection" UncommentRequested="UncommentSelection"
                          SourceChanged="UpdateSource" KeyDown="HandleEditorKeyDown" />
-            <DiagnosticsPanel Items="diagnostics" Selected="GoToDiagnostic" />
+            <div id="left-row-splitter" class="grid-splitter grid-splitter-horizontal" role="separator" tabindex="0"
+                 aria-label="Resize code and diagnostics" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80" aria-valuenow="75"></div>
+            <DiagnosticsPanel Items="diagnostics" SourceName="@scriptFileName" Selected="GoToDiagnostic" />
         </div>
+
+        <div id="column-splitter" class="grid-splitter grid-splitter-vertical" role="separator" tabindex="0"
+             aria-label="Resize script and viewer columns" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"></div>
 
         <div class="workspace-column workspace-right">
             <ViewerPanel />
+            <div id="right-row-splitter" class="grid-splitter grid-splitter-horizontal" role="separator" tabindex="0"
+                 aria-label="Resize viewer and output" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80" aria-valuenow="75"></div>
             <OutputPanel Output="@output" Status="@runStatus" Failed="runtimeFailed" />
         </div>
     </div>
@@ -82,18 +90,21 @@
         """;
     ScriptEditorViewModel editor = null!;
     string? output;
+    string? scriptFileName;
     bool runtimeFailed;
     bool isRunning;
     bool hasRun;
     string runStatus = "Ready";
-    TimeSpan elapsed;
+    TimeSpan executionElapsed;
     CancellationTokenSource? executionCancellation;
     readonly System.Diagnostics.Stopwatch executionWatch = new();
     readonly List<string> printedLines = [];
     IReadOnlyList<NamedPointViewModel> namedPoints = [];
 
     IReadOnlyList<Diagnostic> diagnostics => editor.Diagnostics;
-    string ElapsedText => $"{elapsed.TotalSeconds:0.000} s";
+    string? ElapsedText => isRunning || executionElapsed > TimeSpan.Zero
+        ? $"{executionElapsed.TotalSeconds:0.000} s"
+        : null;
 
     protected override void OnInitialized() => editor = new ScriptEditorViewModel(source);
 
@@ -119,6 +130,32 @@
 
     void StopScript() => executionCancellation?.Cancel();
 
+    async Task OpenScript()
+    {
+        OpenedScriptFile? file = await JS.InvokeAsync<OpenedScriptFile?>("editorInterop.openScriptFile");
+        if (file is null) return;
+
+        scriptFileName = file.Name;
+        source = file.Content;
+        output = null;
+        runtimeFailed = false;
+        hasRun = false;
+        runStatus = "Ready";
+        printedLines.Clear();
+        namedPoints = [];
+        editor.Update(source);
+        await JS.InvokeVoidAsync("editorInterop.replaceEditorContent", "script-editor", source);
+    }
+
+    async Task SaveScript()
+    {
+        string? savedName = await JS.InvokeAsync<string?>(
+            "editorInterop.saveScriptFile",
+            scriptFileName ?? "script.tus",
+            source);
+        if (!string.IsNullOrWhiteSpace(savedName)) scriptFileName = savedName;
+    }
+
     Task CommentSelection()
         => JS.InvokeVoidAsync("editorInterop.commentSelection", "script-editor").AsTask();
 
@@ -139,9 +176,9 @@
         hasRun = true;
         runtimeFailed = false;
         runStatus = "Running";
-        elapsed = TimeSpan.Zero;
+        executionElapsed = TimeSpan.Zero;
         executionWatch.Restart();
-        _ = UpdateElapsedAsync();
+        _ = UpdateExecutionElapsedAsync();
         StateHasChanged();
 
         SyntaxTree tree = Analyze();
@@ -161,12 +198,18 @@
             printedLines.Clear();
             evaluator.Printed += OnPrinted;
             Value result = await evaluator.EvaluateAsync(tree.Root, cancellationToken);
-            output = printedLines.Count > 0
-                ? string.Join(Environment.NewLine, printedLines)
-                : evaluator.Mesh.GeneratedMesh is ScriptMeshResult generatedMesh
-                    ? $"Mesh generated: {generatedMesh.Faces.Count} faces, {generatedMesh.SteinerNodes} Steiner nodes." +
-                      $"{Environment.NewLine}{Environment.NewLine}{generatedMesh.Metrics}"
-                    : result.ToString();
+            ScriptMeshResult? generatedMesh = evaluator.Mesh.GeneratedMesh;
+            var outputSections = new List<string>();
+            if (printedLines.Count > 0) outputSections.Add(string.Join(Environment.NewLine, printedLines));
+            if (generatedMesh is not null)
+            {
+                outputSections.Add(
+                    $"Mesh generated: {generatedMesh.Faces.Count} faces, {generatedMesh.SteinerNodes} Steiner nodes." +
+                    $"{Environment.NewLine}Meshing time: {generatedMesh.MeshingTime.TotalSeconds:0.000} s" +
+                    $"{Environment.NewLine}{Environment.NewLine}{generatedMesh.Metrics}");
+            }
+            if (outputSections.Count == 0) outputSections.Add(result.ToString());
+            output = string.Join($"{Environment.NewLine}{Environment.NewLine}", outputSections);
             runtimeFailed = false;
             runStatus = "Completed";
             namedPoints = evaluator.Geometry.PhysicalPoints.Values
@@ -248,12 +291,12 @@
         }
     }
 
-    async Task UpdateElapsedAsync()
+    async Task UpdateExecutionElapsedAsync()
     {
         while (isRunning)
         {
             await Task.Delay(100);
-            elapsed = executionWatch.Elapsed;
+            executionElapsed = executionWatch.Elapsed;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -261,7 +304,7 @@
     void FinishRun()
     {
         executionWatch.Stop();
-        elapsed = executionWatch.Elapsed;
+        executionElapsed = executionWatch.Elapsed;
         isRunning = false;
         StateHasChanged();
     }
@@ -290,11 +333,23 @@
         {
             try
             {
-                var scriptObjects = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+                string[] meshPropertyNames = new MeshScriptModel().PropertyNames.ToArray();
+                var scriptObjects = new Dictionary<string, object>(StringComparer.Ordinal)
                 {
-                    ["Mesh"] = new MeshScriptModel().PropertyNames
+                    ["Mesh"] = meshPropertyNames.Select(name =>
+                    {
+                        ScriptDocumentation.TryGet($"Mesh.{name}", out ScriptDocumentationEntry? documentation);
+                        return new
+                        {
+                            Name = name,
+                            Description = documentation?.Description ?? "Mesh configuration property.",
+                            Signature = documentation?.Signature,
+                            AcceptedValues = documentation?.AcceptedValues
+                        };
+                    }).ToArray()
                 };
                 await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor", scriptObjects);
+                await JS.InvokeVoidAsync("editorInterop.initializeGridSplitters", ".workspace-layout");
                 await JS.InvokeVoidAsync("meshViewer.initialize", "mesh-viewer");
             }
             catch (Exception exception)
@@ -333,4 +388,6 @@
         executionCancellation?.Cancel();
         executionCancellation?.Dispose();
     }
+
+    sealed record OpenedScriptFile(string Name, string Content);
 }

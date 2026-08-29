@@ -1,9 +1,10 @@
-<section class="viewer-panel" aria-labelledby="viewer-title">
+<section class="viewer-panel" aria-label="Mesh viewer">
     <div class="panel-bar viewer-bar">
-        <div><h2 id="viewer-title">3D view</h2><span class="camera-label">Orthographic orbit camera</span></div>
-        <div class="viewer-actions">
-            <button type="button" onclick="meshViewer.fit()" aria-label="Fit mesh in view">Fit</button>
-            <button type="button" onclick="meshViewer.reset()" aria-label="Reset camera">Reset</button>
+        <div class="editor-command-group viewer-actions" role="toolbar" aria-label="Mesh viewer commands">
+            <button class="editor-command-button text-command viewer-command-button" type="button"
+                    onclick="meshViewer.fit()" title="Fit mesh in view" aria-label="Fit mesh in view">Fit</button>
+            <button class="editor-command-button text-command viewer-command-button" type="button"
+                    onclick="meshViewer.reset()" title="Reset camera" aria-label="Reset camera">Reset</button>
         </div>
     </div>
     <div class="viewer-surface">
@@ -22,6 +23,5 @@
                 <i class="face-outside" aria-hidden="true"></i>Outside
             </button>
         </div>
-        <div class="viewer-help" aria-hidden="true">Pointer rotate · Shift/right pointer pan · Scroll zoom</div>
     </div>
 </section>

@@ -90,6 +90,7 @@ public class MeshScriptTests
         Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.FaceArea.Average > 0d);
         Assert.True(evaluator.Mesh.GeneratedMesh.Metrics.FaceArea.Max > 0d);
         Assert.Equal(0, evaluator.Mesh.GeneratedMesh.Metrics.DegenerateFaces);
+        Assert.True(evaluator.Mesh.GeneratedMesh.MeshingTime >= TimeSpan.Zero);
         Assert.Contains("Mesh metrics", evaluator.Mesh.GeneratedMesh.Metrics.ToString());
     }
 
@@ -101,6 +102,20 @@ public class MeshScriptTests
         evaluator.Evaluate(SyntaxTree.Parse("order = 1; Mesh.ElementOrder = order + 1;").Root);
 
         Assert.Equal(2, evaluator.Mesh.Options["ElementOrder"]);
+    }
+
+    [Fact]
+    public void Evaluate_RefinementBudgetPolicy_IsExplicitlyConfigurable()
+    {
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse("""
+            Mesh.RefinementUseBudget = 1;
+            Mesh.RefinementSteinerBudget = 2500;
+            """).Root);
+
+        Assert.Equal(1, evaluator.Mesh.Options["RefinementUseBudget"]);
+        Assert.Equal(2500, evaluator.Mesh.Options["RefinementSteinerBudget"]);
     }
 
     [Fact]

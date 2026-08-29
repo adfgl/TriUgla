@@ -1,15 +1,146 @@
 window.editorInterop = {
+    initializeGridSplitters(layoutSelector) {
+        const layout = document.querySelector(layoutSelector);
+        if (!layout || layout.dataset.gridSplittersInitialized)
+            return;
+        layout.dataset.gridSplittersInitialized = "true";
+        this.initializeGridSplitter(layout, document.getElementById("column-splitter"), "columns");
+        this.initializeGridSplitter(layout, document.getElementById("left-row-splitter"), "leftRows");
+        this.initializeGridSplitter(layout, document.getElementById("right-row-splitter"), "rightRows");
+    },
+    initializeGridSplitter(layout, splitter, axis) {
+        if (!splitter)
+            return;
+        const resize = (clientX, clientY) => this.resizeGrid(layout, splitter, axis, clientX, clientY);
+        splitter.addEventListener("pointerdown", event => {
+            if (event.button !== 0)
+                return;
+            event.preventDefault();
+            splitter.setPointerCapture(event.pointerId);
+            splitter.classList.add("is-resizing");
+            document.body.style.userSelect = "none";
+            const move = moveEvent => resize(moveEvent.clientX, moveEvent.clientY);
+            const stop = () => {
+                splitter.classList.remove("is-resizing");
+                document.body.style.removeProperty("user-select");
+                splitter.removeEventListener("pointermove", move);
+                splitter.removeEventListener("pointerup", stop);
+                splitter.removeEventListener("pointercancel", stop);
+            };
+            splitter.addEventListener("pointermove", move);
+            splitter.addEventListener("pointerup", stop);
+            splitter.addEventListener("pointercancel", stop);
+        });
+        splitter.addEventListener("keydown", event => {
+            const horizontalKey = event.key === "ArrowLeft" || event.key === "ArrowRight";
+            const verticalKey = event.key === "ArrowUp" || event.key === "ArrowDown";
+            if (axis === "columns" ? !horizontalKey : !verticalKey)
+                return;
+            event.preventDefault();
+            const bounds = splitter.getBoundingClientRect();
+            const step = event.shiftKey ? 48 : 16;
+            const x = bounds.left + bounds.width / 2 + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0);
+            const y = bounds.top + bounds.height / 2 + (event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0);
+            resize(x, y);
+        });
+    },
+    resizeGrid(layout, splitter, axis, clientX, clientY) {
+        if (axis === "columns") {
+            const bounds = layout.getBoundingClientRect();
+            const usable = Math.max(1, bounds.width - splitter.offsetWidth);
+            const left = Math.min(usable * .75, Math.max(usable * .25, clientX - bounds.left));
+            layout.style.setProperty("--left-column-width", left + "px");
+            splitter.setAttribute("aria-valuenow", Math.round(left / usable * 100));
+        }
+        else {
+            const column = splitter.closest(".workspace-column");
+            const bounds = column.getBoundingClientRect();
+            const usable = Math.max(1, bounds.height - splitter.offsetHeight);
+            const top = Math.min(usable * .8, Math.max(usable * .2, clientY - bounds.top));
+            const bottom = usable - top;
+            column.style.setProperty("--bottom-panel-height", bottom + "px");
+            splitter.setAttribute("aria-valuenow", Math.round(top / usable * 100));
+        }
+        const editor = document.getElementById("script-editor");
+        if (editor)
+            this.syncScroll(editor);
+        window.dispatchEvent(new Event("resize"));
+    },
+    openScriptFile() {
+        return new Promise(resolve => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".tus,.geo,.txt,text/plain";
+            input.addEventListener("change", async () => {
+                const file = input.files?.[0];
+                if (!file) {
+                    resolve(null);
+                    return;
+                }
+                resolve({ name: file.name, content: await file.text() });
+            }, { once: true });
+            input.addEventListener("cancel", () => resolve(null), { once: true });
+            input.click();
+        });
+    },
+    async saveScriptFile(suggestedName, content) {
+        const fileName = suggestedName || "script.tus";
+        if (window.showSaveFilePicker) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [{
+                        description: "TriUgla script",
+                        accept: { "text/plain": [".tus", ".geo", ".txt"] }
+                    }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                return handle.name;
+            }
+            catch (error) {
+                if (error?.name === "AbortError")
+                    return null;
+                throw error;
+            }
+        }
+
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+        return fileName;
+    },
     initialize(editorId, scriptObjects = {}) {
         const editor = document.getElementById(editorId);
         if (!editor || editor.dataset.initialized)
             return;
         editor.dataset.initialized = "true";
+        this.initializeEditorHistory(editor);
         this.initializePropertyCompletion(editor, scriptObjects);
         this.initializeScrollSync(editor);
         this.initializeHoverDocumentation(editor);
+        editor.addEventListener("dblclick", () => this.selectWordAtCaret(editor));
         editor.addEventListener("keydown", event => {
             if (event.isComposing)
                 return;
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+                event.preventDefault();
+                this.moveEditorHistory(editor, event.shiftKey ? 1 : -1);
+                return;
+            }
+            if (event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "y") {
+                event.preventDefault();
+                this.moveEditorHistory(editor, 1);
+                return;
+            }
             if (this.handleCompletionKey(editor, event))
                 return;
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -37,8 +168,96 @@ window.editorInterop = {
             if (event.key !== "Tab")
                 return;
             event.preventDefault();
-            this.insertTab(editorId);
+            this.changeIndentation(editorId, event.shiftKey);
         });
+    },
+    initializeEditorHistory(editor) {
+        editor._history = {
+            entries: [this.editorSnapshot(editor)],
+            index: 0,
+            applying: false
+        };
+        editor.addEventListener("input", () => this.recordEditorHistory(editor));
+    },
+    editorSnapshot(editor) {
+        return {
+            value: editor.value,
+            start: editor.selectionStart,
+            end: editor.selectionEnd
+        };
+    },
+    recordEditorHistory(editor) {
+        const history = editor._history;
+        if (!history || history.applying)
+            return;
+        const snapshot = this.editorSnapshot(editor);
+        const current = history.entries[history.index];
+        if (current?.value === snapshot.value) {
+            history.entries[history.index] = snapshot;
+            return;
+        }
+        history.entries.splice(history.index + 1);
+        history.entries.push(snapshot);
+        if (history.entries.length > 500)
+            history.entries.shift();
+        history.index = history.entries.length - 1;
+    },
+    resetEditorHistory(editorId) {
+        const editor = document.getElementById(editorId);
+        if (!editor)
+            return;
+        editor._history = {
+            entries: [this.editorSnapshot(editor)],
+            index: 0,
+            applying: false
+        };
+    },
+    replaceEditorContent(editorId, value) {
+        const editor = document.getElementById(editorId);
+        if (!editor)
+            return;
+        editor.value = value ?? "";
+        editor.setSelectionRange(0, 0);
+        this.scheduleEditorLayout(editor);
+        this.syncScroll(editor);
+        this.resetEditorHistory(editorId);
+    },
+    moveEditorHistory(editor, direction) {
+        const history = editor._history;
+        if (!history)
+            return;
+        this.recordEditorHistory(editor);
+        const target = Math.max(0, Math.min(history.entries.length - 1, history.index + direction));
+        if (target === history.index)
+            return;
+        history.index = target;
+        const snapshot = history.entries[target];
+        history.applying = true;
+        editor.value = snapshot.value;
+        editor.setSelectionRange(snapshot.start, snapshot.end);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        history.applying = false;
+        editor.focus({ preventScroll: true });
+        this.syncScroll(editor);
+    },
+    selectWordAtCaret(editor) {
+        const value = editor.value;
+        if (!value)
+            return;
+        let position = editor.selectionStart;
+        if (position >= value.length)
+            position = value.length - 1;
+        const isWordCharacter = character => /[\p{L}\p{N}_]/u.test(character);
+        if (!isWordCharacter(value[position])) {
+            if (position === 0 || !isWordCharacter(value[position - 1]))
+                return;
+            position--;
+        }
+        let start = position;
+        let end = position + 1;
+        while (start > 0 && isWordCharacter(value[start - 1])) start--;
+        while (end < value.length && isWordCharacter(value[end])) end++;
+        editor.setSelectionRange(start, end);
     },
     initializeHoverDocumentation(editor) {
         const tooltip = document.createElement("div");
@@ -232,8 +451,9 @@ window.editorInterop = {
         measure.style.font = style.font;
         measure.style.letterSpacing = style.letterSpacing;
         measure.style.tabSize = style.tabSize;
-        const numberRows = lineNumbers.querySelectorAll(":scope > span");
         const logicalLines = editor.value.split("\n");
+        this.synchronizeLineNumberRows(lineNumbers, logicalLines.length);
+        const numberRows = lineNumbers.querySelectorAll(":scope > span");
         const lineHeight = Number.parseFloat(style.lineHeight) || 24;
         const previousLayout = editor._lineLayout;
         const sameWidth = previousLayout?.width === contentWidth;
@@ -250,8 +470,32 @@ window.editorInterop = {
             }
             heights[index] = height;
             row.style.height = `${height}px`;
+            const visualRows = Math.max(1, Math.round(height / lineHeight));
+            if (row._visualRows !== visualRows) {
+                row.replaceChildren();
+                for (let visualIndex = 0; visualIndex < visualRows; visualIndex++) {
+                    const number = document.createElement("span");
+                    number.className = visualIndex === 0
+                        ? "line-number-visual"
+                        : "line-number-visual line-number-continuation";
+                    number.textContent = String(index + 1);
+                    row.appendChild(number);
+                }
+                row._visualRows = visualRows;
+            }
         });
         editor._lineLayout = { width: contentWidth, lines: logicalLines, heights };
+    },
+    synchronizeLineNumberRows(container, lineCount) {
+        const target = Math.max(1, lineCount);
+        while (container.childElementCount < target) {
+            const row = document.createElement("span");
+            row.className = "line-number-row";
+            container.appendChild(row);
+        }
+        while (container.childElementCount > target) {
+            container.lastElementChild.remove();
+        }
     },
     scheduleScrollSync(editor) {
         if (editor._scrollSyncFrame)
@@ -262,14 +506,12 @@ window.editorInterop = {
         });
     },
     initializePropertyCompletion(editor, scriptObjects) {
-        const surface = editor.closest(".code-surface");
-        if (!surface)
-            return;
         const popup = document.createElement("div");
         popup.className = "property-completion";
         popup.setAttribute("role", "listbox");
+        popup.setAttribute("aria-label", "Object member suggestions");
         popup.hidden = true;
-        surface.appendChild(popup);
+        document.body.appendChild(popup);
         editor._propertyCompletion = { popup, scriptObjects, matches: [], selected: 0, start: 0 };
         const refresh = () => this.refreshPropertyCompletion(editor);
         editor.addEventListener("input", refresh);
@@ -289,22 +531,35 @@ window.editorInterop = {
         const match = /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(before);
         if (!match)
             return this.hidePropertyCompletion(editor);
-        const properties = state.scriptObjects[match[1]];
-        if (!Array.isArray(properties))
+        const rawProperties = state.scriptObjects[match[1]];
+        if (!Array.isArray(rawProperties))
             return this.hidePropertyCompletion(editor);
+        const properties = rawProperties.map(property => typeof property === "string"
+            ? { name: property, description: "Object property." }
+            : property);
         const prefix = match[2] ?? "";
-        state.matches = properties.filter(name => name.startsWith(prefix));
+        state.matches = properties.filter(property => property.name.startsWith(prefix));
         state.selected = Math.min(state.selected, Math.max(0, state.matches.length - 1));
         state.start = caret - prefix.length;
         if (!state.matches.length)
             return this.hidePropertyCompletion(editor);
-        state.popup.replaceChildren(...state.matches.map((name, index) => {
+        this.hideHoverDocumentation(editor);
+        state.popup.replaceChildren(...state.matches.map((property, index) => {
             const item = document.createElement("button");
             item.type = "button";
             item.className = "property-completion-item" + (index === state.selected ? " selected" : "");
-            item.textContent = name;
             item.setAttribute("role", "option");
             item.setAttribute("aria-selected", index === state.selected ? "true" : "false");
+            item.textContent = property.name;
+            item.addEventListener("mouseenter", () => {
+                const documentation = editor._hoverDocumentation;
+                if (!documentation)
+                    return;
+                clearTimeout(documentation.timer);
+                documentation.current = property;
+                this.showHoverDocumentation(editor, property, item.getBoundingClientRect());
+            });
+            item.addEventListener("mouseleave", () => this.hideHoverDocumentation(editor));
             item.addEventListener("mousedown", event => {
                 event.preventDefault();
                 state.selected = index;
@@ -315,9 +570,43 @@ window.editorInterop = {
         const lineStart = before.lastIndexOf("\n") + 1;
         const column = caret - lineStart;
         const line = before.slice(0, caret).split("\n").length - 1;
-        state.popup.style.left = `${20 + column * 8.43 - editor.scrollLeft}px`;
-        state.popup.style.top = `${20 + (line + 1) * 24 - editor.scrollTop}px`;
+        const editorBounds = editor.getBoundingClientRect();
+        const editorStyle = getComputedStyle(editor);
+        const paddingLeft = Number.parseFloat(editorStyle.paddingLeft) || 0;
+        const paddingTop = Number.parseFloat(editorStyle.paddingTop) || 0;
+        const lineHeight = Number.parseFloat(editorStyle.lineHeight) || 24;
+        const characterWidth = this.editorCharacterWidth(editor);
+        const anchorLeft = editorBounds.left + paddingLeft + column * characterWidth - editor.scrollLeft;
+        const anchorTop = editorBounds.top + paddingTop + (line + 1) * lineHeight - editor.scrollTop;
         state.popup.hidden = false;
+        this.positionPropertyCompletion(state.popup, anchorLeft, anchorTop, lineHeight);
+    },
+    editorCharacterWidth(editor) {
+        let measure = editor._characterMeasure;
+        if (!measure) {
+            measure = document.createElement("span");
+            measure.style.position = "fixed";
+            measure.style.visibility = "hidden";
+            measure.style.whiteSpace = "pre";
+            measure.textContent = "0000000000";
+            document.body.appendChild(measure);
+            editor._characterMeasure = measure;
+        }
+        measure.style.font = getComputedStyle(editor).font;
+        return measure.getBoundingClientRect().width / 10 || 8.43;
+    },
+    positionPropertyCompletion(popup, anchorLeft, anchorTop, lineHeight) {
+        const margin = 8;
+        const bounds = popup.getBoundingClientRect();
+        const left = Math.min(
+            window.innerWidth - bounds.width - margin,
+            Math.max(margin, anchorLeft));
+        const below = anchorTop + 4;
+        const top = below + bounds.height <= window.innerHeight - margin
+            ? below
+            : Math.max(margin, anchorTop - lineHeight - bounds.height - 4);
+        popup.style.left = `${left}px`;
+        popup.style.top = `${top}px`;
     },
     handleCompletionKey(editor, event) {
         const state = editor._propertyCompletion;
@@ -348,7 +637,7 @@ window.editorInterop = {
         const property = state?.matches[state.selected];
         if (!property)
             return;
-        editor.setRangeText(property, state.start, editor.selectionStart, "end");
+        editor.setRangeText(property.name, state.start, editor.selectionStart, "end");
         editor.dispatchEvent(new Event("input", { bubbles: true }));
         this.hidePropertyCompletion(editor);
         editor.focus();
@@ -360,6 +649,7 @@ window.editorInterop = {
         state.popup.hidden = true;
         state.matches = [];
         state.selected = 0;
+        this.hideHoverDocumentation(editor);
     },
     wrapSelection(editor, opening, closing) {
         const start = editor.selectionStart;
@@ -444,14 +734,34 @@ window.editorInterop = {
         editor.scrollTop = Math.max(0, (line - 3) * lineHeight);
         this.syncScroll(editor);
     },
-    insertTab(editorId) {
+    changeIndentation(editorId, outdent) {
         const editor = document.getElementById(editorId);
         if (!editor)
             return;
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
-        editor.value = editor.value.slice(0, start) + "  " + editor.value.slice(end);
-        editor.setSelectionRange(start + 2, start + 2);
+        if (start !== end) {
+            this.editSelectedLines(
+                editorId,
+                outdent
+                    ? line => line.replace(/^(?: {1,2}|\t)/, "")
+                    : line => `  ${line}`);
+            return;
+        }
+
+        if (!outdent) {
+            editor.setRangeText("  ", start, end, "end");
+            editor.dispatchEvent(new Event("input", { bubbles: true }));
+            return;
+        }
+
+        const lineStart = editor.value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+        const indentation = editor.value.slice(lineStart).match(/^(?: {1,2}|\t)/)?.[0];
+        if (!indentation)
+            return;
+        editor.setRangeText("", lineStart, lineStart + indentation.length, "end");
+        const caret = Math.max(lineStart, start - indentation.length);
+        editor.setSelectionRange(caret, caret);
         editor.dispatchEvent(new Event("input", { bubbles: true }));
     },
 

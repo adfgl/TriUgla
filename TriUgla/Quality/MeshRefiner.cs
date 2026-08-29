@@ -45,7 +45,7 @@ public sealed class MeshRefiner(
 
         int inserted = 0;
         while ((_edgeQueue.Count > 0 || _faceQueue.Count > 0) &&
-               inserted < settings.MaxSteiners)
+               (!settings.UseSteinerBudget || inserted < settings.MaxSteiners))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (TryDequeueEdge(out Edge edge))
@@ -77,7 +77,7 @@ public sealed class MeshRefiner(
         int inserted = 0;
         int operations = 0;
         while ((_edgeQueue.Count > 0 || _faceQueue.Count > 0) &&
-               inserted < settings.MaxSteiners)
+               (!settings.UseSteinerBudget || inserted < settings.MaxSteiners))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if ((++operations & 31) == 0)

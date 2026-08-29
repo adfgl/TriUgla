@@ -27,6 +27,7 @@ public static class ScriptMesher
                 "Mesh 2 requires at least one Plane Surface. Hint: declare Curve Loops and a Plane Surface before 'Mesh 2;'.");
         }
 
+        var meshingWatch = System.Diagnostics.Stopwatch.StartNew();
         var faces = new List<ScriptMeshFace>();
         int steinerNodes = 0;
         foreach (ScriptPlaneSurface surface in geometry.PlaneSurfaces.Values.OrderBy(surface => surface.Tag))
@@ -54,10 +55,13 @@ public static class ScriptMesher
                     $"Plane Surface({surface.Tag}) could not be meshed: {exception.Message}", exception);
             }
         }
+        ScriptMeshMetrics metrics = ScriptMeshMetrics.Calculate(faces);
+        meshingWatch.Stop();
         return new ScriptMeshResult(
             faces,
             steinerNodes,
-            ScriptMeshMetrics.Calculate(faces));
+            metrics,
+            meshingWatch.Elapsed);
     }
 
     public static async ValueTask<ScriptMeshResult> GenerateAsync(
@@ -75,6 +79,7 @@ public static class ScriptMesher
             throw new InvalidOperationException(
                 "Mesh 2 requires at least one Plane Surface. Hint: declare Curve Loops and a Plane Surface before 'Mesh 2;'.");
 
+        var meshingWatch = System.Diagnostics.Stopwatch.StartNew();
         var faces = new List<ScriptMeshFace>();
         int steinerNodes = 0;
         foreach (ScriptPlaneSurface surface in geometry.PlaneSurfaces.Values.OrderBy(surface => surface.Tag))
@@ -104,10 +109,13 @@ public static class ScriptMesher
                     $"Plane Surface({surface.Tag}) could not be meshed: {exception.Message}", exception);
             }
         }
+        ScriptMeshMetrics metrics = ScriptMeshMetrics.Calculate(faces);
+        meshingWatch.Stop();
         return new ScriptMeshResult(
             faces,
             steinerNodes,
-            ScriptMeshMetrics.Calculate(faces));
+            metrics,
+            meshingWatch.Elapsed);
     }
 
     static PreparedSurface PrepareSurface(
@@ -202,11 +210,7 @@ public static class ScriptMesher
         (FaceRanker ranker, int budget) = RefinementPlan(geometry, options, positions);
         return mesher.Refine(
             ranker,
-            new RefineSettings(
-                budget,
-                8,
-                1e-4,
-                Option(options, "RefinementContinueOnStagnation") != 0d),
+            RefinementSettings(options, budget),
             cancellationToken);
     }
 
@@ -245,12 +249,31 @@ public static class ScriptMesher
         (FaceRanker ranker, int budget) = RefinementPlan(geometry, options, positions);
         return await mesher.RefineAsync(
             ranker,
-            new RefineSettings(
-                budget,
-                8,
-                1e-4,
-                Option(options, "RefinementContinueOnStagnation") != 0d),
+            RefinementSettings(options, budget),
             cancellationToken);
+    }
+
+    static RefineSettings RefinementSettings(MeshScriptModel options, int defaultBudget)
+    {
+        bool useBudget = Option(options, "RefinementUseBudget") != 0d;
+        double? configuredBudget = Option(options, "RefinementSteinerBudget");
+        int budget = defaultBudget;
+        if (configuredBudget is double value)
+        {
+            if (value < 0d || value > int.MaxValue || value != Math.Truncate(value))
+            {
+                throw new InvalidOperationException(
+                    "Mesh.RefinementSteinerBudget must be a non-negative integer.");
+            }
+            budget = (int)value;
+        }
+
+        return new RefineSettings(
+            budget,
+            8,
+            1e-4,
+            Option(options, "RefinementContinueOnStagnation") != 0d,
+            useBudget);
     }
 
     static double? FindPointMeshSize(CurvePosition position, GeometryModel geometry)
@@ -336,7 +359,8 @@ public static class ScriptMesher
 public sealed record ScriptMeshResult(
     IReadOnlyList<ScriptMeshFace> Faces,
     int SteinerNodes,
-    ScriptMeshMetrics Metrics);
+    ScriptMeshMetrics Metrics,
+    TimeSpan MeshingTime);
 public sealed record ScriptMeshFace(
     int SurfaceTag,
     FaceKind Kind,
