@@ -544,7 +544,8 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
 
     public Value VisitCallExpression(CallExpr node)
     {
-        if (node.Callee is NameExpr primitiveName && primitiveName.Name.Text is "Point" or "Line")
+        if (node.Callee is NameExpr primitiveName &&
+            primitiveName.Name.Text is "Point" or "Line" or "Spline" or "BSpline" or "Bezier" or "Circle")
         {
             return ResolvePrimitive(node, primitiveName.Name.Text);
         }
@@ -570,7 +571,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         int tag = RequireEntityTag(Evaluate(call.Arguments[0]), $"{primitiveName} lookup tag");
         ScriptObject? primitive = primitiveName == "Point"
             ? _geometry.Points.GetValueOrDefault(tag)
-            : _geometry.Lines.GetValueOrDefault(tag);
+            : _geometry.Curves.GetValueOrDefault(tag);
         if (primitive is null)
         {
             throw new InvalidOperationException(
@@ -632,15 +633,15 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         if (target.Callee is not NameExpr name)
         {
             throw new InvalidOperationException(
-                "Primitive declaration target is invalid. Hint: use Point(tag) or Line(tag).");
+                "Primitive declaration target is invalid. Hint: use a supported point or curve primitive.");
         }
 
         string primitiveName = name.Name.Text;
-        if (primitiveName is not "Point" and not "Line")
+        if (primitiveName is not "Point" and not "Line" and not "Spline" and not "BSpline" and not "Bezier" and not "Circle")
         {
             throw new InvalidOperationException(
                 $"Assignment to function call '{primitiveName}(...)' is not supported. " +
-                "Hint: assign to a variable, Point(tag), or Line(tag).");
+                "Hint: assign to a variable or a supported geometry primitive.");
         }
 
         if (target.Arguments.Count != 1)
@@ -659,9 +660,16 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
                 $"Hint: use {primitiveName}({tag}) = {{...}}.");
         }
 
-        return primitiveName == "Point"
-            ? CreatePoint(tag, parameters)
-            : CreateLine(tag, parameters);
+        return primitiveName switch
+        {
+            "Point" => CreatePoint(tag, parameters),
+            "Line" => CreateLine(tag, parameters),
+            "Spline" => CreateCurve(tag, parameters, ScriptCurveKind.Spline),
+            "BSpline" => CreateCurve(tag, parameters, ScriptCurveKind.BSpline),
+            "Bezier" => CreateCurve(tag, parameters, ScriptCurveKind.Bezier),
+            "Circle" => CreateCurve(tag, parameters, ScriptCurveKind.Circle),
+            _ => throw new InvalidOperationException($"Unsupported geometry primitive '{primitiveName}'.")
+        };
     }
 
     Value CreatePoint(int tag, ScriptList parameters)
@@ -696,6 +704,24 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         int start = RequireEntityTag(parameters.Items[0], $"Line {tag} start point");
         int end = RequireEntityTag(parameters.Items[1], $"Line {tag} end point");
         return _geometry.AddLine(tag, start, end);
+    }
+
+    Value CreateCurve(int tag, ScriptList parameters, ScriptCurveKind kind)
+    {
+        int minimum = kind == ScriptCurveKind.Circle ? 3 : 2;
+        if (parameters.Items.Count < minimum ||
+            kind == ScriptCurveKind.Circle && parameters.Items.Count != 3)
+        {
+            string expected = kind == ScriptCurveKind.Circle ? "exactly 3" : $"at least {minimum}";
+            throw new InvalidOperationException(
+                $"{kind} {tag} expects {expected} point tags, but received {parameters.Items.Count}. " +
+                $"Hint: use {kind}({tag}) = {{pointTag, ...}}.");
+        }
+
+        int[] pointTags = parameters.Items
+            .Select((value, index) => RequireEntityTag(value, $"{kind} {tag} point at index {index}"))
+            .ToArray();
+        return _geometry.AddSpline(tag, pointTags, kind);
     }
 
     static double RequirePrimitiveNumber(string primitive, int tag, Value value, int index)
@@ -825,7 +851,7 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         }
 
         int[] curves = selectsAll
-            ? _geometry.Lines.Keys.Order().ToArray()
+            ? _geometry.Curves.Keys.Order().ToArray()
             : node.Curves
                 .Select((curve, index) => RequireOrientedCurveTag(
                     Evaluate(curve),

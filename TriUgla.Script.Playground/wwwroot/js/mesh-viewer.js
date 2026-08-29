@@ -4,6 +4,7 @@ window.meshViewer = {
     points: [],
     lines: [],
     surfaces: [],
+    meshNodes: [],
     yaw: -.65,
     pitch: .65,
     scale: 80,
@@ -34,10 +35,11 @@ window.meshViewer = {
         this.resize();
     },
 
-    setScene(points, lines, surfaces) {
+    setScene(points, lines, surfaces, meshNodes) {
         this.points = points ?? [];
         this.lines = lines ?? [];
         this.surfaces = surfaces ?? [];
+        this.meshNodes = meshNodes ?? [];
         this.fit();
     },
 
@@ -222,18 +224,30 @@ window.meshViewer = {
         ctx.shadowColor = "rgba(14, 165, 233, .55)";
         ctx.shadowBlur = 4;
         for (const line of this.lines) {
-            const start = byTag.get(line.startTag);
-            const end = byTag.get(line.endTag);
-            if (!start || !end) continue;
-            const a = this.project(start);
-            const b = this.project(end);
+            const path = (line.path ?? []).map(point => this.project(point));
+            if (path.length < 2) continue;
             ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let index = 1; index < path.length; index++) {
+                ctx.lineTo(path[index].x, path[index].y);
+            }
             ctx.stroke();
         }
         ctx.shadowColor = "transparent";
         ctx.shadowBlur = 0;
+
+        const projectedMeshNodes = this.meshNodes
+            .map(node => this.project(node))
+            .sort((a, b) => a.depth - b.depth);
+        for (const node of projectedMeshNodes) {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 2.6, 0, Math.PI * 2);
+            ctx.fillStyle = "#fbbf24";
+            ctx.fill();
+            ctx.strokeStyle = "#fff7d6";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
 
         const projected = this.points
             .map(point => ({ point, screen: this.project(point) }))
@@ -258,7 +272,7 @@ window.meshViewer = {
             .map(surface => ({
                 surface,
                 loops: (surface.loops ?? [])
-                    .map(loop => this.surfaceLoopPoints(loop, pointsByTag, linesByTag))
+                    .map(loop => this.surfaceLoopPoints(loop, linesByTag))
                     .filter(points => points.length >= 3)
             }))
             .filter(item => item.loops.length > 0)
@@ -287,18 +301,13 @@ window.meshViewer = {
         }
     },
 
-    surfaceLoopPoints(orientedTags, pointsByTag, linesByTag) {
+    surfaceLoopPoints(orientedTags, linesByTag) {
         const points = [];
         for (const orientedTag of orientedTags ?? []) {
-            const line = linesByTag.get(Math.abs(orientedTag));
-            if (!line) return [];
-            const startTag = orientedTag < 0 ? line.endTag : line.startTag;
-            const endTag = orientedTag < 0 ? line.startTag : line.endTag;
-            const start = pointsByTag.get(startTag);
-            const end = pointsByTag.get(endTag);
-            if (!start || !end) return [];
-            if (points.length === 0) points.push(start);
-            points.push(end);
+            const curve = linesByTag.get(Math.abs(orientedTag));
+            if (!curve?.path?.length) return [];
+            const path = orientedTag < 0 ? [...curve.path].reverse() : curve.path;
+            points.push(...(points.length === 0 ? path : path.slice(1)));
         }
         return points;
     },

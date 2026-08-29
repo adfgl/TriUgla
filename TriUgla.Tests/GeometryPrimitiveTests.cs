@@ -164,7 +164,7 @@ public class GeometryPrimitiveTests
     [InlineData("Point(1) = {0, 0};", "expects 3 coordinates")]
     [InlineData("Point(1.5) = {0, 0, 0};", "positive whole number")]
     [InlineData("Line(1) = {1};", "expects exactly 2 point tags")]
-    [InlineData("Circle(1) = {1, 2};", "Assignment to function call 'Circle(...)'")]
+    [InlineData("Circle(1) = {1, 2};", "expects exactly 3 point tags")]
     public void Evaluate_InvalidPrimitiveDeclaration_ProvidesHelpfulError(
         string source,
         string expected)
@@ -248,7 +248,7 @@ public class GeometryPrimitiveTests
 
     [Theory]
     [InlineData("Transfinite Curve{1} = 1;", "at least 2")]
-    [InlineData("Transfinite Curve{2} = 11;", "Line(2) is not declared")]
+    [InlineData("Transfinite Curve{2} = 11;", "Curve(2) is not declared")]
     [InlineData("Transfinite Curve{1} = 11 Using Bump 0;", "finite positive")]
     public void Evaluate_InvalidTransfiniteCurve_ProvidesHelpfulError(string statement, string expected)
     {
@@ -334,7 +334,7 @@ public class GeometryPrimitiveTests
     }
 
     [Theory]
-    [InlineData("Line {2} In Surface {1};", "Line(2)")]
+    [InlineData("Line {2} In Surface {1};", "Curve(2)")]
     [InlineData("Line {1} In Surface {2};", "Plane Surface(2)")]
     public void Evaluate_InvalidEmbeddedCurveConstraint_ProvidesHelpfulError(
         string constraint,
@@ -349,5 +349,140 @@ public class GeometryPrimitiveTests
             evaluator.Evaluate(SyntaxTree.Parse(prefix + constraint).Root));
 
         Assert.Contains(expected, exception.Message);
+    }
+
+    [Theory]
+    [InlineData("Transfinite Curve{1} = 4;", 1d / 3d, 2d / 3d)]
+    [InlineData("Transfinite Curve{1} = 4 Using Progression 2;", 1d / 7d, 3d / 7d)]
+    [InlineData("Transfinite Curve{-1} = 4 Using Progression 2;", 6d / 7d, 4d / 7d)]
+    public void GetTransfiniteNodes_ReturnsInteriorPointsWithProgressionSpacing(
+        string constraint,
+        double firstX,
+        double secondX)
+    {
+        const string geometry =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 0, 0}; Line(1) = {1, 2};";
+        var evaluator = new EvaluationVisitor();
+        evaluator.Evaluate(SyntaxTree.Parse(geometry + constraint).Root);
+
+        IReadOnlyList<ScriptMeshNode> nodes = evaluator.Geometry.GetTransfiniteNodes();
+
+        Assert.Equal(2, nodes.Count);
+        Assert.Equal(firstX, nodes[0].X, 12);
+        Assert.Equal(secondX, nodes[1].X, 12);
+        Assert.All(nodes, node => Assert.Equal(1, node.CurveTag));
+    }
+
+    [Fact]
+    public void GetTransfiniteNodes_DoesNotDuplicateGeometryEndpoints()
+    {
+        const string source =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 0, 0}; Line(1) = {1, 2}; " +
+            "Transfinite Curve{1} = 2;";
+        var evaluator = new EvaluationVisitor();
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        Assert.Empty(evaluator.Geometry.GetTransfiniteNodes());
+    }
+
+    [Fact]
+    public void Evaluate_Spline_PassesThroughEveryInterpolationPoint()
+    {
+        const string source =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 1, 0}; " +
+            "Point(3) = {2, -1, 0}; Point(4) = {3, 0, 0}; " +
+            "Spline(1) = {1, 2, 3, 4};";
+        var evaluator = new EvaluationVisitor();
+
+        var spline = evaluator.Evaluate(SyntaxTree.Parse(source).Root).As<ScriptSpline>();
+
+        Assert.Same(spline, evaluator.Geometry.Curves[1]);
+        Assert.Equal(new CurvePosition(0, 0, 0), spline.Evaluate(0));
+        Assert.Equal(1, spline.Evaluate(1d / 3d).X, 12);
+        Assert.Equal(1, spline.Evaluate(1d / 3d).Y, 12);
+        Assert.Equal(new CurvePosition(3, 0, 0), spline.Evaluate(1));
+    }
+
+    [Fact]
+    public void Evaluate_BSpline_IsCubicAndUsesControlPoints()
+    {
+        const string source =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 2, 0}; " +
+            "Point(3) = {2, 2, 0}; Point(4) = {3, 0, 0}; " +
+            "BSpline(2) = {1, 2, 3, 4};";
+        var evaluator = new EvaluationVisitor();
+
+        var spline = evaluator.Evaluate(SyntaxTree.Parse(source).Root).As<ScriptBSpline>();
+        CurvePosition midpoint = spline.Evaluate(.5);
+
+        Assert.Equal(new CurvePosition(0, 0, 0), spline.Evaluate(0));
+        Assert.Equal(1.5, midpoint.X, 12);
+        Assert.Equal(1.5, midpoint.Y, 12);
+        Assert.Equal(new CurvePosition(3, 0, 0), spline.Evaluate(1));
+    }
+
+    [Fact]
+    public void Evaluate_Bezier_UsesAllControlPoints()
+    {
+        const string source =
+            "Point(1) = {0, 0, 0}; Point(2) = {0, 2, 0}; " +
+            "Point(3) = {2, 2, 0}; Point(4) = {2, 0, 0}; " +
+            "Bezier(3) = {1, 2, 3, 4};";
+        var evaluator = new EvaluationVisitor();
+
+        var bezier = evaluator.Evaluate(SyntaxTree.Parse(source).Root).As<ScriptBezier>();
+        CurvePosition midpoint = bezier.Evaluate(.5);
+
+        Assert.Equal(1, midpoint.X, 12);
+        Assert.Equal(1.5, midpoint.Y, 12);
+        Assert.Equal("Bezier(3) = {1, 2, 3, 4};", bezier.ToString());
+    }
+
+    [Fact]
+    public void Evaluate_Circle_CreatesArcFromStartThroughCenterToEndDefinition()
+    {
+        const string source =
+            "Point(1) = {1, 0, 0}; Point(2) = {0, 0, 0}; Point(3) = {0, 1, 0}; " +
+            "Circle(4) = {1, 2, 3}; Transfinite Curve{4} = 3;";
+        var evaluator = new EvaluationVisitor();
+
+        var circle = evaluator.Evaluate(SyntaxTree.Parse(source).Root).As<TransfiniteCurveConstraint>();
+        var arc = Assert.IsType<ScriptCircle>(evaluator.Geometry.Curves[4]);
+        ScriptMeshNode node = Assert.Single(evaluator.Geometry.GetTransfiniteNodes());
+
+        Assert.Equal(Math.Sqrt(.5), arc.Evaluate(.5).X, 12);
+        Assert.Equal(Math.Sqrt(.5), arc.Evaluate(.5).Y, 12);
+        Assert.Equal(Math.Sqrt(.5), node.X, 5);
+        Assert.Equal(Math.Sqrt(.5), node.Y, 5);
+        Assert.Equal(3, circle.NodeCount);
+    }
+
+    [Fact]
+    public void Evaluate_CurvedPrimitives_WorkInCurveLoopsAndSurfaces()
+    {
+        const string source =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 1, 0}; Point(3) = {2, 0, 0}; " +
+            "Spline(1) = {1, 2, 3}; Line(2) = {3, 1}; " +
+            "Curve Loop(1) = {1, 2}; Plane Surface(1) = {1};";
+        var evaluator = new EvaluationVisitor();
+
+        evaluator.Evaluate(SyntaxTree.Parse(source).Root);
+
+        Assert.Equal([1, 2], evaluator.Geometry.CurveLoops[1].OrientedCurveTags);
+        Assert.Single(evaluator.Geometry.PlaneSurfaces);
+    }
+
+    [Fact]
+    public void Evaluate_AllCurvePrimitivesShareOneTagNamespace()
+    {
+        const string source =
+            "Point(1) = {0, 0, 0}; Point(2) = {1, 0, 0}; " +
+            "Line(1) = {1, 2}; Spline(1) = {1, 2};";
+        var evaluator = new EvaluationVisitor();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            evaluator.Evaluate(SyntaxTree.Parse(source).Root));
+
+        Assert.Contains("Curve tag 1 is already declared", exception.Message);
     }
 }

@@ -310,16 +310,28 @@
             await JS.InvokeVoidAsync(
                 "meshViewer.setScene",
                 evaluator.Geometry.Points.Values.Select(point => new { point.Tag, point.X, point.Y, point.Z }),
-                evaluator.Geometry.Lines.Values.Select(line => new
+                evaluator.Geometry.Curves.Values.Select(curve => new
                 {
-                    line.Tag,
-                    StartTag = line.Start.Tag,
-                    EndTag = line.End.Tag
+                    curve.Tag,
+                    Kind = curve.Kind.ToString(),
+                    Path = curve.Tessellate().Select(position => new
+                    {
+                        position.X,
+                        position.Y,
+                        position.Z
+                    })
                 }),
                 evaluator.Geometry.PlaneSurfaces.Values.Select(surface => new
                 {
                     surface.Tag,
                     Loops = surface.CurveLoops.Select(loop => loop.OrientedCurveTags)
+                }),
+                evaluator.Geometry.GetTransfiniteNodes().Select(node => new
+                {
+                    node.CurveTag,
+                    node.X,
+                    node.Y,
+                    node.Z
                 }));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
