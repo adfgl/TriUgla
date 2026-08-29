@@ -518,5 +518,33 @@ window.editorInterop = {
         editor.value = editor.value.slice(0, start) + "  " + editor.value.slice(end);
         editor.setSelectionRange(start + 2, start + 2);
         editor.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+
+    commentSelection(editorId) {
+        this.editSelectedLines(editorId, line => `// ${line}`);
+    },
+
+    uncommentSelection(editorId) {
+        this.editSelectedLines(editorId, line => line.replace(/^(\s*)\/\/[ ]?/, "$1"));
+    },
+
+    editSelectedLines(editorId, transform) {
+        const editor = document.getElementById(editorId);
+        if (!editor) return;
+
+        const selectionStart = editor.selectionStart;
+        const selectionEnd = editor.selectionEnd;
+        const blockStart = editor.value.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+        const effectiveEnd = selectionEnd > selectionStart && editor.value[selectionEnd - 1] === "\n"
+            ? selectionEnd - 1
+            : selectionEnd;
+        let blockEnd = editor.value.indexOf("\n", effectiveEnd);
+        if (blockEnd < 0) blockEnd = editor.value.length;
+        const original = editor.value.slice(blockStart, blockEnd);
+        const replacement = original.split("\n").map(transform).join("\n");
+        editor.setRangeText(replacement, blockStart, blockEnd, "select");
+        editor.setSelectionRange(blockStart, blockStart + replacement.length);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        editor.focus({ preventScroll: true });
     }
 };

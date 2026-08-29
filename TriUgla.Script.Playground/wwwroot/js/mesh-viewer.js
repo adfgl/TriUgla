@@ -337,18 +337,26 @@ window.meshViewer = {
         return points;
     },
     drawGrid(ctx) {
-        const extent = this.points.length
-            ? Math.max(...this.points.flatMap(point => [Math.abs(point.x - this.center.x), Math.abs(point.y - this.center.y)]), 1)
+        const objectExtent = this.points.length
+            ? Math.max(...this.points.flatMap(point => [Math.abs(point.x - this.center.x), Math.abs(point.y - this.center.y)]), .125)
             : 2;
-        const step = Math.pow(10, Math.floor(Math.log10(extent))) / 2;
-        const size = Math.ceil(extent * 2 / step) * step;
+        const visibleHalfExtent = Math.max(this.canvas.clientWidth, this.canvas.clientHeight)
+            / Math.max(2, this.scale) * .5;
+        const step = this.niceGridStep(48 / Math.max(2, this.scale));
+        const desiredExtent = Math.max(
+            visibleHalfExtent * 1.5,
+            Math.min(objectExtent * 1.25, visibleHalfExtent * 4),
+            step * 5);
+        const size = Math.ceil(desiredExtent / step) * step;
         ctx.lineWidth = 1;
-        for (let value = -size; value <= size + step * .5; value += step) {
+        const lineCount = Math.ceil(size / step);
+        for (let index = -lineCount; index <= lineCount; index++) {
+            const value = index * step;
             const xStart = this.project({ x: this.center.x + value, y: this.center.y - size, z: 0 });
             const xEnd = this.project({ x: this.center.x + value, y: this.center.y + size, z: 0 });
             const yStart = this.project({ x: this.center.x - size, y: this.center.y + value, z: 0 });
             const yEnd = this.project({ x: this.center.x + size, y: this.center.y + value, z: 0 });
-            ctx.strokeStyle = Math.abs(value) < step * .1 ? "#475569" : "#1c293b";
+            ctx.strokeStyle = index === 0 ? "#52647d" : index % 5 === 0 ? "#293950" : "#1c293b";
             ctx.beginPath();
             ctx.moveTo(xStart.x, xStart.y);
             ctx.lineTo(xEnd.x, xEnd.y);
@@ -358,5 +366,11 @@ window.meshViewer = {
             ctx.lineTo(yEnd.x, yEnd.y);
             ctx.stroke();
         }
+    },
+    niceGridStep(minimumWorldStep) {
+        const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(minimumWorldStep, 1e-12))));
+        const normalized = minimumWorldStep / magnitude;
+        const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+        return multiplier * magnitude;
     }
 };

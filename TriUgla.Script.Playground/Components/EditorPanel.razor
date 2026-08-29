@@ -10,20 +10,18 @@
                 <span class="execution-time" aria-live="polite">@(IsRunning ? "Running" : Status) · @ElapsedText</span>
             }
             <span>@Model.LineCount lines</span>
-            <button class="run-button @(IsRunning ? "abort-button" : null)" type="button"
-                    @onclick="RunRequested"
-                    aria-label="@(IsRunning ? "Abort script execution" : "Run script")"
-                    aria-keyshortcuts="Control+Enter Meta+Enter">
-                @if (IsRunning)
-                {
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z" /></svg><span>Abort</span>
-                }
-                else
-                {
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg><span>Run</span>
-                }
-                <kbd>Ctrl ↵</kbd>
-            </button>
+            <div class="editor-command-group" role="toolbar" aria-label="Script editing commands">
+                <button class="editor-command-button text-command" type="button" @onclick="CommentRequested" title="Comment selected lines" aria-label="Comment selected lines">//</button>
+                <button class="editor-command-button text-command" type="button" @onclick="UncommentRequested" title="Uncomment selected lines" aria-label="Uncomment selected lines">//̸</button>
+                <button class="editor-command-button run-command" type="button" @onclick="RunRequested" disabled="@IsRunning"
+                        title="Run script (Ctrl+Enter)" aria-label="Run script" aria-keyshortcuts="Control+Enter Meta+Enter">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                </button>
+                <button class="editor-command-button stop-command" type="button" @onclick="StopRequested" disabled="@(!IsRunning)"
+                        title="Stop script" aria-label="Stop script">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z" /></svg>
+                </button>
+            </div>
         </div>
     </div>
     <div class="editor-shell">
@@ -50,6 +48,9 @@
     [Parameter] public string Status { get; set; } = "Ready";
     [Parameter] public string ElapsedText { get; set; } = "0.000 s";
     [Parameter] public EventCallback RunRequested { get; set; }
+    [Parameter] public EventCallback StopRequested { get; set; }
+    [Parameter] public EventCallback CommentRequested { get; set; }
+    [Parameter] public EventCallback UncommentRequested { get; set; }
     [Parameter] public EventCallback<ChangeEventArgs> SourceChanged { get; set; }
     [Parameter] public EventCallback<KeyboardEventArgs> KeyDown { get; set; }
 }

@@ -32,6 +32,7 @@
         <div class="dock-content">
             <EditorPanel Model="editor" IsRunning="isRunning" HasRun="hasRun" Status="@runStatus"
                          ElapsedText="@ElapsedText" RunRequested="HandleRunButton"
+                         StopRequested="StopScript" CommentRequested="CommentSelection" UncommentRequested="UncommentSelection"
                          SourceChanged="UpdateSource" KeyDown="HandleEditorKeyDown" />
         </div>
     </div>
@@ -54,6 +55,7 @@
         <div class="dock-content">
             <DiagnosticsPanel Items="diagnostics" Selected="GoToDiagnostic" />
             <OutputPanel Output="@output" Status="@runStatus" Failed="runtimeFailed" />
+            <NamedEntitiesPanel Items="namedPoints" />
         </div>
     </div>
     </div>
@@ -123,6 +125,7 @@
     CancellationTokenSource? executionCancellation;
     readonly System.Diagnostics.Stopwatch executionWatch = new();
     readonly List<string> printedLines = [];
+    IReadOnlyList<NamedPointViewModel> namedPoints = [];
 
     IReadOnlyList<Diagnostic> diagnostics => editor.Diagnostics;
     string ElapsedText => $"{elapsed.TotalSeconds:0.000} s";
@@ -135,6 +138,7 @@
         output = null;
         runtimeFailed = false;
         printedLines.Clear();
+        namedPoints = [];
         editor.Update(source);
     }
 
@@ -142,12 +146,19 @@
     {
         if (isRunning)
         {
-            executionCancellation?.Cancel();
             return;
         }
 
         await RunScript();
     }
+
+    void StopScript() => executionCancellation?.Cancel();
+
+    Task CommentSelection()
+        => JS.InvokeVoidAsync("editorInterop.commentSelection", "script-editor").AsTask();
+
+    Task UncommentSelection()
+        => JS.InvokeVoidAsync("editorInterop.uncommentSelection", "script-editor").AsTask();
 
     async Task RunScript()
     {
@@ -189,6 +200,21 @@
             output = printedLines.Count == 0 ? result.ToString() : string.Join(Environment.NewLine, printedLines);
             runtimeFailed = false;
             runStatus = "Completed";
+            namedPoints = evaluator.Geometry.PhysicalPoints.Values
+                .SelectMany(group => group.Points.Select(point => new NamedPointViewModel(
+                    group.Name,
+                    point.Tag,
+                    point.X,
+                    point.Y,
+                    point.Z,
+                    point.MeshSize)))
+                .OrderBy(point => point.Name, StringComparer.Ordinal)
+                .ThenBy(point => point.Tag)
+                .ToArray();
+            if (namedPoints.Count > 0)
+            {
+                await JS.InvokeVoidAsync("dockInterop.reveal", "entities");
+            }
             await JS.InvokeVoidAsync(
                 "meshViewer.setScene",
                 evaluator.Geometry.Points.Values.Select(point => new
@@ -236,6 +262,7 @@
         catch (Exception exception) when (exception is InvalidOperationException or InvalidCastException)
         {
             output = exception.Message;
+            namedPoints = [];
             runtimeFailed = true;
             runStatus = "Runtime error";
             await JS.InvokeVoidAsync("meshViewer.setScene", Array.Empty<object>(), Array.Empty<object>());

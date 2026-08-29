@@ -1,0 +1,28 @@
+<section class="entities-panel dock-panel" data-panel-id="entities" data-panel-title="Named entities" aria-labelledby="entities-title">
+    <div class="panel-bar">
+        <h2 id="entities-title">Named entities</h2>
+        <span>@Items.Count points</span>
+    </div>
+    <div class="entities-content">
+        @if (Items.Count == 0)
+        {
+            <div class="empty-state">Run a script containing <code>Physical Point("name")</code>.</div>
+        }
+        else
+        {
+            <table class="entities-table">
+                <thead><tr><th>Name</th><th>Tag</th><th>X</th><th>Y</th><th>Z</th><th>Mesh size</th></tr></thead>
+                <tbody>
+                    @foreach (NamedPointViewModel point in Items)
+                    {
+                        <tr><td>@point.Name</td><td>@point.Tag</td><td>@point.X</td><td>@point.Y</td><td>@point.Z</td><td>@(point.MeshSize?.ToString() ?? "auto")</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<NamedPointViewModel> Items { get; set; } = [];
+}
