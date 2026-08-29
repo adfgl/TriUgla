@@ -934,6 +934,20 @@ public sealed class EvaluationVisitor : INodeVisitor<Value>
         return _geometry.SetTransfiniteCurves(curves, nodeCount, distribution, coefficient);
     }
 
+    public Value VisitPhysicalPointStatement(PhysicalPointStmt node)
+    {
+        Value nameValue = Evaluate(node.Name);
+        if (nameValue.ObjectOrNull() is not ScriptString name)
+        {
+            throw new InvalidOperationException("Physical Point expects a string name, for example Physical Point(\"Support\") = {1};");
+        }
+
+        int[] tags = node.Points.Items
+            .Select((point, index) => RequireEntityTag(Evaluate(point), $"Physical Point tag at index {index}"))
+            .ToArray();
+        return _geometry.AddPhysicalPointGroup(name.Value, tags);
+    }
+
     public Value VisitCurveLoopStatement(CurveLoopStmt node)
     {
         int tag = RequireEntityTag(Evaluate(node.Tag), "Curve Loop tag");

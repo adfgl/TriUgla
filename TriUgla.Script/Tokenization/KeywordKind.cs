@@ -33,5 +33,6 @@ public enum KeywordKind
     Spline,
     BSpline,
     Bezier,
-    Circle
+    Circle,
+    Physical
 }

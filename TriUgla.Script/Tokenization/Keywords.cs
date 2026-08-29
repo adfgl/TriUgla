@@ -37,7 +37,8 @@ public static class Keywords
             ["Spline"] = KeywordKind.Spline,
             ["BSpline"] = KeywordKind.BSpline,
             ["Bezier"] = KeywordKind.Bezier,
-            ["Circle"] = KeywordKind.Circle
+            ["Circle"] = KeywordKind.Circle,
+            ["Physical"] = KeywordKind.Physical
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static bool TryGetKind(string text, out KeywordKind kind)

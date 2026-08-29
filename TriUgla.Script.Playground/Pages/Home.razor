@@ -191,7 +191,15 @@
             runStatus = "Completed";
             await JS.InvokeVoidAsync(
                 "meshViewer.setScene",
-                evaluator.Geometry.Points.Values.Select(point => new { point.Tag, point.X, point.Y, point.Z }),
+                evaluator.Geometry.Points.Values.Select(point => new
+                {
+                    point.Tag,
+                    point.X,
+                    point.Y,
+                    point.Z,
+                    point.MeshSize,
+                    PhysicalNames = point.PhysicalNames
+                }),
                 evaluator.Geometry.Curves.Values.Select(curve => new
                 {
                     curve.Tag,

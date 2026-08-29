@@ -92,17 +92,17 @@ h1 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.05; letter-
 h2 { margin: 0; font-size: .9rem; }
 
 .run-button {
-    min-height: 27px;
+    min-height: 23px;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     border: 1px solid #63e997;
-    border-radius: 6px;
-    padding: 0 8px;
+    border-radius: 5px;
+    padding: 0 6px;
     background: var(--accent-strong);
     color: #03140a;
     font-weight: 800;
-    font-size: .72rem;
+    font-size: .67rem;
     box-shadow: none;
     transition: background-color 180ms ease, box-shadow 180ms ease;
 }
@@ -111,8 +111,8 @@ h2 { margin: 0; font-size: .9rem; }
 .run-button.abort-button { border-color: #fda4af; background: #e11d48; color: #fff; }
 .run-button.abort-button:hover { background: #f43f5e; box-shadow: 0 0 0 2px rgba(244, 63, 94, .18); }
 .run-button:focus-visible, .diagnostic-row:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
-.run-button svg { width: 14px; height: 14px; fill: currentColor; }
-.run-button kbd { margin-left: 3px; border-left: 1px solid rgba(3, 20, 10, .28); padding-left: 6px; font: 600 .58rem "SFMono-Regular", Consolas, monospace; }
+.run-button svg { width: 11px; height: 11px; fill: currentColor; }
+.run-button kbd { margin-left: 2px; border-left: 1px solid rgba(3, 20, 10, .28); padding-left: 5px; font: 600 .54rem "SFMono-Regular", Consolas, monospace; }
 
 .editor-panel, .diagnostics-panel, .output-panel, .viewer-panel {
     min-height: 0;
@@ -232,8 +232,8 @@ h2 { margin: 0; font-size: .9rem; }
     font: var(--code-font);
     letter-spacing: normal;
     tab-size: 2;
-    white-space: pre;
-    overflow-wrap: normal;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
     word-break: normal;
     font-variant-ligatures: none;
 }
@@ -248,8 +248,7 @@ h2 { margin: 0; font-size: .9rem; }
 
 .highlight-layer code {
     display: block;
-    width: max-content;
-    min-width: 100%;
+    width: calc(100% - var(--editor-scrollbar-width, 0px));
     font: inherit;
     font-weight: 400;
     will-change: transform;
@@ -278,6 +277,20 @@ h2 { margin: 0; font-size: .9rem; }
     overflow: auto;
     scrollbar-gutter: stable;
     font-weight: 400;
+}
+
+.editor-line-measure {
+    position: fixed;
+    inset: auto auto 100% 100%;
+    visibility: hidden;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+    pointer-events: none;
 }
 
 .script-editor::selection { background: rgba(96, 165, 250, .32); }
@@ -422,7 +435,7 @@ h2 { margin: 0; font-size: .9rem; }
 .viewer-actions button:focus-visible, #mesh-viewer:focus-visible { outline: 3px solid #93c5fd; outline-offset: -3px; }
 
 .viewer-surface { position: relative; min-height: 0; overflow: hidden; background: #080f1b; }
-#mesh-viewer { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#mesh-viewer { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
 #mesh-viewer:active { cursor: grabbing; }
 .viewer-help {
     position: absolute;

@@ -23,4 +23,5 @@ public interface INodeVisitor<out TResult>
     TResult VisitPlaneSurfaceStatement(PlaneSurfaceStmt node);
     TResult VisitCurvesInSurfaceStatement(CurvesInSurfaceStmt node);
     TResult VisitMeshCommandStatement(MeshCommandStmt node);
+    TResult VisitPhysicalPointStatement(PhysicalPointStmt node);
 }

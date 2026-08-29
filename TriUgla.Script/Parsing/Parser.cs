@@ -49,6 +49,11 @@ public sealed class Parser
             return ParseForStatement();
         }
 
+        if (IsIdentifier("Physical") && IsIdentifier("Point", 1))
+        {
+            return ParsePhysicalPointStatement();
+        }
+
         if (Peek().Kind == TokenKind.LeftBrace)
         {
             return ParseBlock();
@@ -98,6 +103,25 @@ public sealed class Parser
         }
 
         return statement;
+    }
+
+    PhysicalPointStmt ParsePhysicalPointStatement()
+    {
+        Token physical = Read();
+        Token point = Read();
+        Token leftParenthesis = Expect(TokenKind.LeftParenthesis, "TS1039", "Expected '(' after 'Physical Point'.");
+        Expr name = ParseExpression();
+        Token rightParenthesis = Expect(TokenKind.RightParenthesis, "TS1040", "Expected ')' after the physical point name.");
+        Token equals = Expect(TokenKind.Equals, "TS1041", "Expected '=' after the physical point name.");
+        ListExpr points = Peek().Kind == TokenKind.LeftBrace
+            ? ParseList()
+            : new ListExpr(
+                Expect(TokenKind.LeftBrace, "TS1042", "Expected '{' before physical point tags."),
+                [],
+                Expect(TokenKind.RightBrace, "TS1043", "Expected '}' after physical point tags."));
+        Token semicolon = ReadStatementEnd(points.Span);
+        return new PhysicalPointStmt(
+            physical, point, leftParenthesis, name, rightParenthesis, equals, points, semicolon);
     }
 
     MeshCommandStmt ParseMeshCommandStatement()

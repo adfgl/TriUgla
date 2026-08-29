@@ -36,7 +36,7 @@
             <pre id="highlight-layer" class="highlight-layer" aria-hidden="true"><code id="highlight-code">@foreach (HighlightSegment segment in Model.Highlights)
                 {<span class="@segment.CssClass">@segment.Text</span>}</code></pre>
             <textarea id="script-editor" class="script-editor" value="@Model.Source"
-                      @oninput="SourceChanged" @onkeydown="KeyDown" wrap="off"
+                      @oninput="SourceChanged" @onkeydown="KeyDown" wrap="soft"
                       aria-label="Script source code" aria-describedby="diagnostics-title" spellcheck="false"></textarea>
             <div id="lexeme-tooltip" class="lexeme-tooltip" role="tooltip" hidden></div>
         </div>

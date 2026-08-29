@@ -247,3 +247,18 @@ public sealed record MeshCommandStmt(
     public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
         => visitor.VisitMeshCommandStatement(this);
 }
+
+public sealed record PhysicalPointStmt(
+    Token PhysicalKeyword,
+    Token PointKeyword,
+    Token LeftParenthesis,
+    Expr Name,
+    Token RightParenthesis,
+    Token EqualsToken,
+    ListExpr Points,
+    Token Semicolon)
+    : Stmt(TextSpan.FromBounds(PhysicalKeyword.Span, Semicolon.Span))
+{
+    public override TResult Accept<TResult>(INodeVisitor<TResult> visitor)
+        => visitor.VisitPhysicalPointStatement(this);
+}

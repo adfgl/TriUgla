@@ -40,6 +40,7 @@ public static class ScriptDocumentation
         Add(entries, "Progression", "Using Progression coefficient", "Uses a geometric progression for consecutive segment lengths.", "coefficient: finite number greater than 0; 1 gives uniform spacing");
         Add(entries, "Bump", "Using Bump coefficient", "Clusters transfinite nodes symmetrically toward or away from the curve ends.", "coefficient: finite number greater than 0; 1 gives uniform spacing");
         Add(entries, "All", "Transfinite Curve{All} = nodeCount;", "Selects all currently declared curves.");
+        Add(entries, "Physical", "Physical Point(\"name\") = {pointTags};", "Creates a named physical group containing existing geometric points. The name is retained for display and later mesh export.", "non-empty string name and one or more existing point tags");
         Add(entries, "Mesh", "Mesh dimension;  or  Mesh.option = value;", "Requests mesh generation or accesses the mesh-options object. Commands are recorded but not yet sent to TriUgla's mesher.", "dimension: integer 1, 2, or 3");
         Add(entries, "Coherence", "Coherence Mesh;", "Requests removal of duplicate mesh nodes. The command is recorded for later mesh integration.");
         Add(entries, "RenumberMeshNodes", "RenumberMeshNodes;", "Requests continuous renumbering of mesh-node tags.");

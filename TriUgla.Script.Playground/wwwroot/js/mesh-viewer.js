@@ -13,19 +13,21 @@ window.meshViewer = {
     center: { x: 0, y: 0, z: 0 },
     pointers: new Map(),
     gesture: null,
-
+    frame: 0,
     initialize(canvasId) {
-        if (this.canvas) return;
+        if (this.canvas)
+            return;
         this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) return;
+        if (!this.canvas)
+            return;
         this.context = this.canvas.getContext("2d");
-
         new ResizeObserver(() => this.resize()).observe(this.canvas);
         this.canvas.addEventListener("contextmenu", event => event.preventDefault());
         this.canvas.addEventListener("wheel", event => {
             event.preventDefault();
             const factor = Math.exp(-event.deltaY * .0012);
-            this.zoomAt(factor, event.offsetX, event.offsetY);
+            const position = this.pointerPosition(event);
+            this.zoomAt(factor, position.x, position.y);
         }, { passive: false });
         this.canvas.addEventListener("pointerdown", event => this.pointerDown(event));
         this.canvas.addEventListener("pointermove", event => this.pointerMove(event));
@@ -34,7 +36,6 @@ window.meshViewer = {
         this.canvas.addEventListener("keydown", event => this.keyDown(event));
         this.resize();
     },
-
     setScene(points, lines, surfaces, meshNodes) {
         this.points = points ?? [];
         this.lines = lines ?? [];
@@ -42,7 +43,6 @@ window.meshViewer = {
         this.meshNodes = meshNodes ?? [];
         this.fit();
     },
-
     reset() {
         this.yaw = -.65;
         this.pitch = .65;
@@ -50,9 +50,9 @@ window.meshViewer = {
         this.panY = 0;
         this.fit();
     },
-
     fit() {
-        if (!this.canvas) return;
+        if (!this.canvas)
+            return;
         if (this.points.length === 0) {
             this.center = { x: 0, y: 0, z: 0 };
             this.scale = 80;
@@ -61,7 +61,6 @@ window.meshViewer = {
             this.draw();
             return;
         }
-
         const xs = this.points.map(point => point.x);
         const ys = this.points.map(point => point.y);
         const zs = this.points.map(point => point.z);
@@ -78,9 +77,9 @@ window.meshViewer = {
         this.panY = 0;
         this.draw();
     },
-
     resize() {
-        if (!this.canvas) return;
+        if (!this.canvas)
+            return;
         const ratio = Math.min(window.devicePixelRatio || 1, 2);
         const width = Math.max(1, this.canvas.clientWidth);
         const height = Math.max(1, this.canvas.clientHeight);
@@ -89,60 +88,71 @@ window.meshViewer = {
         this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
         this.draw();
     },
-
     pointerDown(event) {
+        event.preventDefault();
         this.canvas.focus({ preventScroll: true });
         this.canvas.setPointerCapture(event.pointerId);
-        this.pointers.set(event.pointerId, { x: event.offsetX, y: event.offsetY, button: event.button, shift: event.shiftKey });
+        const position = this.pointerPosition(event);
+        this.pointers.set(event.pointerId, { ...position, button: event.button, shift: event.shiftKey });
         this.gesture = this.gestureState();
     },
-
     pointerMove(event) {
-        if (!this.pointers.has(event.pointerId)) return;
+        if (!this.pointers.has(event.pointerId))
+            return;
+        event.preventDefault();
+        const samples = event.getCoalescedEvents?.();
+        const sample = samples?.length ? samples[samples.length - 1] : event;
         const previous = this.gesture;
         const original = this.pointers.get(event.pointerId);
+        const position = this.pointerPosition(sample);
         this.pointers.set(event.pointerId, {
-            x: event.offsetX,
-            y: event.offsetY,
+            ...position,
             button: original.button,
-            shift: original.shift || event.shiftKey
+            shift: original.shift || sample.shiftKey
         });
         const current = this.gestureState();
         if (!previous) {
             this.gesture = current;
             return;
         }
-
         if (this.pointers.size > 1) {
             this.panX += current.x - previous.x;
             this.panY += current.y - previous.y;
-            if (previous.distance > 0) this.scale *= current.distance / previous.distance;
-        } else {
+            if (previous.distance > 0)
+                this.scale *= current.distance / previous.distance;
+        }
+        else {
             const pointer = [...this.pointers.values()][0];
             const dx = current.x - previous.x;
             const dy = current.y - previous.y;
             if (pointer.shift || pointer.button === 1 || pointer.button === 2) {
                 this.panX += dx;
                 this.panY += dy;
-            } else {
+            }
+            else {
                 this.yaw += dx * .009;
                 this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + dy * .009));
             }
         }
-
         this.gesture = current;
         this.draw();
     },
-
     pointerUp(event) {
+        if (this.canvas.hasPointerCapture(event.pointerId))
+            this.canvas.releasePointerCapture(event.pointerId);
         this.pointers.delete(event.pointerId);
         this.gesture = this.gestureState();
     },
-
+    pointerPosition(event) {
+        const bounds = this.canvas.getBoundingClientRect();
+        return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    },
     gestureState() {
         const values = [...this.pointers.values()];
-        if (values.length === 0) return null;
-        if (values.length === 1) return { x: values[0].x, y: values[0].y, distance: 0 };
+        if (values.length === 0)
+            return null;
+        if (values.length === 1)
+            return { x: values[0].x, y: values[0].y, distance: 0 };
         const dx = values[1].x - values[0].x;
         const dy = values[1].y - values[0].y;
         return {
@@ -151,24 +161,27 @@ window.meshViewer = {
             distance: Math.hypot(dx, dy)
         };
     },
-
     keyDown(event) {
         const handled = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "+", "=", "-", "0"].includes(event.key);
-        if (!handled) return;
+        if (!handled)
+            return;
         event.preventDefault();
-        if (event.key === "0") return this.reset();
-        if (event.key === "+" || event.key === "=") this.scale *= 1.12;
-        else if (event.key === "-") this.scale /= 1.12;
+        if (event.key === "0")
+            return this.reset();
+        if (event.key === "+" || event.key === "=")
+            this.scale *= 1.12;
+        else if (event.key === "-")
+            this.scale /= 1.12;
         else if (event.shiftKey) {
             this.panX += event.key === "ArrowLeft" ? -16 : event.key === "ArrowRight" ? 16 : 0;
             this.panY += event.key === "ArrowUp" ? -16 : event.key === "ArrowDown" ? 16 : 0;
-        } else {
+        }
+        else {
             this.yaw += event.key === "ArrowLeft" ? -.08 : event.key === "ArrowRight" ? .08 : 0;
             this.pitch += event.key === "ArrowUp" ? -.08 : event.key === "ArrowDown" ? .08 : 0;
         }
         this.draw();
     },
-
     zoomAt(factor, x, y) {
         const oldScale = this.scale;
         this.scale = Math.max(2, Math.min(100000, this.scale * factor));
@@ -177,7 +190,6 @@ window.meshViewer = {
         this.panY = y - this.canvas.clientHeight / 2 - (y - this.canvas.clientHeight / 2 - this.panY) * actual;
         this.draw();
     },
-
     project(point) {
         const x = point.x - this.center.x;
         const y = point.y - this.center.y;
@@ -195,9 +207,17 @@ window.meshViewer = {
             depth: sp * z + cp * rotatedY
         };
     },
-
     draw() {
-        if (!this.context || !this.canvas) return;
+        if (this.frame)
+            return;
+        this.frame = requestAnimationFrame(() => {
+            this.frame = 0;
+            this.render();
+        });
+    },
+    render() {
+        if (!this.context || !this.canvas)
+            return;
         const ctx = this.context;
         const width = this.canvas.clientWidth;
         const height = this.canvas.clientHeight;
@@ -205,7 +225,6 @@ window.meshViewer = {
         ctx.fillStyle = "#080f1b";
         ctx.fillRect(0, 0, width, height);
         this.drawGrid(ctx);
-
         if (this.points.length === 0) {
             ctx.fillStyle = "#64748b";
             ctx.font = "12px system-ui";
@@ -213,11 +232,9 @@ window.meshViewer = {
             ctx.fillText("Run a script with Point and Line primitives", width / 2, height / 2);
             return;
         }
-
         const byTag = new Map(this.points.map(point => [point.tag, point]));
         const linesByTag = new Map(this.lines.map(line => [line.tag, line]));
         this.drawSurfaces(ctx, byTag, linesByTag);
-
         ctx.lineCap = "round";
         ctx.lineWidth = 2.6;
         ctx.strokeStyle = "#7dd3fc";
@@ -225,7 +242,8 @@ window.meshViewer = {
         ctx.shadowBlur = 4;
         for (const line of this.lines) {
             const path = (line.path ?? []).map(point => this.project(point));
-            if (path.length < 2) continue;
+            if (path.length < 2)
+                continue;
             ctx.beginPath();
             ctx.moveTo(path[0].x, path[0].y);
             for (let index = 1; index < path.length; index++) {
@@ -235,7 +253,6 @@ window.meshViewer = {
         }
         ctx.shadowColor = "transparent";
         ctx.shadowBlur = 0;
-
         const projectedMeshNodes = this.meshNodes
             .map(node => this.project(node))
             .sort((a, b) => a.depth - b.depth);
@@ -248,7 +265,6 @@ window.meshViewer = {
             ctx.lineWidth = 1;
             ctx.stroke();
         }
-
         const projected = this.points
             .map(point => ({ point, screen: this.project(point) }))
             .sort((a, b) => a.screen.depth - b.screen.depth);
@@ -263,29 +279,38 @@ window.meshViewer = {
             ctx.fillStyle = "#f8fafc";
             ctx.font = "600 11px ui-monospace, monospace";
             ctx.textAlign = "left";
-            ctx.fillText(String(item.point.tag), item.screen.x + 7, item.screen.y - 6);
+            const names = item.point.physicalNames ?? [];
+            const identity = names.length ? `${names.join(", ")} [${item.point.tag}]` : String(item.point.tag);
+            ctx.fillText(identity, item.screen.x + 7, item.screen.y - 6);
+            if (names.length) {
+                ctx.fillStyle = "#a8b4c7";
+                ctx.font = "10px ui-monospace, monospace";
+                const meshSize = item.point.meshSize == null ? "auto" : item.point.meshSize;
+                ctx.fillText(
+                    `(${item.point.x}, ${item.point.y}, ${item.point.z})  size ${meshSize}`,
+                    item.screen.x + 7,
+                    item.screen.y + 7);
+            }
         }
     },
-
     drawSurfaces(ctx, pointsByTag, linesByTag) {
         const projectedSurfaces = this.surfaces
             .map(surface => ({
-                surface,
-                loops: (surface.loops ?? [])
-                    .map(loop => this.surfaceLoopPoints(loop, linesByTag))
-                    .filter(points => points.length >= 3)
-            }))
+            surface,
+            loops: (surface.loops ?? [])
+                .map(loop => this.surfaceLoopPoints(loop, linesByTag))
+                .filter(points => points.length >= 3)
+        }))
             .filter(item => item.loops.length > 0)
             .map(item => ({
-                ...item,
-                projected: item.loops.map(loop => loop.map(point => this.project(point)))
-            }))
+            ...item,
+            projected: item.loops.map(loop => loop.map(point => this.project(point)))
+        }))
             .sort((a, b) => {
-                const depth = item => item.projected.flat().reduce((sum, point) => sum + point.depth, 0) /
-                    item.projected.flat().length;
-                return depth(a) - depth(b);
-            });
-
+            const depth = item => item.projected.flat().reduce((sum, point) => sum + point.depth, 0) /
+                item.projected.flat().length;
+            return depth(a) - depth(b);
+        });
         for (const item of projectedSurfaces) {
             ctx.beginPath();
             for (const loop of item.projected) {
@@ -300,18 +325,17 @@ window.meshViewer = {
             ctx.fill("evenodd");
         }
     },
-
     surfaceLoopPoints(orientedTags, linesByTag) {
         const points = [];
         for (const orientedTag of orientedTags ?? []) {
             const curve = linesByTag.get(Math.abs(orientedTag));
-            if (!curve?.path?.length) return [];
+            if (!curve?.path?.length)
+                return [];
             const path = orientedTag < 0 ? [...curve.path].reverse() : curve.path;
             points.push(...(points.length === 0 ? path : path.slice(1)));
         }
         return points;
     },
-
     drawGrid(ctx) {
         const extent = this.points.length
             ? Math.max(...this.points.flatMap(point => [Math.abs(point.x - this.center.x), Math.abs(point.y - this.center.y)]), 1)
@@ -325,8 +349,14 @@ window.meshViewer = {
             const yStart = this.project({ x: this.center.x - size, y: this.center.y + value, z: 0 });
             const yEnd = this.project({ x: this.center.x + size, y: this.center.y + value, z: 0 });
             ctx.strokeStyle = Math.abs(value) < step * .1 ? "#475569" : "#1c293b";
-            ctx.beginPath(); ctx.moveTo(xStart.x, xStart.y); ctx.lineTo(xEnd.x, xEnd.y); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(yStart.x, yStart.y); ctx.lineTo(yEnd.x, yEnd.y); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(xStart.x, xStart.y);
+            ctx.lineTo(xEnd.x, xEnd.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(yStart.x, yStart.y);
+            ctx.lineTo(yEnd.x, yEnd.y);
+            ctx.stroke();
         }
     }
 };

@@ -11,6 +11,7 @@ public sealed class GeometryModel
     readonly Dictionary<int, ScriptCurveLoop> _curveLoops = [];
     readonly Dictionary<int, TransfiniteCurveConstraint> _transfiniteCurves = [];
     readonly Dictionary<int, ScriptPlaneSurface> _planeSurfaces = [];
+    readonly Dictionary<string, ScriptPhysicalPointGroup> _physicalPoints = new(StringComparer.Ordinal);
     readonly ReadOnlyDictionary<int, ScriptPoint> _readOnlyPoints;
     readonly ReadOnlyDictionary<int, ScriptLine> _readOnlyLines;
     readonly ReadOnlyDictionary<int, ScriptCurve> _readOnlyCurves;
@@ -34,6 +35,7 @@ public sealed class GeometryModel
     public IReadOnlyDictionary<int, ScriptCurveLoop> CurveLoops => _readOnlyCurveLoops;
     public IReadOnlyDictionary<int, TransfiniteCurveConstraint> TransfiniteCurves => _readOnlyTransfiniteCurves;
     public IReadOnlyDictionary<int, ScriptPlaneSurface> PlaneSurfaces => _readOnlyPlaneSurfaces;
+    public IReadOnlyDictionary<string, ScriptPhysicalPointGroup> PhysicalPoints => _physicalPoints;
 
     public ScriptPoint AddPoint(int tag, double x, double y, double z, double? meshSize = null)
     {
@@ -46,6 +48,25 @@ public sealed class GeometryModel
         var point = new ScriptPoint(tag, x, y, z, meshSize);
         _points.Add(tag, point);
         return point;
+    }
+
+    public ScriptPhysicalPointGroup AddPhysicalPointGroup(string name, IReadOnlyList<int> pointTags)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException("Physical Point name cannot be empty.");
+        if (_physicalPoints.ContainsKey(name))
+            throw new InvalidOperationException($"Physical Point '{name}' is already declared.");
+        if (pointTags.Count == 0)
+            throw new InvalidOperationException($"Physical Point '{name}' requires at least one point tag.");
+
+        ScriptPoint[] points = pointTags.Select(tag => _points.TryGetValue(tag, out ScriptPoint? point)
+            ? point
+            : throw new InvalidOperationException(
+                $"Physical Point '{name}' references Point({tag}), but it is not declared.")).ToArray();
+        var group = new ScriptPhysicalPointGroup(name, points);
+        _physicalPoints.Add(name, group);
+        foreach (ScriptPoint point in points) point.AddPhysicalName(name);
+        return group;
     }
 
     public ScriptLine AddLine(int tag, int startPointTag, int endPointTag)
@@ -301,11 +322,15 @@ public sealed class ScriptPoint(
     double z,
     double? meshSize) : ScriptObject
 {
+    readonly List<string> _physicalNames = [];
     public int Tag { get; } = tag;
     public double X { get; } = x;
     public double Y { get; } = y;
     public double Z { get; } = z;
     public double? MeshSize { get; } = meshSize;
+    public IReadOnlyList<string> PhysicalNames => _physicalNames;
+
+    internal void AddPhysicalName(string name) => _physicalNames.Add(name);
 
     public override string ToString()
     {
@@ -318,6 +343,15 @@ public sealed class ScriptPoint(
 
         return $"Point({Tag}) = {{{values}}};";
     }
+}
+
+public sealed class ScriptPhysicalPointGroup(string name, IReadOnlyList<ScriptPoint> points) : ScriptObject
+{
+    public string Name { get; } = name;
+    public IReadOnlyList<ScriptPoint> Points { get; } = points;
+
+    public override string ToString()
+        => $"Physical Point(\"{Name}\") = {{{string.Join(", ", Points.Select(point => point.Tag))}}};";
 }
 
 public readonly record struct CurvePosition(double X, double Y, double Z)

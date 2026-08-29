@@ -102,6 +102,11 @@ public sealed class SemanticAnalyzer
             case MeshCommandStmt meshCommand when meshCommand.Dimension is not null:
                 AnalyzeExpression(meshCommand.Dimension);
                 break;
+
+            case PhysicalPointStmt physicalPoint:
+                AnalyzeExpression(physicalPoint.Name);
+                AnalyzeExpression(physicalPoint.Points);
+                break;
         }
     }
 
