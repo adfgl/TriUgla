@@ -87,6 +87,7 @@ public static class ScriptDocumentation
         AddOption(entries, "CharacteristicLengthExtendFromBoundary", "Extends boundary characteristic lengths into surface interiors.", "0 = disabled, 1 = enabled");
         AddOption(entries, "CharacteristicLengthMin", "Sets the lower bound for generated element size.", "finite number greater than or equal to 0");
         AddOption(entries, "CharacteristicLengthMax", "Sets the upper bound for generated element size.", "finite number greater than or equal to 0");
+        AddOption(entries, "RefinementContinueOnStagnation", "Keeps retrying non-improving faces instead of applying the face-progress stop. The Steiner limit and user cancellation still stop refinement.", "0 = stop after the stagnation allowance, 1 = continue");
         AddOption(entries, "SubdivisionAlgorithm", "Selects the algorithm used to subdivide generated elements.", "integer Gmsh subdivision algorithm code; 0 = none");
         AddOption(entries, "RecombinationAlgorithm", "Selects the triangle-to-quadrangle recombination algorithm.", "integer Gmsh recombination algorithm code");
         AddOption(entries, "RecombineAll", "Requests recombination on every eligible surface.", "0 = disabled, 1 = enabled");

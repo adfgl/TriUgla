@@ -1,5 +1,15 @@
 namespace TriUgla;
 
+/// <summary>
+/// Ruppert-style constrained Delaunay refinement: encroached subsegments are
+/// bisected before bad triangles, and a bad triangle's circumcenter is inserted
+/// only when it does not encroach upon a visible constrained subsegment.
+/// </summary>
+/// <remarks>
+/// Dwyer's divide-and-conquer work concerns construction of the initial Delaunay
+/// triangulation; the refinement ordering implemented here is Ruppert's segment-
+/// before-triangle priority. Robust signs are delegated to <see cref="IGeometry"/>.
+/// </remarks>
 public sealed class MeshRefiner(
     IGeometry geometry,
     IMeshLocator locator,
@@ -13,7 +23,7 @@ public sealed class MeshRefiner(
     readonly HashSet<Edge> _queuedEdges = new(ReferenceEqualityComparer.Instance);
     readonly Queue<Face> _faceQueue = new();
     readonly HashSet<Face> _queuedFaces = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<Face, FaceProgress> _progress = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<Face, FaceProgress> _faceProgress = new(ReferenceEqualityComparer.Instance);
 
     public int Refine(
         IEnumerable<Face> faces,
@@ -98,15 +108,15 @@ public sealed class MeshRefiner(
         if (!Processable(face)) return false;
 
         double badness = ranker.Rank(face);
-        if (badness <= 0d || !ShouldRequeueFace(face, badness, settings)) return false;
+        if (badness <= 0d) return false;
+        if (!ShouldProcessFace(face, badness, settings)) return false;
         if (!TryCircumcenter(face, out Vec2 candidate)) return false;
 
         LocateResult hit = locator.Locate(candidate, face);
-        if (hit.IsEmpty)
-        {
-            EnqueueFace(face);
-            return false;
-        }
+        // A numerically degenerate face can yield a finite circumcenter just
+        // outside the represented topology. It is not a fatal mesh error: leave
+        // the face unchanged and let progress policy decide future attempts.
+        if (hit.IsEmpty) return false;
 
         if (EnqueueEncroached(candidate) > 0)
         {
@@ -158,7 +168,9 @@ public sealed class MeshRefiner(
     {
         foreach (Node node in traversal.Nodes())
         {
-            if (!edge.Contains(node) && Encroached(edge, node.Position)) return true;
+            if (!edge.Contains(node) &&
+                Encroached(edge, node.Position) &&
+                VisibleFromInterior(edge, node.Position)) return true;
         }
         return false;
     }
@@ -173,14 +185,18 @@ public sealed class MeshRefiner(
             if (Processable(face))
             {
                 double badness = ranker.Rank(face);
-                if (badness > 0d && ShouldRequeueFace(face, badness, settings)) EnqueueFace(face);
+                if (badness > 0d) EnqueueFace(face);
             }
 
-            foreach (Edge edge in face.Edges)
-            {
-                if (!edge.OrTwinConstrained || !AddSegment(edge)) continue;
-                if (EncroachedInvariant(edge)) EnqueueEdge(edge);
-            }
+        }
+
+        // Segment protection is global even when callers refine only a subset of
+        // faces. A rejected circumcenter may encroach any visible PSLG subsegment,
+        // including one whose incident faces were not selected for quality work.
+        foreach (Edge edge in traversal.Edges())
+        {
+            if (!edge.OrTwinConstrained || !AddSegment(edge)) continue;
+            if (EncroachedInvariant(edge)) EnqueueEdge(edge);
         }
     }
 
@@ -231,27 +247,31 @@ public sealed class MeshRefiner(
         {
             if (!Processable(face)) continue;
             double badness = ranker.Rank(face);
-            if (badness > 0d && ShouldRequeueFace(face, badness, settings)) EnqueueFace(face);
+            if (badness > 0d) EnqueueFace(face);
         }
     }
 
-    bool ShouldRequeueFace(Face face, double badness, in RefineSettings settings)
+    bool ShouldProcessFace(Face face, double badness, in RefineSettings settings)
     {
-        if (!_progress.TryGetValue(face, out FaceProgress progress))
+        // Record progress only when a face is actually dequeued. Queue discovery
+        // must not consume its first attempt. Face objects are intentionally reused
+        // by topology operations, so an improvement resets their stagnation count.
+        if (!_faceProgress.TryGetValue(face, out FaceProgress progress))
         {
-            _progress.Add(face, new FaceProgress(badness, 0));
+            _faceProgress.Add(face, new FaceProgress(badness, 0));
             return true;
         }
 
         if (badness + settings.ImproveEps < progress.BestBadness)
         {
-            _progress[face] = new FaceProgress(badness, 0);
+            _faceProgress[face] = new FaceProgress(badness, 0);
             return true;
         }
 
         progress = progress with { Stagnation = progress.Stagnation + 1 };
-        _progress[face] = progress;
-        return progress.Stagnation <= settings.FaceStagnationBudget;
+        _faceProgress[face] = progress;
+        return settings.ContinueOnFaceStagnation ||
+               progress.Stagnation <= settings.FaceStagnationBudget;
     }
 
     bool EnqueueEdge(Edge edge)
@@ -297,7 +317,7 @@ public sealed class MeshRefiner(
         _queuedEdges.Clear();
         _faceQueue.Clear();
         _queuedFaces.Clear();
-        _progress.Clear();
+        _faceProgress.Clear();
     }
 
     static Vec2 Candidate(Edge edge)

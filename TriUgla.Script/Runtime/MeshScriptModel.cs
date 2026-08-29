@@ -18,6 +18,7 @@ public sealed class MeshScriptModel : ScriptObject
         "ElementOrder",
         "RecombinationAlgorithm",
         "RecombineAll",
+        "RefinementContinueOnStagnation",
         "SecondOrderIncomplete",
         "SubdivisionAlgorithm"
     ];

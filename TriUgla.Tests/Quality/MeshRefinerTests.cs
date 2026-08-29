@@ -36,6 +36,20 @@ public class MeshRefinerTests
     }
 
     [Fact]
+    public void RefineAlwaysAllowsFirstFaceAttemptWhenStagnationBudgetIsZero()
+    {
+        Fixture fixture = CreateFixture();
+
+        int inserted = fixture.Refiner.Refine(
+            [fixture.Face],
+            AreaRanker(1),
+            new RefineSettings(1, 0, 0));
+
+        Assert.Equal(1, inserted);
+        Assert.Equal(4, fixture.Traversal.Nodes().Count());
+    }
+
+    [Fact]
     public void EncroachedDetectsNodeInsideDiameterCircle()
     {
         Fixture fixture = CreateFixture(new Vec2(1, 0.1));
@@ -77,6 +91,41 @@ public class MeshRefinerTests
             node => node.Position == new Vec2(1, 1));
         Assert.True(midpoint.Constrained);
         Assert.Equal(1, bc.ConstraintCount);
+    }
+
+    [Fact]
+    public void CircumcenterThatEncroachesSegmentIsRejectedAndSegmentIsSplitFirst()
+    {
+        Node a = new() { Position = new Vec2(0, 2) };
+        Node b = new() { Position = new Vec2(-1, 0) };
+        Node c = new() { Position = new Vec2(1, 0) };
+        Node d = new() { Position = new Vec2(0, -2) };
+        Edge ab = new();
+        Edge bc = new();
+        Edge ca = new();
+        Edge cb = new();
+        Edge bd = new();
+        Edge dc = new();
+        Face first = new();
+        Face second = new();
+        Linker.LinkTriangle(first, ab, bc, ca, a, b, c);
+        Linker.LinkTriangle(second, cb, bd, dc, c, b, d);
+        Linker.LinkTwins(bc, cb);
+        bc.Constrain(EdgeConstraintKind.Boundary);
+        Fixture fixture = CreateFixture(first);
+
+        int inserted = fixture.Refiner.Refine(
+            [first, second],
+            AreaRanker(1),
+            new RefineSettings(1, 0, 0));
+
+        Assert.Equal(1, inserted);
+        Assert.Contains(
+            fixture.Traversal.Nodes(),
+            node => node.Position == Vec2.Zero && node.Constrained);
+        Assert.DoesNotContain(
+            fixture.Traversal.Nodes(),
+            node => node.Position == new Vec2(0, 0.75));
     }
 
     [Fact]

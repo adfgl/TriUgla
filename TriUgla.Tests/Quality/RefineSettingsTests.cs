@@ -10,6 +10,7 @@ public class RefineSettingsTests
         Assert.Equal(1_000_000, settings.MaxSteiners);
         Assert.Equal(8, settings.FaceStagnationBudget);
         Assert.Equal(1e-4, settings.ImproveEps);
+        Assert.False(settings.ContinueOnFaceStagnation);
     }
 
     [Fact]
@@ -18,5 +19,13 @@ public class RefineSettingsTests
         RefineSettings settings = new(10, 3, 1e-6);
 
         Assert.Equal(new RefineSettings(10, 3, 1e-6), settings);
+    }
+
+    [Fact]
+    public void CanExplicitlyContinueWhenFaceProgressStagnates()
+    {
+        RefineSettings settings = new(10, 3, 1e-6, true);
+
+        Assert.True(settings.ContinueOnFaceStagnation);
     }
 }

@@ -10,54 +10,19 @@
         </div>
     </header>
 
-    <div class="dock-layout" aria-label="Dockable workspace">
-    <div class="dock-host dock-top" data-dock="top">
-        <div class="dock-tabs" role="tablist" aria-label="Top panels"></div>
-        <div class="dock-content"></div>
-    </div>
-
-    <div class="dock-splitter dock-top-splitter" data-resize-dock="top" role="separator" tabindex="0"
-         aria-label="Resize top dock" aria-orientation="horizontal"></div>
-
-    <div class="dock-host dock-left" data-dock="left">
-        <div class="dock-tabs" role="tablist" aria-label="Left panels"></div>
-        <div class="dock-content"></div>
-    </div>
-
-    <div class="dock-splitter dock-left-splitter" data-resize-dock="left" role="separator" tabindex="0"
-         aria-label="Resize left dock" aria-orientation="vertical"></div>
-
-    <div class="dock-host dock-center" data-dock="center">
-        <div class="dock-tabs" role="tablist" aria-label="Center panels"></div>
-        <div class="dock-content">
+    <div class="workspace-layout" aria-label="Script and mesh workspace">
+        <div class="workspace-column workspace-left">
             <EditorPanel Model="editor" IsRunning="isRunning" HasRun="hasRun" Status="@runStatus"
                          ElapsedText="@ElapsedText" RunRequested="HandleRunButton"
                          StopRequested="StopScript" CommentRequested="CommentSelection" UncommentRequested="UncommentSelection"
                          SourceChanged="UpdateSource" KeyDown="HandleEditorKeyDown" />
-        </div>
-    </div>
-
-    <div class="dock-splitter dock-right-splitter" data-resize-dock="right" role="separator" tabindex="0"
-         aria-label="Resize right dock" aria-orientation="vertical"></div>
-
-    <div class="dock-host dock-right" data-dock="right">
-        <div class="dock-tabs" role="tablist" aria-label="Right panels"></div>
-        <div class="dock-content">
-            <ViewerPanel />
-        </div>
-    </div>
-
-    <div class="dock-splitter dock-bottom-splitter" data-resize-dock="bottom" role="separator" tabindex="0"
-         aria-label="Resize bottom dock" aria-orientation="horizontal"></div>
-
-    <div class="dock-host dock-bottom" data-dock="bottom">
-        <div class="dock-tabs" role="tablist" aria-label="Bottom panels"></div>
-        <div class="dock-content">
             <DiagnosticsPanel Items="diagnostics" Selected="GoToDiagnostic" />
-            <OutputPanel Output="@output" Status="@runStatus" Failed="runtimeFailed" />
-            <NamedEntitiesPanel Items="namedPoints" />
         </div>
-    </div>
+
+        <div class="workspace-column workspace-right">
+            <ViewerPanel />
+            <OutputPanel Output="@output" Status="@runStatus" Failed="runtimeFailed" />
+        </div>
     </div>
 </main>
 
@@ -179,7 +144,6 @@
         _ = UpdateElapsedAsync();
         StateHasChanged();
 
-        await JS.InvokeVoidAsync("dockInterop.reveal", "output");
         SyntaxTree tree = Analyze();
         if (tree.HasErrors)
         {
@@ -216,10 +180,6 @@
                 .OrderBy(point => point.Name, StringComparer.Ordinal)
                 .ThenBy(point => point.Tag)
                 .ToArray();
-            if (namedPoints.Count > 0)
-            {
-                await JS.InvokeVoidAsync("dockInterop.reveal", "entities");
-            }
             await JS.InvokeVoidAsync(
                 "meshViewer.setScene",
                 evaluator.Geometry.Points.Values.Select(point => new
@@ -335,7 +295,6 @@
                     ["Mesh"] = new MeshScriptModel().PropertyNames
                 };
                 await JS.InvokeVoidAsync("editorInterop.initialize", "script-editor", scriptObjects);
-                await JS.InvokeVoidAsync("dockInterop.initialize", ".workspace");
                 await JS.InvokeVoidAsync("meshViewer.initialize", "mesh-viewer");
             }
             catch (Exception exception)
@@ -362,7 +321,6 @@
 
     async Task GoToDiagnostic(Diagnostic diagnostic)
     {
-        await JS.InvokeVoidAsync("dockInterop.reveal", "editor");
         await JS.InvokeVoidAsync(
             "editorInterop.selectRange",
             "script-editor",

@@ -202,7 +202,11 @@ public static class ScriptMesher
         (FaceRanker ranker, int budget) = RefinementPlan(geometry, options, positions);
         return mesher.Refine(
             ranker,
-            new RefineSettings(budget, 8, 1e-4),
+            new RefineSettings(
+                budget,
+                8,
+                1e-4,
+                Option(options, "RefinementContinueOnStagnation") != 0d),
             cancellationToken);
     }
 
@@ -241,7 +245,11 @@ public static class ScriptMesher
         (FaceRanker ranker, int budget) = RefinementPlan(geometry, options, positions);
         return await mesher.RefineAsync(
             ranker,
-            new RefineSettings(budget, 8, 1e-4),
+            new RefineSettings(
+                budget,
+                8,
+                1e-4,
+                Option(options, "RefinementContinueOnStagnation") != 0d),
             cancellationToken);
     }
 

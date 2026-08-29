@@ -25,8 +25,6 @@ body {
     font-size: 16px;
 }
 
-body.resizing-panes { user-select: none; }
-
 .loading,
 .startup-error {
     min-height: 100dvh;
@@ -56,16 +54,12 @@ button, textarea { font: inherit; }
 button { cursor: pointer; }
 
 .workspace {
-    --editor-width: 62%;
-    --diagnostics-height: 24%;
-    --output-height: 24%;
     width: min(1180px, calc(100% - 32px));
     height: 100dvh;
     margin: 0 auto;
     padding: 16px 0;
     display: grid;
-    grid-template-columns: minmax(0, var(--editor-width)) 10px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) 10px minmax(64px, var(--output-height)) 10px minmax(0, var(--diagnostics-height));
+    grid-template-rows: auto minmax(0, 1fr);
     overflow: hidden;
 }
 
@@ -143,41 +137,21 @@ h2 { margin: 0; font-size: .9rem; }
     box-shadow: 0 22px 60px rgba(0, 0, 0, .18);
 }
 
-.editor-panel { grid-column: 1; grid-row: 2 / 5; }
-.viewer-panel { grid-column: 3; grid-row: 2; }
-.output-panel { grid-column: 3; grid-row: 4; }
-.diagnostics-panel { grid-column: 1 / -1; grid-row: 6; }
-
-.pane-splitter {
-    position: relative;
-    z-index: 5;
-    border-radius: 99px;
-    outline: none;
-    touch-action: none;
+.workspace-layout {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
 }
 
-.pane-splitter::before {
-    content: "";
-    position: absolute;
-    border-radius: inherit;
-    background: transparent;
-    transition: background-color 180ms ease, box-shadow 180ms ease;
+.workspace-column {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 3fr) minmax(120px, 1fr);
+    gap: 12px;
 }
-
-.pane-splitter::after { content: ""; position: absolute; }
-.vertical-splitter::after { inset: 0 -16px; }
-.horizontal-splitter::after, .right-horizontal-splitter::after { inset: -16px 0; }
-
-.pane-splitter:hover::before,
-.pane-splitter.dragging::before { background: transparent; }
-.pane-splitter:focus-visible::before { background: rgba(147, 197, 253, .55); box-shadow: 0 0 0 2px rgba(147, 197, 253, .2); }
-
-.vertical-splitter { grid-column: 2; grid-row: 2 / 5; cursor: col-resize; }
-.vertical-splitter::before { inset: 0 3px; }
-.horizontal-splitter { grid-column: 1 / -1; grid-row: 5; cursor: row-resize; }
-.horizontal-splitter::before { inset: 3px 0; }
-.right-horizontal-splitter { grid-column: 3; grid-row: 3; cursor: row-resize; }
-.right-horizontal-splitter::before { inset: 3px 0; }
 
 .editor-panel, .diagnostics-panel, .output-panel, .viewer-panel, .entities-panel {
     display: grid;
@@ -195,10 +169,6 @@ h2 { margin: 0; font-size: .9rem; }
     color: var(--muted);
     font-size: .76rem;
 }
-.panel-bar.dock-drag-handle { cursor: grab; touch-action: none; }
-.panel-bar.dock-drag-handle:active { cursor: grabbing; }
-.panel-bar.dock-drag-handle button { cursor: pointer; }
-
 .file-name { display: flex; align-items: center; gap: 9px; color: #dce5f2; font: 600 .8rem "SFMono-Regular", Consolas, monospace; }
 .editor-actions { display: flex; align-items: center; gap: 12px; }
 .execution-time { color: #a7f3d0; font: 600 .7rem "SFMono-Regular", Consolas, monospace; white-space: nowrap; }
@@ -517,7 +487,9 @@ h2 { margin: 0; font-size: .9rem; }
 #blazor-error-ui a { color: #fff; }
 
 @media (max-width: 640px) {
-    .workspace { --editor-width: 58%; --diagnostics-height: 20%; --output-height: 22%; width: min(100% - 16px, 1180px); padding: 8px 0; grid-template-columns: minmax(0, var(--editor-width)) 8px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) 8px minmax(56px, var(--output-height)) 8px minmax(0, var(--diagnostics-height)); }
+    .workspace { width: calc(100% - 16px); padding: 8px 0; }
+    .workspace-layout, .workspace-column { gap: 8px; }
+    .workspace-column { grid-template-rows: minmax(0, 3fr) minmax(96px, 1fr); }
     .app-header { align-items: center; gap: 10px; }
     .eyebrow { margin-bottom: 3px; font-size: .62rem; }
     h1 { font-size: 1.3rem; }
@@ -538,7 +510,8 @@ h2 { margin: 0; font-size: .9rem; }
 }
 
 @media (max-height: 600px) {
-    .workspace { --diagnostics-height: 18%; --output-height: 20%; padding: 6px 0; }
+    .workspace { padding: 6px 0; }
+    .workspace-column { grid-template-rows: minmax(0, 4fr) minmax(72px, 1fr); }
     .eyebrow { display: none; }
     h1 { font-size: 1.2rem; }
     .run-button { min-height: 40px; }

@@ -1,4 +1,4 @@
-<section class="viewer-panel dock-panel" data-panel-id="viewer" data-panel-title="3D View" aria-labelledby="viewer-title">
+<section class="viewer-panel" aria-labelledby="viewer-title">
     <div class="panel-bar viewer-bar">
         <div><h2 id="viewer-title">3D view</h2><span class="camera-label">Orthographic orbit camera</span></div>
         <div class="viewer-actions">
@@ -7,7 +7,7 @@
         </div>
     </div>
     <div class="viewer-surface">
-        <canvas id="mesh-viewer" tabindex="0" aria-label="Orthographic 3D mesh view. Drag to rotate, Shift-drag to pan, and scroll to zoom."></canvas>
+        <canvas id="mesh-viewer" tabindex="0" aria-label="Orthographic 3D mesh view. Use the pointer to rotate, Shift or the right pointer button to pan, and scroll to zoom."></canvas>
         <div class="mesh-legend" role="group" aria-label="Toggle mesh face types">
             <button type="button" data-face-kind="Island" aria-pressed="true"
                     onclick="meshViewer.toggleFaceKind('Island')" title="Show or hide island triangles">
@@ -22,6 +22,6 @@
                 <i class="face-outside" aria-hidden="true"></i>Outside
             </button>
         </div>
-        <div class="viewer-help" aria-hidden="true">Drag rotate · Shift/right drag pan · Scroll zoom</div>
+        <div class="viewer-help" aria-hidden="true">Pointer rotate · Shift/right pointer pan · Scroll zoom</div>
     </div>
 </section>

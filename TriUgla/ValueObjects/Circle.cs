@@ -58,16 +58,29 @@ public readonly struct Circle(Vec2 center, double radiusSquared)
         double dy13 = first.Y - third.Y;
         double dx23 = second.X - third.X;
         double dy23 = second.Y - third.Y;
-        double s1 = -(dx13 * dx13 + dy13 * dy13);
-        double s2 = -(dx23 * dx23 + dy23 * dy23);
-        double determinant = Determinant(dx13, dy13, dx23, dy23);
+        double scale = Math.Max(
+            Math.Max(Math.Abs(dx13), Math.Abs(dy13)),
+            Math.Max(Math.Abs(dx23), Math.Abs(dy23)));
+        if (scale == 0d || !double.IsFinite(scale))
+            return new Circle(Vec2.Make(double.NaN), double.NaN);
 
-        // These are twice the offsets from the third point to the center, with
-        // signs inherited from the expanded equal-distance equations.
-        double doubledCenterOffsetX = Determinant(s1, dy13, s2, dy23) / determinant;
-        double doubledCenterOffsetY = Determinant(dx13, s1, dx23, s2) / determinant;
-        double centerX = third.X - doubledCenterOffsetX * 0.5d;
-        double centerY = third.Y - doubledCenterOffsetY * 0.5d;
+        // Translation avoids cancellation from absolute coordinates; scaling
+        // conditions the determinant and prevents squaring from overflowing or
+        // underflowing. The final offsets are restored to the input scale.
+        double ax = dx13 / scale;
+        double ay = dy13 / scale;
+        double bx = dx23 / scale;
+        double by = dy23 / scale;
+        double determinant = 2d * Determinant(ax, ay, bx, by);
+        if (determinant == 0d)
+            return new Circle(Vec2.Make(double.NaN), double.NaN);
+
+        double aLength2 = ax * ax + ay * ay;
+        double bLength2 = bx * bx + by * by;
+        double centerOffsetX = Determinant(aLength2, ay, bLength2, by) / determinant * scale;
+        double centerOffsetY = Determinant(ax, aLength2, bx, bLength2) / determinant * scale;
+        double centerX = third.X + centerOffsetX;
+        double centerY = third.Y + centerOffsetY;
         double radiusX = centerX - first.X;
         double radiusY = centerY - first.Y;
         return new Circle(
