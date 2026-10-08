@@ -3,7 +3,6 @@ namespace TriUgla;
 public sealed class ConstraintSpan : INamable
 {
     const double MinimumDirectionDot = .99;
-    const int MaximumTraversalSteps = 100_000;
     Node _from;
     Node _to;
 
@@ -11,6 +10,10 @@ public sealed class ConstraintSpan : INamable
     {
         _from = from ?? throw new ArgumentNullException(nameof(from));
         _to = to ?? throw new ArgumentNullException(nameof(to));
+        if (ReferenceEquals(_from, _to))
+        {
+            throw new ArgumentException("A constraint span must connect two different nodes.", nameof(to));
+        }
         Name = name;
     }
 
@@ -19,23 +22,34 @@ public sealed class ConstraintSpan : INamable
     public Node From
     {
         get => _from;
-        set => _from = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            if (ReferenceEquals(value, To))
+            {
+                throw new ArgumentException("A constraint span must connect two different nodes.", nameof(value));
+            }
+            _from = value;
+        }
     }
 
     public Node To
     {
         get => _to;
-        set => _to = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            if (ReferenceEquals(value, From))
+            {
+                throw new ArgumentException("A constraint span must connect two different nodes.", nameof(value));
+            }
+            _to = value;
+        }
     }
 
     public List<Edge> Edges(List<Edge> edges)
     {
         ArgumentNullException.ThrowIfNull(edges);
-        if (ReferenceEquals(From, To))
-        {
-            return edges;
-        }
-
         Vec2 direction = Direction(From, To);
         if (direction == Vec2.Zero)
         {
@@ -43,29 +57,10 @@ public sealed class ConstraintSpan : INamable
                 "A constraint span cannot connect distinct nodes at the same position.");
         }
 
-        var visited = new HashSet<Node> { From };
         Node current = From;
-        for (int step = 0; step < MaximumTraversalSteps; step++)
+        while (!ReferenceEquals(current, To))
         {
-            double currentDistance = current.Position.DistanceSquared(To.Position);
-            Edge? next = OutgoingEdges(current)
-                .Where(edge => !edge.Dead)
-                .Select(edge => new
-                {
-                    Edge = edge,
-                    Alignment = direction.Dot(Direction(edge)),
-                    Distance = edge.NodeEnd.Position.DistanceSquared(To.Position)
-                })
-                .Where(candidate =>
-                    ReferenceEquals(candidate.Edge.NodeEnd, To) ||
-                    candidate.Alignment >= MinimumDirectionDot &&
-                    candidate.Distance < currentDistance)
-                .OrderByDescending(candidate => ReferenceEquals(candidate.Edge.NodeEnd, To))
-                .ThenByDescending(candidate => candidate.Alignment)
-                .ThenBy(candidate => candidate.Distance)
-                .Select(candidate => candidate.Edge)
-                .FirstOrDefault();
-
+            Edge? next = FindAlong(current, direction);
             if (next is null)
             {
                 throw new InvalidOperationException(
@@ -75,20 +70,8 @@ public sealed class ConstraintSpan : INamable
 
             edges.Add(next);
             current = next.NodeEnd;
-            if (ReferenceEquals(current, To))
-            {
-                return edges;
-            }
-
-            if (!visited.Add(current))
-            {
-                throw new InvalidOperationException(
-                    "Constraint span traversal encountered a cycle before reaching its destination.");
-            }
         }
-
-        throw new InvalidOperationException(
-            $"Constraint span traversal exceeded {MaximumTraversalSteps} steps.");
+        return edges;
     }
 
     public static bool NearlyColliniear(Vec2 directionToMatch, Edge edge)
@@ -111,34 +94,22 @@ public sealed class ConstraintSpan : INamable
         return (to.Position - from.Position).Normalize();
     }
 
-    static IEnumerable<Edge> OutgoingEdges(Node node)
+    static Edge? FindAlong(Node node, Vec2 direction)
     {
-        if (node.Edge is null)
+        Edge? first = node.Edge;
+        Edge? edge = first;
+
+        while (edge is not null)
         {
-            yield break;
+            if (!edge.Dead && NearlyColliniear(direction, edge))
+            {
+                return edge;
+            }
+
+            edge = edge.Prev?.Twin;
+            if (ReferenceEquals(edge, first)) break;
         }
 
-        var pending = new Stack<Edge>();
-        var visited = new HashSet<Edge>();
-        pending.Push(node.Edge);
-        while (pending.TryPop(out Edge? edge))
-        {
-            if (!visited.Add(edge) || !ReferenceEquals(edge.NodeStart, node))
-            {
-                continue;
-            }
-
-            yield return edge;
-
-            if (edge.Prev is not null && edge.Prev.Twin is Edge previousRotation)
-            {
-                pending.Push(previousRotation);
-            }
-
-            if (edge.Twin is Edge twin && twin.Next is Edge nextRotation)
-            {
-                pending.Push(nextRotation);
-            }
-        }
+        return null;
     }
 }

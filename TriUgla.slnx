@@ -3,4 +3,5 @@
   <Project Path="TriUgla.Script.Playground/TriUgla.Script.Playground.csproj" />
   <Project Path="TriUgla.Tests/TriUgla.Tests.csproj" />
   <Project Path="TriUgla/TriUgla.csproj" />
+  <Project Path="TriUgla.MeshEditor/TriUgla.MeshEditor.csproj" />
 </Solution>

@@ -48,6 +48,23 @@ public class PolylineTests
         Assert.Equal(3, polyline.Nodes.Count);
     }
 
+    [Fact]
+    public void Edges_UnitesConstraintSpanEdgesBetweenPolylineNodes()
+    {
+        Node a = NodeAt(0, 0);
+        Node intermediate = NodeAt(1, 0);
+        Node b = NodeAt(2, 0);
+        Edge first = DirectedEdge(a, intermediate);
+        Edge second = DirectedEdge(intermediate, b);
+        a.Edge = first;
+        intermediate.Edge = second;
+        var polyline = new Polyline([a, b]);
+
+        List<Edge> result = polyline.Edges([]);
+
+        Assert.Equal([first, second], result);
+    }
+
     static Edge DirectedEdge(Node start, Node end)
     {
         var edge = new Edge { NodeStart = start };

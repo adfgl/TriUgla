@@ -54,15 +54,41 @@ public class ConstraintTests
     }
 
     [Fact]
-    public void Edges_ReturnsExistingListForZeroLengthReferenceSpan()
+    public void Edges_RotatesAroundNodeToFindAlignedEdge()
+    {
+        Node start = NodeAt(0, 0);
+        Node wrongEnd = NodeAt(0, 1);
+        Node target = NodeAt(2, 0);
+        Edge wrong = DirectedEdge(start, wrongEnd);
+        Edge aligned = DirectedEdge(start, target);
+        var incoming = new Edge { Twin = aligned };
+        wrong.Prev = incoming;
+        start.Edge = wrong;
+
+        List<Edge> result = new ConstraintSpan(start, target).Edges([]);
+
+        Assert.Equal([aligned], result);
+    }
+
+    [Fact]
+    public void ConstraintSpan_RejectsSameNode()
     {
         Node node = NodeAt(0, 0);
-        var existing = new List<Edge>();
 
-        List<Edge> result = new ConstraintSpan(node, node).Edges(existing);
+        Assert.Throws<ArgumentException>(() => new ConstraintSpan(node, node));
+    }
 
-        Assert.Same(existing, result);
-        Assert.Empty(result);
+    [Fact]
+    public void ConstraintSpan_RejectsSettingEitherEndpointToTheOther()
+    {
+        Node from = NodeAt(0, 0);
+        Node to = NodeAt(1, 0);
+        var span = new ConstraintSpan(from, to);
+
+        Assert.Throws<ArgumentException>(() => span.From = to);
+        Assert.Throws<ArgumentException>(() => span.To = from);
+        Assert.Same(from, span.From);
+        Assert.Same(to, span.To);
     }
 
     [Fact]

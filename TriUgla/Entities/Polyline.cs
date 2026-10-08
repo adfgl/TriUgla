@@ -36,47 +36,17 @@ static class NodePathEdges
     {
         for (int index = 0; index < nodes.Count - 1; index++)
         {
-            Edge edge = FindDirected(nodes[index], nodes[index + 1])
-                ?? throw new InvalidOperationException(
-                    $"Cannot resolve {pathType} segment {index}: no directed edge exists " +
-                    $"from {nodes[index].Position} to {nodes[index + 1].Position}.");
-            edges.Add(edge);
-        }
-    }
-
-    static Edge? FindDirected(Node start, Node end)
-    {
-        if (start.Edge is null)
-        {
-            return null;
-        }
-
-        var pending = new Stack<Edge>();
-        var visited = new HashSet<Edge>();
-        pending.Push(start.Edge);
-        while (pending.TryPop(out Edge? edge))
-        {
-            if (!visited.Add(edge) || !ReferenceEquals(edge.NodeStart, start))
+            try
             {
-                continue;
+                new ConstraintSpan(nodes[index], nodes[index + 1]).Edges(edges);
             }
-
-            if (ReferenceEquals(edge.NodeEnd, end))
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
             {
-                return edge;
-            }
-
-            if (edge.Prev is not null && edge.Prev.Twin is Edge previousRotation)
-            {
-                pending.Push(previousRotation);
-            }
-
-            if (edge.Twin is Edge twin && twin.Next is Edge nextRotation)
-            {
-                pending.Push(nextRotation);
+                throw new InvalidOperationException(
+                    $"Cannot resolve {pathType} segment {index} from " +
+                    $"{nodes[index].Position} to {nodes[index + 1].Position}.",
+                    exception);
             }
         }
-
-        return null;
     }
 }

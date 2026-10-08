@@ -1,0 +1,69 @@
+<Window x:Class="TriUgla.MeshEditor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TriUgla.MeshEditor"
+        Title="TriUgla Mesh Editor" Width="1180" Height="760" MinWidth="720" MinHeight="480"
+        Background="{StaticResource AppBackgroundBrush}" Foreground="{StaticResource PrimaryTextBrush}"
+        FontFamily="Segoe UI" WindowStartupLocation="CenterScreen">
+    <Window.InputBindings>
+        <KeyBinding Key="D0" Command="{x:Static local:MainWindow.ResetViewCommand}" />
+        <KeyBinding Key="F" Command="{x:Static local:MainWindow.FitViewCommand}" />
+        <KeyBinding Key="Add" Command="{x:Static local:MainWindow.ZoomInCommand}" />
+        <KeyBinding Key="OemPlus" Command="{x:Static local:MainWindow.ZoomInCommand}" />
+        <KeyBinding Key="Subtract" Command="{x:Static local:MainWindow.ZoomOutCommand}" />
+        <KeyBinding Key="OemMinus" Command="{x:Static local:MainWindow.ZoomOutCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="58" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="32" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1" Padding="18,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="TRIUGLA" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" FontSize="11" />
+                    <TextBlock Text="Mesh Editor" FontWeight="SemiBold" FontSize="18" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Reset  0" Command="{x:Static local:MainWindow.ResetViewCommand}" Margin="0,0,8,0"
+                            ToolTip="Reset the view (0)" />
+                    <Button Content="Fit  F" Command="{x:Static local:MainWindow.FitViewCommand}"
+                            ToolTip="Fit the mesh to the viewport (F)" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Margin="16" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                CornerRadius="8" Background="#080D18" ClipToBounds="True">
+            <local:MeshViewport x:Name="Viewport" Focusable="True"
+                                ViewChanged="Viewport_OnViewChanged"
+                                MouseWorldPositionChanged="Viewport_OnMouseWorldPositionChanged" />
+        </Border>
+
+        <Border Grid.Row="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0" Padding="18,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource SecondaryTextBrush}"
+                           Text="Wheel: zoom  •  Drag: pan  •  Double-click: fit" />
+                <TextBlock x:Name="CoordinatesText" Grid.Column="1" VerticalAlignment="Center"
+                           Foreground="{StaticResource SecondaryTextBrush}" FontFamily="Consolas" Margin="0,0,24,0"
+                           Text="X 0.00   Y 0.00" />
+                <TextBlock x:Name="ZoomText" Grid.Column="2" VerticalAlignment="Center"
+                           Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" Text="100%" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
