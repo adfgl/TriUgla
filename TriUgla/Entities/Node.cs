@@ -9,6 +9,7 @@ public sealed class Node : MeshElement
     public NodeKind Kind { get; internal set; } = NodeKind.Normal;
     public Edge Edge = null!;
 
+    public int ConstraintCount => _constraints;
     public bool Constrained => _constraints > 0;
 
     public void Constrain() => _constraints++;

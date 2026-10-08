@@ -291,10 +291,93 @@ public sealed class Mesher
     {
         foreach (Node node in nodes)
         {
-            if (node.Dead || node.Constrained) continue;
-            Remove(node);
+            if (node.Dead || IsStructuralAnchor(node)) continue;
+            ConstrainedSpoke[] spokes = ConstrainedSpokes(node);
+            if (spokes.Length == 0)
+            {
+                Remove(node);
+                continue;
+            }
+            if (spokes.Length == 1)
+            {
+                Release(spokes[0]);
+                Remove(node);
+                continue;
+            }
+            if (spokes.Length != 2 || !CanDissolve(node, spokes[0], spokes[1])) continue;
+
+            Node first = spokes[0].Other;
+            Node second = spokes[1].Other;
+            ConstraintCounts forward = Counts(spokes[0], first, node);
+            ConstraintCounts reverse = Counts(spokes[0], node, first);
+            Release(spokes[0]);
+            Release(spokes[1]);
+            if (!Remove(node).Removed)
+                throw new InvalidOperationException(
+                    $"Could not dissolve non-structural Steiner node at {node.Position}.");
+            for (int count = 0; count < forward.Features; count++)
+                InsertEdge(first, second, EdgeConstraintKind.Feature);
+            for (int count = 0; count < forward.Boundaries; count++)
+                InsertEdge(first, second, EdgeConstraintKind.Boundary);
+            for (int count = 0; count < reverse.Features; count++)
+                InsertEdge(second, first, EdgeConstraintKind.Feature);
+            for (int count = 0; count < reverse.Boundaries; count++)
+                InsertEdge(second, first, EdgeConstraintKind.Boundary);
         }
     }
+
+    bool IsStructuralAnchor(Node node)
+        => _constraints.Any(constraint =>
+               constraint.Points.Any(point => ReferenceEquals(point.Node, node)) ||
+               constraint.Spans.Any(span =>
+                   ReferenceEquals(span.From, node) || ReferenceEquals(span.To, node))) ||
+           _loops.Any(loop => loop.Nodes.Any(candidate => ReferenceEquals(candidate, node)));
+
+    bool CanDissolve(Node node, ConstrainedSpoke first, ConstrainedSpoke second)
+        => Counts(first, first.Other, node) == Counts(second, node, second.Other) &&
+           Counts(first, node, first.Other) == Counts(second, second.Other, node) &&
+           _geometry.Orient(first.Other, second.Other, node.Position) == EOrientaiton.Collinear &&
+           (first.Other.Position - node.Position).Dot(second.Other.Position - node.Position) < 0d;
+
+    static ConstraintCounts Counts(ConstrainedSpoke spoke, Node from, Node to)
+    {
+        Edge[] directed = spoke.HalfEdges.Where(edge =>
+            ReferenceEquals(edge.NodeStart, from) && ReferenceEquals(edge.NodeEnd, to)).ToArray();
+        return new ConstraintCounts(
+            directed.Sum(edge => edge.FeatureConstraints),
+            directed.Sum(edge => edge.BoundaryConstraints));
+    }
+
+    ConstrainedSpoke[] ConstrainedSpokes(Node node)
+    {
+        var groups = new Dictionary<Node, List<Edge>>(ReferenceEqualityComparer.Instance);
+        foreach (Edge edge in Traversal.Edges())
+        {
+            if (edge.Dead || !edge.Contains(node) || !edge.Constrained) continue;
+            Node other = ReferenceEquals(edge.NodeStart, node) ? edge.NodeEnd : edge.NodeStart;
+            if (!groups.TryGetValue(other, out List<Edge>? halfEdges))
+                groups.Add(other, halfEdges = []);
+            halfEdges.Add(edge);
+        }
+        return groups.Select(group => new ConstrainedSpoke(
+            group.Key,
+            group.Value.ToArray())).ToArray();
+    }
+
+    static void Release(ConstrainedSpoke spoke)
+    {
+        foreach (Edge edge in spoke.HalfEdges)
+        {
+            while (edge.HasFeature) edge.Release(EdgeConstraintKind.Feature);
+            while (edge.HasBoundary) edge.Release(EdgeConstraintKind.Boundary);
+        }
+    }
+
+    readonly record struct ConstrainedSpoke(
+        Node Other,
+        Edge[] HalfEdges);
+
+    readonly record struct ConstraintCounts(int Features, int Boundaries);
 
     void Legalize(IEnumerable<Edge> candidates)
     {

@@ -7,6 +7,32 @@ internal interface IEditorCommand
     bool Undo();
 }
 
+internal sealed class CompositeEditorCommand(IEnumerable<IEditorCommand> commands) : IEditorCommand
+{
+    readonly IEditorCommand[] _commands = commands.ToArray();
+
+    public int? ChangedNodeId => null;
+
+    public bool Execute()
+    {
+        int completed = 0;
+        while (completed < _commands.Length && _commands[completed].Execute()) completed++;
+        if (completed == _commands.Length) return true;
+        while (completed > 0) _commands[--completed].Undo();
+        return false;
+    }
+
+    public bool Undo()
+    {
+        int index = _commands.Length - 1;
+        for (; index >= 0 && _commands[index].Undo(); index--) { }
+        if (index < 0) return true;
+        for (int restore = index + 1; restore < _commands.Length; restore++)
+            _commands[restore].Execute();
+        return false;
+    }
+}
+
 internal sealed class InsertNodeCommand(EditorMeshModel model, PointHandle point, int? loopIndex = null)
     : IEditorCommand
 {
@@ -19,6 +45,7 @@ internal sealed class RemoveNodeCommand(EditorMeshModel model, PointHandle point
     : IEditorCommand
 {
     public int? ChangedNodeId => point.NodeId;
+    public int? LoopIndex => loopIndex;
     public bool Execute() => model.RemovePoint(point, loopIndex);
     public bool Undo() => model.InsertPoint(point, loopIndex);
 }
@@ -64,26 +91,12 @@ internal sealed class ConstraintHandle(
     public Constraint? Current { get; set; } = current;
 
     public static ConstraintHandle From(Constraint constraint, Func<Node, PointHandle> handle)
-    {
-        var result = new ConstraintHandle(
+        => new(
             constraint.Name,
-            [],
+            constraint.Spans.Select(span =>
+                new ConstraintPathHandle([handle(span.From), handle(span.To)])),
             constraint.Points.Select(point => new ConstraintPointHandle(handle(point.Node), point.Name)),
             constraint);
-        result.CapturePaths(constraint, handle);
-        return result;
-    }
-
-    public void CapturePaths(Constraint constraint, Func<Node, PointHandle> handle)
-    {
-        Paths.Clear();
-        foreach (ConstraintSpan span in constraint.Spans)
-        {
-            // Generated Steiner nodes belong to the inserted representation, not
-            // to command history. Redo reconstructs them from the authored endpoints.
-            Paths.Add(new ConstraintPathHandle([handle(span.From), handle(span.To)]));
-        }
-    }
 }
 
 internal sealed record ConstraintPathHandle(IReadOnlyList<PointHandle> Points);

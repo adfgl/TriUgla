@@ -102,11 +102,12 @@ public class MesherTests
             node => node.Kind == NodeKind.SteinerInsertion);
 
         Assert.True(mesher.TryRemoveConstraint(second, out string? removeSecondReason), removeSecondReason);
-        Assert.False(intersection.Dead);
-        Assert.True(intersection.Constrained);
+        Assert.True(intersection.Dead);
+        Edge[] restoredFirst = new ConstraintSpan(a, c).Edges([]).ToArray();
+        Assert.All(restoredFirst, edge => Assert.True(edge.HasFeature));
+        Assert.DoesNotContain(restoredFirst, edge => edge.Contains(intersection));
 
         Assert.True(mesher.TryRemoveConstraint(first, out string? removeFirstReason), removeFirstReason);
-        Assert.True(intersection.Dead);
         Assert.DoesNotContain(
             mesher.Traversal.Nodes(),
             node => node.Kind == NodeKind.SteinerInsertion);

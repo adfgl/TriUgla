@@ -250,6 +250,10 @@
     public MeshView RemoveConstraintLine(int constraintId)
         => _quadMode ? _mesh.State() : _mesh.RemoveConstraint(constraintId);
 
+    [JSInvokable]
+    public MeshView RemoveElements(int[] constraintIds, int[] nodeIds)
+        => _quadMode ? _mesh.State() : _mesh.RemoveElements(constraintIds, nodeIds);
+
     public async ValueTask DisposeAsync()
     {
         if (_module is not null)

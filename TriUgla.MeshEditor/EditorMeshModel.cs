@@ -31,21 +31,61 @@ public sealed partial class EditorMeshModel
 
     public MeshView Remove(int nodeId)
     {
-        Node? node = _ids.FirstOrDefault(pair => pair.Value == nodeId).Key;
-        if (node is null || node.Dead) return Snapshot(false, null);
+        RemoveNodeCommand? command = CreateRemoveNodeCommand(nodeId);
+        if (command is null) return Snapshot(false, null);
+        bool removed = Execute(command);
+        return Snapshot(removed, null);
+    }
 
+    public MeshView RemoveElements(
+        IReadOnlyList<int> constraintIds,
+        IReadOnlyList<int> nodeIds)
+    {
+        ArgumentNullException.ThrowIfNull(constraintIds);
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        int[] distinctConstraintIds = constraintIds.Distinct().ToArray();
+        Constraint[] constraints = distinctConstraintIds
+            .Select(id => id >= 0 && id < _mesher.Constraints.Count
+                ? _mesher.Constraints[id]
+                : null)
+            .OfType<Constraint>()
+            .ToArray();
+        if (constraints.Length != distinctConstraintIds.Length) return Snapshot(false, null);
+
+        int[] distinctNodeIds = nodeIds.Distinct().ToArray();
+        Node[] selectedNodes = distinctNodeIds
+            .Select(id => _ids.FirstOrDefault(pair => pair.Value == id && !pair.Key.Dead).Key)
+            .OfType<Node>()
+            .ToArray();
+        if (selectedNodes.Length != distinctNodeIds.Length) return Snapshot(false, null);
+
+        RemoveNodeCommand[] nodes = selectedNodes
+            .Where(node => node.Kind is not NodeKind.SteinerInsertion and not NodeKind.SteinerRefinement)
+            .Select(node => CreateRemoveNodeCommand(Id(node)))
+            .OfType<RemoveNodeCommand>()
+            .OrderByDescending(command => command.LoopIndex ?? -1)
+            .ToArray();
+
+        IEditorCommand[] commands = constraints
+            .Select(constraint => (IEditorCommand)new RemoveConstraintCommand(this, Handle(constraint)))
+            .Concat(nodes)
+            .ToArray();
+        if (commands.Length == 0) return Snapshot(false, null);
+        bool removed = Execute(new CompositeEditorCommand(commands));
+        return Snapshot(removed, null);
+    }
+
+    RemoveNodeCommand? CreateRemoveNodeCommand(int nodeId)
+    {
+        Node? node = _ids.FirstOrDefault(pair => pair.Value == nodeId).Key;
+        if (node is null || node.Dead) return null;
         if (!_handles.TryGetValue(nodeId, out PointHandle? point))
         {
             point = new PointHandle(node.Position, nodeId);
             _handles[nodeId] = point;
         }
         int loopIndex = _loopPoints.IndexOf(point);
-        var command = new RemoveNodeCommand(
-            this,
-            point,
-            loopIndex >= 0 ? loopIndex : null);
-        bool removed = Execute(command);
-        return Snapshot(removed, null);
+        return new RemoveNodeCommand(this, point, loopIndex >= 0 ? loopIndex : null);
     }
 
     public MeshView InsertConstraint(int fromId, int toId)

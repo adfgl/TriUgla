@@ -8,6 +8,7 @@ export function initialize(canvas, dotnet, mesh) {
         canUndo: false, canRedo: false, tool: "select", constraintStart: null,
         readOnly: false, quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
         polylineNodes: [], polygonNodes: [],
+        mutationQueue: Promise.resolve(),
         renderPending: false, reportTimer: null, hoverLookupTimer: null, hoverPoint: null,
         hoverLookupVersion: 0,
         hoverLine: [], hoverRequest: 0,
@@ -130,22 +131,28 @@ export function hideQuadMesh(canvas) {
 
 export async function undo(canvas) {
     const view = views.get(canvas);
-    if (!view || view.readOnly || !view.canUndo) return;
-    applyMesh(view, await view.dotnet.invokeMethodAsync("UndoAction"));
-    view.selections.clear();
-    view.hover = null;
-    view.message = null;
-    changed(view);
+    if (!view) return;
+    return enqueueMutation(view, async () => {
+        if (view.readOnly || !view.canUndo) return;
+        applyMesh(view, await view.dotnet.invokeMethodAsync("UndoAction"));
+        view.selections.clear();
+        view.hover = null;
+        view.message = null;
+        changed(view);
+    });
 }
 
 export async function redo(canvas) {
     const view = views.get(canvas);
-    if (!view || view.readOnly || !view.canRedo) return;
-    applyMesh(view, await view.dotnet.invokeMethodAsync("RedoAction"));
-    view.selections.clear();
-    view.hover = null;
-    view.message = null;
-    changed(view);
+    if (!view) return;
+    return enqueueMutation(view, async () => {
+        if (view.readOnly || !view.canRedo) return;
+        applyMesh(view, await view.dotnet.invokeMethodAsync("RedoAction"));
+        view.selections.clear();
+        view.hover = null;
+        view.message = null;
+        changed(view);
+    });
 }
 
 export function dispose(canvas) {
@@ -262,25 +269,30 @@ function onKey(view, event) {
 }
 
 async function deleteSelected(view) {
-    if (view.readOnly) return;
-    const selected = [...view.selections.values()];
-    let changedMesh = false;
-    const constraints = selected
-        .filter(item => item.type === "constraint")
-        .sort((left, right) => right.id - left.id);
-    for (const item of constraints) {
-        const mesh = await view.dotnet.invokeMethodAsync("RemoveConstraintLine", item.id);
-        if (mesh.succeeded) { applyMesh(view, mesh); changedMesh = true; }
-    }
-    for (const item of selected.filter(item => item.type === "node")) {
-        const mesh = await view.dotnet.invokeMethodAsync("RemoveNode", item.id);
-        if (mesh.succeeded) { applyMesh(view, mesh); changedMesh = true; }
-    }
-    view.selections.clear();
-    view.hover = null;
-    view.hoverLine = [];
-    view.message = changedMesh ? null : "Selected elements cannot be deleted";
-    changed(view);
+    return enqueueMutation(view, async () => {
+        if (view.readOnly) return;
+        const selected = [...view.selections.values()];
+        const constraintIds = [...new Set(selected
+            .filter(item => item.type === "constraint").map(item => item.id))];
+        const nodeIds = [...new Set(selected
+            .filter(item => item.type === "node").map(item => item.id))];
+        const mesh = constraintIds.length || nodeIds.length
+            ? await view.dotnet.invokeMethodAsync("RemoveElements", constraintIds, nodeIds)
+            : null;
+        const changedMesh = mesh?.succeeded === true;
+        if (changedMesh) applyMesh(view, mesh);
+        view.selections.clear();
+        view.hover = null;
+        view.hoverLine = [];
+        view.message = changedMesh ? null : "Selected elements cannot be deleted";
+        changed(view);
+    });
+}
+
+function enqueueMutation(view, mutation) {
+    const queued = view.mutationQueue.then(mutation, mutation);
+    view.mutationQueue = queued.catch(() => {});
+    return queued;
 }
 
 async function insertNode(view, event) {

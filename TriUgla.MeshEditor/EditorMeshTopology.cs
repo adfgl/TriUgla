@@ -90,7 +90,6 @@ public sealed partial class EditorMeshModel
     internal bool RemoveConstraintHandle(ConstraintHandle handle)
     {
         if (handle.Current is null) return false;
-        handle.CapturePaths(handle.Current, Handle);
         return _mesher.TryRemoveConstraint(handle.Current, out _);
     }
 
