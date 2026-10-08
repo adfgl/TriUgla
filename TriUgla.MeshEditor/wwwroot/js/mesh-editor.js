@@ -309,10 +309,14 @@ async function deleteNode(view, event) {
     if (view.readOnly) return;
     const screen = localPoint(view.canvas, event);
     const hit = await resolveHit(view, screen);
-    if (hit?.type !== "node") return;
-    const mesh = await view.dotnet.invokeMethodAsync("RemoveNode", hit.id);
+    if (hit?.type !== "node" && hit?.type !== "constraint") return;
+    const mesh = hit.type === "constraint"
+        ? await view.dotnet.invokeMethodAsync("RemoveConstraintLine", hit.id)
+        : await view.dotnet.invokeMethodAsync("RemoveNode", hit.id);
     if (!mesh.succeeded) {
-        view.message = `Node ${hit.id} cannot be removed`;
+        view.message = hit.type === "constraint"
+            ? "Constraint cannot be removed"
+            : `Node ${hit.id} cannot be removed`;
         report(view);
         return;
     }

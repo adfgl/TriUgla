@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="../TriUgla/TriUgla.csproj" />
     <ProjectReference Include="../TriUgla.Script/TriUgla.Script.csproj" />
+    <ProjectReference Include="../TriUgla.MeshEditor/TriUgla.MeshEditor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

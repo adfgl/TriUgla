@@ -24,6 +24,25 @@ public class MesherTests
     }
 
     [Fact]
+    public void InsertLegalizesAffectedEdgesAfterEveryInsertion()
+    {
+        var mesher = new Mesher(new Vec2(-2, -2), new Vec2(4, 4), 4);
+        Vec2[] positions =
+        [
+            new(0, 0), new(2, 0), new(0, 2), new(2, 2),
+            new(0.4, 0.7), new(1.7, 1.2), new(1.1, 0.3)
+        ];
+
+        foreach (Vec2 position in positions)
+        {
+            Assert.Contains(
+                mesher.Insert(position).Status,
+                new[] { InsertNodeStatus.InsertedIntoFace, InsertNodeStatus.InsertedIntoEdge });
+            AssertDelaunay(mesher);
+        }
+    }
+
+    [Fact]
     public void RemoveRejectsNodeFromAnotherMesh()
     {
         var mesher = new Mesher(CreateTriangle());
@@ -64,6 +83,33 @@ public class MesherTests
         Assert.Empty(mesher.Constraints);
         Assert.False(a.Constrained);
         Assert.False(Edge.Find(a, b)!.HasFeature);
+    }
+
+    [Fact]
+    public void RemovingInsertedGeometryRemovesOnlyReleasedSteinerInsertions()
+    {
+        var mesher = new Mesher(new Vec2(-1, -1), new Vec2(3, 3), 4);
+        Node a = mesher.Insert(new Vec2(0, 0)).Node!;
+        Node b = mesher.Insert(new Vec2(2, 0)).Node!;
+        Node c = mesher.Insert(new Vec2(2, 2)).Node!;
+        Node d = mesher.Insert(new Vec2(0, 2)).Node!;
+        var first = new Constraint(spans: [new ConstraintSpan(a, c)], name: "first diagonal");
+        var second = new Constraint(spans: [new ConstraintSpan(b, d)], name: "second diagonal");
+        Assert.True(mesher.TryInsertConstraint(first, out string? firstReason), firstReason);
+        Assert.True(mesher.TryInsertConstraint(second, out string? secondReason), secondReason);
+        Node intersection = Assert.Single(
+            mesher.Traversal.Nodes(),
+            node => node.Kind == NodeKind.SteinerInsertion);
+
+        Assert.True(mesher.TryRemoveConstraint(second, out string? removeSecondReason), removeSecondReason);
+        Assert.False(intersection.Dead);
+        Assert.True(intersection.Constrained);
+
+        Assert.True(mesher.TryRemoveConstraint(first, out string? removeFirstReason), removeFirstReason);
+        Assert.True(intersection.Dead);
+        Assert.DoesNotContain(
+            mesher.Traversal.Nodes(),
+            node => node.Kind == NodeKind.SteinerInsertion);
     }
 
     [Fact]
@@ -154,5 +200,15 @@ public class MesherTests
             new Node { Position = new Vec2(2, 0) },
             new Node { Position = new Vec2(0, 2) });
         return face;
+    }
+
+    static void AssertDelaunay(Mesher mesher)
+    {
+        var flipper = new EdgeFlipper(mesher.Geometry);
+        foreach (Edge edge in mesher.Traversal.Edges())
+        {
+            if (!flipper.CanFlip(edge, out bool shouldFlip)) continue;
+            Assert.False(shouldFlip, $"Edge {edge.NodeStart.Position}–{edge.NodeEnd.Position} was not legalized.");
+        }
     }
 }

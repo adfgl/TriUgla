@@ -71,7 +71,11 @@ public sealed class Mesher
     {
         InsertNodeResult result = _nodeInserter.Insert(position, from);
         TopologyChange? change = result.FaceSplit?.Change ?? result.EdgeSplit?.Change;
-        if (change is not null) TopologyChanged(change.Value.AffectedFaces);
+        if (change is not null)
+        {
+            TopologyChanged(change.Value.AffectedFaces);
+            Legalize(change.Value.EdgesToLegalize);
+        }
         return result;
     }
 
@@ -84,7 +88,11 @@ public sealed class Mesher
         }
 
         RemoveNodeResult result = _nodeRemover.Remove(node);
-        if (result.Removed) TopologyChanged(result.Change.AffectedFaces);
+        if (result.Removed)
+        {
+            TopologyChanged(result.Change.AffectedFaces);
+            Legalize(result.Change.EdgesToLegalize);
+        }
         return result;
     }
 
@@ -183,9 +191,13 @@ public sealed class Mesher
                 return Fail(out reason, $"{ConstraintContext(constraint)} point[{i}]: node is not constrained.");
         }
 
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, constraint.Spans
+            .SelectMany(span => new[] { span.From, span.To })
+            .Concat(constraint.Points.Select(point => point.Node)));
         ReleasePaths(paths, EdgeConstraintKind.Feature);
         foreach (ConstraintPoint point in constraint.Points) point.Node.Relax();
         _constraints.RemoveAt(index);
+        RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
     }
@@ -233,8 +245,10 @@ public sealed class Mesher
             paths.Add(path);
         }
 
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, loop.Nodes);
         ReleasePaths(paths, EdgeConstraintKind.Boundary);
         _loops.RemoveAt(index);
+        RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
     }
@@ -255,6 +269,31 @@ public sealed class Mesher
             candidates.Enqueue(edge);
         }
         Legalize(candidates);
+    }
+
+    static HashSet<Node> CollectSteinerInsertions(
+        IEnumerable<List<Edge>> paths,
+        IEnumerable<Node> protectedNodes)
+    {
+        var protectedSet = new HashSet<Node>(protectedNodes, ReferenceEqualityComparer.Instance);
+        var result = new HashSet<Node>(ReferenceEqualityComparer.Instance);
+        foreach (Edge edge in paths.SelectMany(path => path))
+        {
+            if (edge.NodeStart.Kind == NodeKind.SteinerInsertion &&
+                !protectedSet.Contains(edge.NodeStart)) result.Add(edge.NodeStart);
+            if (edge.NodeEnd.Kind == NodeKind.SteinerInsertion &&
+                !protectedSet.Contains(edge.NodeEnd)) result.Add(edge.NodeEnd);
+        }
+        return result;
+    }
+
+    void RemoveReleasedSteinerInsertions(IEnumerable<Node> nodes)
+    {
+        foreach (Node node in nodes)
+        {
+            if (node.Dead || node.Constrained) continue;
+            Remove(node);
+        }
     }
 
     void Legalize(IEnumerable<Edge> candidates)

@@ -79,11 +79,9 @@ internal sealed class ConstraintHandle(
         Paths.Clear();
         foreach (ConstraintSpan span in constraint.Spans)
         {
-            var edges = new List<Edge>();
-            span.Edges(edges);
-            var path = new List<PointHandle>(edges.Count + 1) { handle(span.From) };
-            path.AddRange(edges.Select(edge => handle(edge.NodeEnd)));
-            Paths.Add(new ConstraintPathHandle(path));
+            // Generated Steiner nodes belong to the inserted representation, not
+            // to command history. Redo reconstructs them from the authored endpoints.
+            Paths.Add(new ConstraintPathHandle([handle(span.From), handle(span.To)]));
         }
     }
 }
