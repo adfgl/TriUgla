@@ -11,7 +11,7 @@ public sealed partial class EditorMeshModel
             .Select(node => new NodeView(
                 Id(node), node.Position.X, node.Position.Y,
                 structure?.SuperNode(node) == true, node.Kind.ToString(),
-                node.ConstraintCount)).ToArray();
+                LogicalConstraintCount(node))).ToArray();
         FaceView[] faces = snapshot.Faces.Where(face => !face.Dead)
             .Select(face =>
             {
@@ -62,6 +62,23 @@ public sealed partial class EditorMeshModel
             succeeded ? null : _failureReason);
         _failureReason = null;
         return view;
+    }
+
+    int LogicalConstraintCount(Node node)
+    {
+        int features = _mesher.Constraints.Count(constraint =>
+            constraint.Points.Any(point => ReferenceEquals(point.Node, node)) ||
+            constraint.Spans.Any(span => SpanContains(span, node)));
+        int boundaries = _mesher.Loops.Count(loop =>
+            loop.Nodes.Any(candidate => ReferenceEquals(candidate, node)));
+        return features + boundaries;
+    }
+
+    static bool SpanContains(ConstraintSpan span, Node node)
+    {
+        if (ReferenceEquals(span.From, node) || ReferenceEquals(span.To, node)) return true;
+        try { return span.Edges([]).Any(edge => edge.Contains(node)); }
+        catch (InvalidOperationException) { return false; }
     }
 
     void Classify()

@@ -87,7 +87,9 @@
             </section>
             @if (_selectedObjects.Count == 0)
             {
-                <p class="empty-properties">Select a node, edge, face, or constraint.</p>
+                <p class="empty-properties">@(_selection == "No selection"
+                    ? "Select a node, edge, face, or constraint."
+                    : _selection)</p>
             }
             else
             {
@@ -115,7 +117,7 @@
         }
         else
         {
-            <span>Click: select <i></i> Shift: add <i></i> Ctrl: toggle <i></i> Cmd+click: insert <i></i> Middle-drag: pan</span>
+            <span>Click: select <i></i> Shift: add <i></i> Ctrl: segment/toggle <i></i> Cmd+click: insert <i></i> Middle-drag: pan</span>
         }
         <output class="coordinates">X @_x.ToString("0.00").PadLeft(7) &nbsp; Y @_y.ToString("0.00").PadLeft(7)</output>
         <output class="zoom">@_selection &nbsp; @_nodeCount nodes &nbsp; @(_zoom.ToString("0"))%</output>

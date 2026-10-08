@@ -252,6 +252,33 @@ public class EditorPolylineTests
     }
 
     [Fact]
+    public void DeleteUndoRunsCompleteConstraintInsertionPipeline()
+    {
+        var editor = new EditorMeshModel();
+        int left = Insert(editor, -3, 0);
+        int right = Insert(editor, 3, 0);
+        int bottom = Insert(editor, 0, -2);
+        int top = Insert(editor, 0, 2);
+        Assert.True(editor.InsertConstraint(left, right).Succeeded);
+        Assert.True(editor.InsertConstraint(bottom, top).Succeeded);
+
+        Assert.True(editor.RemoveConstraint(0).Succeeded);
+        MeshView restored = editor.Undo();
+
+        Assert.True(restored.Succeeded, restored.FailureReason);
+        Assert.Equal(2, restored.Constraints.Count);
+        Assert.Equal(4, restored.ConstraintEdges.Count);
+        Assert.All(restored.Constraints, constraint =>
+        {
+            Assert.Equal(2, constraint.SegmentCount);
+            Assert.Equal(2, editor.CollectConstraint(constraint.Id).Count);
+        });
+        NodeView intersection = Assert.Single(restored.Nodes,
+            node => node.Kind == nameof(NodeKind.SteinerInsertion));
+        Assert.Equal(2, intersection.ConstraintCount);
+    }
+
+    [Fact]
     public void RepeatedRemovalUndoPreservesConstraintAcrossMultipleIntersections()
     {
         var editor = new EditorMeshModel();
@@ -377,7 +404,7 @@ public class EditorPolylineTests
         Assert.Equal(4, view.ConstraintEdges.Count);
         NodeView intersection = Assert.Single(view.Nodes,
             node => node.Kind == nameof(NodeKind.SteinerInsertion));
-        Assert.Equal(4, intersection.ConstraintCount);
+        Assert.Equal(2, intersection.ConstraintCount);
     }
 
     [Fact]
@@ -392,6 +419,21 @@ public class EditorPolylineTests
 
         Assert.False(failed.Succeeded);
         Assert.Contains("ConstraintCount is 1", failed.FailureReason);
+    }
+
+    [Fact]
+    public void RemovingGeneratedIntersectionExplainsHowToDeleteIt()
+    {
+        var editor = new EditorMeshModel();
+        Assert.True(editor.InsertConstraint(4, 6).Succeeded);
+        MeshView crossed = editor.InsertConstraint(5, 7);
+        int intersection = Assert.Single(crossed.Nodes,
+            node => node.Kind == nameof(NodeKind.SteinerInsertion)).Id;
+
+        MeshView failed = editor.RemoveElements([], [intersection]);
+
+        Assert.False(failed.Succeeded);
+        Assert.Contains("remove their constraints instead", failed.FailureReason);
     }
 
     static string[] ProjectedSegments(MeshView view)

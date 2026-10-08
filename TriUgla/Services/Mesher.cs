@@ -82,11 +82,6 @@ public sealed class Mesher
     public RemoveNodeResult Remove(Node node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        if (!ContainsNode(node))
-        {
-            return RemoveNodeResult.Failed(node);
-        }
-
         RemoveNodeResult result = _nodeRemover.Remove(node);
         if (result.Removed)
         {
@@ -94,6 +89,13 @@ public sealed class Mesher
             Legalize(result.Change.EdgesToLegalize);
         }
         return result;
+    }
+
+    public RemoveNodeResult Remove(Vec2 position)
+    {
+        Node? node = _locator.Locate(position).Node ?? throw new InvalidOperationException(
+                $"Cannot remove node at {position}: no node exists at that position.");
+        return Remove(node);
     }
 
     public int Refine(FaceRanker ranker, in RefineSettings settings)
@@ -151,19 +153,37 @@ public sealed class Mesher
         ArgumentNullException.ThrowIfNull(constraint);
         if (!ValidateConstraint(constraint, out reason)) return false;
 
-        foreach (ConstraintSpan span in constraint.Spans)
+        try
         {
-            InsertEdge(span.From, span.To, EdgeConstraintKind.Feature);
-        }
+            using var saga = new MeshSaga();
+            foreach (ConstraintSpan span in constraint.Spans)
+            {
+                saga.Step(
+                    () => InsertEdge(span.From, span.To, EdgeConstraintKind.Feature),
+                    () => ReleaseInsertedSpan(span, EdgeConstraintKind.Feature));
+            }
 
-        foreach (ConstraintPoint point in constraint.Points)
+            foreach (ConstraintPoint point in constraint.Points)
+                saga.Step(point.Node.Constrain, point.Node.Relax);
+
+            foreach (ConstraintSpan span in constraint.Spans)
+                AssertConstrainedPath(
+                    span.From,
+                    span.To,
+                    EdgeConstraintKind.Feature);
+
+            saga.Step(
+                () => _constraints.Add(constraint),
+                () => _constraints.Remove(constraint));
+            saga.Commit();
+            reason = null;
+            return true;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            point.Node.Constrain();
+            reason = $"{ConstraintContext(constraint)} insertion failed atomically: {exception.Message}";
+            return false;
         }
-
-        _constraints.Add(constraint);
-        reason = null;
-        return true;
     }
 
     public bool TryRemoveConstraint(Constraint constraint, out string? reason)
@@ -219,12 +239,28 @@ public sealed class Mesher
                 return Fail(out reason, $"{LoopContext(loop)} invalid: node[{i}] {why}");
         }
 
-        for (int i = 0; i < loop.Nodes.Count - 1; i++)
-            InsertEdge(loop.Nodes[i], loop.Nodes[i + 1], EdgeConstraintKind.Boundary);
-
-        _loops.Add(loop);
-        reason = null;
-        return true;
+        try
+        {
+            using var saga = new MeshSaga();
+            for (int i = 0; i < loop.Nodes.Count - 1; i++)
+            {
+                var span = new ConstraintSpan(loop.Nodes[i], loop.Nodes[i + 1]);
+                saga.Step(
+                    () => InsertEdge(span.From, span.To, EdgeConstraintKind.Boundary),
+                    () => ReleaseInsertedSpan(span, EdgeConstraintKind.Boundary));
+            }
+            saga.Step(
+                () => _loops.Add(loop),
+                () => _loops.Remove(loop));
+            saga.Commit();
+            reason = null;
+            return true;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            reason = $"{LoopContext(loop)} insertion failed atomically: {exception.Message}";
+            return false;
+        }
     }
 
     public bool TryRemoveLoop(Loop loop, out string? reason)
@@ -256,8 +292,35 @@ public sealed class Mesher
     void InsertEdge(Node start, Node end, EdgeConstraintKind kind)
     {
         EdgeInsertResult result = _edgeInserter.Insert(start, end, kind);
+        if (result.ConstrainedEdges.Count == 0 ||
+            result.ConstrainedEdges.Any(edge => !HasConstraint(edge, kind)))
+        {
+            throw new InvalidOperationException(
+                $"Edge insertion from {start.Position} to {end.Position} did not mark every " +
+                $"inserted segment as {kind} constrained.");
+        }
         TopologyChanged(result.Change.AffectedFaces);
         Legalize(result.Change.EdgesToLegalize);
+        AssertConstrainedPath(start, end, kind);
+    }
+
+    static bool HasConstraint(Edge edge, EdgeConstraintKind kind)
+        => kind switch
+        {
+            EdgeConstraintKind.Feature => edge.HasFeature,
+            EdgeConstraintKind.Boundary => edge.HasBoundary,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+        };
+
+    static void AssertConstrainedPath(Node start, Node end, EdgeConstraintKind kind)
+    {
+        var path = new ConstraintSpan(start, end).Edges([]);
+        if (path.Count == 0 || path.Any(edge => !HasConstraint(edge, kind)))
+        {
+            throw new InvalidOperationException(
+                $"Edge insertion from {start.Position} to {end.Position} produced a path " +
+                $"with one or more segments not marked as {kind} constrained.");
+        }
     }
 
     void ReleasePaths(IEnumerable<List<Edge>> paths, EdgeConstraintKind kind)
@@ -269,6 +332,16 @@ public sealed class Mesher
             candidates.Enqueue(edge);
         }
         Legalize(candidates);
+    }
+
+    void ReleaseInsertedSpan(ConstraintSpan span, EdgeConstraintKind kind)
+    {
+        if (!TryResolvePath(span, out List<Edge> path, out string? reason))
+            throw new InvalidOperationException(reason);
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(
+            [path], [span.From, span.To]);
+        ReleasePaths([path], kind);
+        RemoveReleasedSteinerInsertions(steinerNodes);
     }
 
     static HashSet<Node> CollectSteinerInsertions(

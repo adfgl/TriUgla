@@ -43,29 +43,26 @@ public class MesherTests
     }
 
     [Fact]
-    public void RemoveRejectsNodeFromAnotherMesh()
+    public void RemoveByPositionRejectsPositionWithoutNode()
     {
         var mesher = new Mesher(CreateTriangle());
-        var foreign = new Node { Position = new Vec2(0.5, 0.5) };
 
-        RemoveNodeResult result = mesher.Remove(foreign);
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => mesher.Remove(new Vec2(0.5, 0.5)));
 
-        Assert.False(result.Removed);
-        Assert.False(foreign.Dead);
+        Assert.Contains("no node exists", exception.Message);
     }
 
     [Fact]
-    public void RemoveRejectsForeignNodeAtSamePositionAsLiveNode()
+    public void RemoveByPositionFindsMeshOwnedNode()
     {
         var mesher = new Mesher(CreateTriangle());
-        Node live = mesher.Traversal.Nodes().First();
-        var foreign = new Node { Position = live.Position };
+        Node live = mesher.Insert(new Vec2(0.5, 0.5)).Node!;
 
-        RemoveNodeResult result = mesher.Remove(foreign);
+        RemoveNodeResult result = mesher.Remove(live.Position);
 
-        Assert.False(result.Removed);
-        Assert.False(foreign.Dead);
-        Assert.False(live.Dead);
+        Assert.True(result.Removed);
+        Assert.True(live.Dead);
     }
 
     [Fact]
@@ -97,6 +94,26 @@ public class MesherTests
         Assert.Empty(mesher.Constraints);
         Assert.False(a.Constrained);
         Assert.False(Edge.Find(a, b)!.HasFeature);
+    }
+
+    [Fact]
+    public void EverySegmentOfCrossingConstraintPathsIsMarkedFeatureConstrained()
+    {
+        var mesher = new Mesher(new Vec2(-1, -1), new Vec2(3, 3), 4);
+        Node a = mesher.Insert(new Vec2(0, 0)).Node!;
+        Node b = mesher.Insert(new Vec2(2, 2)).Node!;
+        Node c = mesher.Insert(new Vec2(0, 2)).Node!;
+        Node d = mesher.Insert(new Vec2(2, 0)).Node!;
+        var first = new Constraint(spans: [new ConstraintSpan(a, b)]);
+        var second = new Constraint(spans: [new ConstraintSpan(c, d)]);
+
+        Assert.True(mesher.TryInsertConstraint(first, out string? firstReason), firstReason);
+        Assert.True(mesher.TryInsertConstraint(second, out string? secondReason), secondReason);
+
+        Assert.All(first.Spans[0].Edges([]), edge => Assert.True(edge.HasFeature));
+        Assert.All(second.Spans[0].Edges([]), edge => Assert.True(edge.HasFeature));
+        Assert.Equal(2, first.Spans[0].Edges([]).Count);
+        Assert.Equal(2, second.Spans[0].Edges([]).Count);
     }
 
     [Fact]

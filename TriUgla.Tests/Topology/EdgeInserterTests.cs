@@ -73,6 +73,24 @@ public class EdgeInserterTests
         Assert.Same(fixture.D, result.ConstrainedEdges[1].NodeEnd);
     }
 
+    [Fact]
+    public void InsertAcrossConstrainedEdgeMarksBothConstraintsAfterSplit()
+    {
+        Fixture fixture = CreateFixture();
+        Edge existing = Edge.FindDirected(fixture.B, fixture.C)!;
+        existing.Constrain(EdgeConstraintKind.Feature);
+        EdgeInserter inserter = CreateInserter();
+        inserter.SplitCrossedEdges = true;
+
+        EdgeInsertResult result = inserter.Insert(fixture.A, fixture.D);
+
+        Node intersection = Assert.Single(result.InsertedNodes);
+        Assert.All(result.ConstrainedEdges, edge => Assert.True(edge.HasFeature));
+        Assert.True(Edge.FindDirected(fixture.B, intersection)!.HasFeature);
+        Assert.True(Edge.FindDirected(intersection, fixture.C)!.HasFeature);
+        Assert.Equal(4, intersection.ConstraintCount);
+    }
+
     static EdgeInserter CreateInserter()
     {
         var geometry = new InsertionGeometry();

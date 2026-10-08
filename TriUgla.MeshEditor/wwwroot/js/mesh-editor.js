@@ -210,7 +210,7 @@ function onPointerMove(view, event) {
         view.lastY = event.clientY;
         draw(view);
     } else {
-        scheduleMeshHover(view, p);
+        scheduleMeshHover(view, p, event.ctrlKey);
     }
     if (view.polylineNodes.length || view.polygonNodes.length) requestDraw(view);
     scheduleReport(view);
@@ -318,6 +318,10 @@ async function insertNode(view, event) {
 
 async function deleteNode(view, event) {
     event.preventDefault();
+    if (event.ctrlKey) {
+        if (Date.now() - (view.lastUnderlyingSelection ?? 0) < 250) return;
+        return selectAt(view, localPoint(view.canvas, event), event);
+    }
     return enqueueMutation(view, async () => {
         if (view.readOnly) return;
         const screen = localPoint(view.canvas, event);
@@ -376,7 +380,8 @@ function applyMesh(view, mesh) {
 
 async function selectAt(view, screen, event) {
     view.message = null;
-    const hit = await resolveHit(view, screen);
+    const hit = await resolveHit(view, screen, event.ctrlKey);
+    if (event.ctrlKey) view.lastUnderlyingSelection = Date.now();
     if (!hit) {
         if (!event.shiftKey && !event.ctrlKey) view.selections.clear();
     } else {
@@ -515,21 +520,23 @@ function syncDraftSelection(view, ids) {
     for (const id of ids) addSelection(view, { type: "node", id });
 }
 
-function scheduleMeshHover(view, screen) {
+function scheduleMeshHover(view, screen, underlying = false) {
     view.hoverPoint = screen;
+    view.hoverUnderlying = underlying;
     view.hoverLookupVersion++;
     if (view.hoverLookupTimer !== null) return;
     view.hoverLookupTimer = setTimeout(async () => {
         view.hoverLookupTimer = null;
         const point = view.hoverPoint;
+        const preferUnderlying = view.hoverUnderlying;
         view.hoverPoint = null;
         const version = view.hoverLookupVersion;
-        const hit = await resolveHit(view, point);
+        const hit = await resolveHit(view, point, preferUnderlying);
         if (version === view.hoverLookupVersion) setHover(view, hit);
     }, 32);
 }
 
-async function resolveHit(view, screen) {
+async function resolveHit(view, screen, underlying = false) {
     if (!screen) return null;
     const meshVersion = view.meshVersion;
     const world = screenToWorld(view, screen.x, screen.y);
@@ -549,7 +556,7 @@ async function resolveHit(view, screen) {
     if (!view.showSuperStructure && (view.superNodes.has(a) || view.superNodes.has(b))) return null;
     const id = edgeId(a, b);
     const constraint = view.constraintByEdge.get(id);
-    return constraint
+    return constraint && !underlying
         ? { type: "constraint", id: constraint.id, a, b, constraint,
             edges: constraint.edges.map(edge => [edge.a, edge.b]) }
         : { type: "edge", id, a, b, constraintCount: hit.constraintCount };

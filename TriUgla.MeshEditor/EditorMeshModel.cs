@@ -8,6 +8,8 @@ public sealed partial class EditorMeshModel
     ];
 
     readonly Dictionary<Node, int> _ids = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<Constraint, ConstraintHandle> _constraintDefinitions =
+        new(ReferenceEqualityComparer.Instance);
     readonly Stack<IEditorCommand> _undo = new();
     readonly Stack<IEditorCommand> _redo = new();
     readonly List<Vec2> _loopPoints = [];
@@ -18,6 +20,11 @@ public sealed partial class EditorMeshModel
 
     internal void ClearFailure() => _failureReason = null;
     internal void Fail(string? reason) => _failureReason = reason ?? "The mesh operation failed.";
+
+    ConstraintHandle Definition(Constraint constraint)
+        => _constraintDefinitions.TryGetValue(constraint, out ConstraintHandle? definition)
+            ? definition
+            : ConstraintHandle.From(constraint);
 
     public EditorMeshModel() => Reset();
 
@@ -33,7 +40,11 @@ public sealed partial class EditorMeshModel
     public MeshView Remove(int nodeId)
     {
         RemoveNodeCommand? command = CreateRemoveNodeCommand(nodeId);
-        if (command is null) return Snapshot(false, null);
+        if (command is null)
+        {
+            Fail($"Node {nodeId} is not present in the current mesh.");
+            return Snapshot(false, null);
+        }
         bool removed = Execute(command);
         return Snapshot(removed, null);
     }
@@ -46,7 +57,10 @@ public sealed partial class EditorMeshModel
         ArgumentNullException.ThrowIfNull(nodeIds);
         int[] distinctConstraintIds = constraintIds.Distinct().ToArray();
         if (distinctConstraintIds.Any(id => id < 0 || id >= _mesher.Constraints.Count))
+        {
+            Fail("One or more selected constraints are no longer present in the current mesh.");
             return Snapshot(false, null);
+        }
         (int Index, Constraint Constraint)[] constraints = distinctConstraintIds
             .Select(id => (Index: id, Constraint: _mesher.Constraints[id]))
             .ToArray();
@@ -56,7 +70,11 @@ public sealed partial class EditorMeshModel
             .Select(id => _ids.FirstOrDefault(pair => pair.Value == id && !pair.Key.Dead).Key)
             .OfType<Node>()
             .ToArray();
-        if (selectedNodes.Length != distinctNodeIds.Length) return Snapshot(false, null);
+        if (selectedNodes.Length != distinctNodeIds.Length)
+        {
+            Fail("One or more selected nodes are no longer present in the current mesh.");
+            return Snapshot(false, null);
+        }
 
         RemoveNodeCommand[] nodes = selectedNodes
             .Where(node => node.Kind is not NodeKind.SteinerInsertion and not NodeKind.SteinerRefinement)
@@ -68,10 +86,14 @@ public sealed partial class EditorMeshModel
         IEditorCommand[] commands = constraints
             .OrderByDescending(item => item.Index)
             .Select(item => (IEditorCommand)new RemoveConstraintCommand(
-                this, ConstraintHandle.From(item.Constraint)))
+                this, Definition(item.Constraint)))
             .Concat(nodes)
             .ToArray();
-        if (commands.Length == 0) return Snapshot(false, null);
+        if (commands.Length == 0)
+        {
+            Fail("Generated Steiner nodes cannot be deleted directly; remove their constraints instead.");
+            return Snapshot(false, null);
+        }
         bool removed = Execute(new CompositeEditorCommand(commands));
         return Snapshot(removed, null);
     }
@@ -143,20 +165,27 @@ public sealed partial class EditorMeshModel
     public MeshView RemoveConstraint(int startId, int endId)
     {
         Constraint? constraint = FindConstraint(startId, endId);
-        if (constraint is null) return Snapshot(false, null);
+        if (constraint is null)
+        {
+            Fail($"No constraint contains edge {startId}-{endId} in the current mesh.");
+            return Snapshot(false, null);
+        }
         return RemoveConstraint(constraint);
     }
 
     public MeshView RemoveConstraint(int constraintId)
     {
         if (constraintId < 0 || constraintId >= _mesher.Constraints.Count)
+        {
+            Fail($"Constraint {constraintId} is not present in the current mesh.");
             return Snapshot(false, null);
+        }
         return RemoveConstraint(_mesher.Constraints[constraintId]);
     }
 
     MeshView RemoveConstraint(Constraint constraint)
     {
-        ConstraintHandle handle = ConstraintHandle.From(constraint);
+        ConstraintHandle handle = Definition(constraint);
         bool removed = Execute(new RemoveConstraintCommand(this, handle));
         return Snapshot(removed, null);
     }
@@ -164,6 +193,7 @@ public sealed partial class EditorMeshModel
     public MeshView Reset()
     {
         _ids.Clear();
+        _constraintDefinitions.Clear();
         _undo.Clear();
         _redo.Clear();
         _loopPoints.Clear();

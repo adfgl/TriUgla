@@ -56,7 +56,7 @@ public sealed partial class EditorMeshModel
             return false;
         }
         if (loopIndex is not null && !ReleaseInitialLoop()) return false;
-        bool removed = _mesher.Remove(node).Removed;
+        bool removed = _mesher.Remove(position).Removed;
         if (!removed)
             Fail(node.Constrained
                 ? $"Node at {position} cannot be removed because ConstraintCount is {node.ConstraintCount}."
@@ -104,6 +104,7 @@ public sealed partial class EditorMeshModel
             Fail(exception.Message);
             return false;
         }
+        _constraintDefinitions[constraint] = handle;
         return true;
     }
 
@@ -115,7 +116,11 @@ public sealed partial class EditorMeshModel
             Fail($"Constraint '{handle.Name}' is not present in the current mesh.");
             return false;
         }
-        if (_mesher.TryRemoveConstraint(constraint, out string? reason)) return true;
+        if (_mesher.TryRemoveConstraint(constraint, out string? reason))
+        {
+            _constraintDefinitions.Remove(constraint);
+            return true;
+        }
         Fail(reason);
         return false;
     }
