@@ -6,11 +6,12 @@ export function initialize(canvas, dotnet, mesh) {
         canvas, dotnet, zoom: 1, ox: 0, oy: 0, dragging: false, pointerId: null, x: 0, y: 0,
         moved: false, selections: new Map(), hover: null, message: null, showSuperStructure: true,
         canUndo: false, canRedo: false, tool: "select", constraintStart: null,
+        readOnly: false, quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
         polylineNodes: [], polygonNodes: [],
         renderPending: false, reportTimer: null, hoverLookupTimer: null, hoverPoint: null,
         hoverLookupVersion: 0,
         hoverLine: [], hoverRequest: 0,
-        vertices: [], triangles: [], boundaryEdges: [], loopEdges: [], constraintEdges: [],
+        vertices: [], nodeKinds: [], triangles: [], boundaryEdges: [], loopEdges: [], constraintEdges: [],
         superNodes: new Set(), superFaces: new Set(), constraintEdgeIds: new Set(),
         constraintByEdge: new Map(), constraints: [], faceKinds: []
     };
@@ -89,7 +90,7 @@ export function setSuperStructureVisibility(canvas, visible) {
 
 export function setToolMode(canvas, tool) {
     const view = views.get(canvas);
-    if (!view) return;
+    if (!view || (view.readOnly && tool !== "select")) return;
     view.tool = tool;
     view.constraintStart = null;
     view.polylineNodes = [];
@@ -99,9 +100,37 @@ export function setToolMode(canvas, tool) {
     changed(view);
 }
 
+export function showQuadMesh(canvas, overlay) {
+    const view = views.get(canvas);
+    if (!view) return;
+    view.readOnly = true;
+    view.tool = "select";
+    view.constraintStart = null;
+    view.polylineNodes = [];
+    view.polygonNodes = [];
+    view.quadVertices = overlay.nodes.map(node => [node.x, node.y]);
+    view.quads = overlay.quads.map(face => [face.a, face.b, face.c, face.d]);
+    view.quadTriangles = overlay.triangles.map(face => [face.a, face.b, face.c]);
+    view.quadEdgeFlips = overlay.edgeFlips;
+    view.message = `${view.quads.length} quads · ${view.quadTriangles.length} remaining triangles · ${view.quadEdgeFlips} flips`;
+    changed(view);
+}
+
+export function hideQuadMesh(canvas) {
+    const view = views.get(canvas);
+    if (!view) return;
+    view.readOnly = false;
+    view.quadVertices = [];
+    view.quads = [];
+    view.quadTriangles = [];
+    view.quadEdgeFlips = 0;
+    view.message = null;
+    changed(view);
+}
+
 export async function undo(canvas) {
     const view = views.get(canvas);
-    if (!view || !view.canUndo) return;
+    if (!view || view.readOnly || !view.canUndo) return;
     applyMesh(view, await view.dotnet.invokeMethodAsync("UndoAction"));
     view.selections.clear();
     view.hover = null;
@@ -111,7 +140,7 @@ export async function undo(canvas) {
 
 export async function redo(canvas) {
     const view = views.get(canvas);
-    if (!view || !view.canRedo) return;
+    if (!view || view.readOnly || !view.canRedo) return;
     applyMesh(view, await view.dotnet.invokeMethodAsync("RedoAction"));
     view.selections.clear();
     view.hover = null;
@@ -188,16 +217,16 @@ function onPointerUp(view, event) {
     view.selecting = false;
     view.pointerId = null;
     view.canvas.classList.remove("dragging");
-    if (shouldSelect && view.tool === "constraint") chooseConstraintNode(view, event);
+    if (shouldSelect && !view.readOnly && view.tool === "constraint") chooseConstraintNode(view, event);
     else if (shouldSelect && view.tool === "polyline") choosePolylineNode(view, event);
     else if (shouldSelect && view.tool === "polygon") choosePolygonNode(view, event);
-    else if (shouldSelect && event.metaKey) insertNode(view, event);
+    else if (shouldSelect && event.metaKey && !view.readOnly) insertNode(view, event);
     else if (shouldSelect) selectAt(view, localPoint(view.canvas, event), event);
 }
 
 function onKey(view, event) {
-    if (event.metaKey && event.key.toLowerCase() === "z" && event.shiftKey) redo(view.canvas);
-    else if (event.metaKey && event.key.toLowerCase() === "z") undo(view.canvas);
+    if (!view.readOnly && event.metaKey && event.key.toLowerCase() === "z" && event.shiftKey) redo(view.canvas);
+    else if (!view.readOnly && event.metaKey && event.key.toLowerCase() === "z") undo(view.canvas);
     else if (event.key === "0") reset(view.canvas);
     else if (event.key.toLowerCase() === "f") fit(view.canvas);
     else if (event.key === "Enter" && view.tool === "polyline") finishPolyline(view);
@@ -215,7 +244,7 @@ function onKey(view, event) {
         view.message = view.polygonNodes.length ? `${view.polygonNodes.length} polygon vertices — Enter to close` : null;
         changed(view);
     }
-    else if (event.key === "Delete" || event.key === "Backspace") deleteSelected(view);
+    else if (!view.readOnly && (event.key === "Delete" || event.key === "Backspace")) deleteSelected(view);
     else if (event.key === "Escape") {
         view.tool = "select";
         view.constraintStart = null;
@@ -233,6 +262,7 @@ function onKey(view, event) {
 }
 
 async function deleteSelected(view) {
+    if (view.readOnly) return;
     const selected = [...view.selections.values()];
     let changedMesh = false;
     const constraints = selected
@@ -254,6 +284,7 @@ async function deleteSelected(view) {
 }
 
 async function insertNode(view, event) {
+    if (view.readOnly) return;
     const screen = localPoint(view.canvas, event);
     const existing = await resolveHit(view, screen);
     if (existing?.type === "node") {
@@ -275,6 +306,7 @@ async function insertNode(view, event) {
 
 async function deleteNode(view, event) {
     event.preventDefault();
+    if (view.readOnly) return;
     const screen = localPoint(view.canvas, event);
     const hit = await resolveHit(view, screen);
     if (hit?.type !== "node") return;
@@ -296,7 +328,11 @@ function applyMesh(view, mesh) {
     view.hoverPoint = null;
     const maxId = mesh.nodes.reduce((maximum, node) => Math.max(maximum, node.id), -1);
     view.vertices = Array(maxId + 1).fill(null);
-    for (const node of mesh.nodes) view.vertices[node.id] = [node.x, node.y];
+    view.nodeKinds = Array(maxId + 1).fill("Normal");
+    for (const node of mesh.nodes) {
+        view.vertices[node.id] = [node.x, node.y];
+        view.nodeKinds[node.id] = node.kind;
+    }
     view.triangles = mesh.faces.map(face => [face.a, face.b, face.c]);
     view.faceKinds = mesh.faces.map(face => face.kind);
     view.boundaryEdges = mesh.boundaryEdges.map(edge => [edge.a, edge.b]);
@@ -514,7 +550,43 @@ function draw(view) {
     ctx.fillStyle = "#080d18";
     ctx.fillRect(0, 0, view.width, view.height);
     drawGrid(view, ctx);
+    if (view.readOnly) { ctx.save(); ctx.globalAlpha = .32; }
     drawMesh(view, ctx);
+    if (view.readOnly) ctx.restore();
+    if (view.readOnly) drawQuadOverlay(view, ctx);
+}
+
+function drawQuadOverlay(view, ctx) {
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (const quad of view.quads) {
+        const points = quad.map(index => worldToScreen(view, view.quadVertices[index]));
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let index = 1; index < points.length; index++) ctx.lineTo(points[index].x, points[index].y);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(245, 158, 11, .12)";
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 3;
+        ctx.fill();
+        ctx.stroke();
+    }
+    ctx.setLineDash([7, 5]);
+    for (const triangle of view.quadTriangles) {
+        const points = triangle.map(index => worldToScreen(view, view.quadVertices[index]));
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        ctx.lineTo(points[1].x, points[1].y);
+        ctx.lineTo(points[2].x, points[2].y);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(148, 163, 184, .08)";
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+    }
+    ctx.restore();
 }
 
 function drawGrid(view, ctx) {
@@ -683,6 +755,7 @@ function describeSelection(view, item) {
         const point = view.vertices[item.id];
         return selectionInfo("Node", `Node ${item.id}`, [
             ["ID", item.id], ["X", number(point[0])], ["Y", number(point[1])],
+            ["Kind", view.nodeKinds[item.id]],
             ["Super structure", view.superNodes.has(item.id) ? "Yes" : "No"]
         ]);
     }

@@ -52,7 +52,8 @@ public sealed class SuperStructure
             double angle = -Math.PI / 2 + index * 2 * Math.PI / count;
             nodes[index] = new Node
             {
-                Position = center + radius * new Vec2(Math.Cos(angle), Math.Sin(angle))
+                Position = center + radius * new Vec2(Math.Cos(angle), Math.Sin(angle)),
+                Kind = NodeKind.Super
             };
         }
 

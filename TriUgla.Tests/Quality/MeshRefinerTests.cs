@@ -17,7 +17,10 @@ public class MeshRefinerTests
         Assert.Equal(3, fixture.Traversal.Faces().Count());
         Node[] nodes = fixture.Traversal.Nodes().ToArray();
         Assert.Equal(4, nodes.Length);
-        Assert.Contains(nodes, node => node.Position.Distance(new Vec2(1, 0.75)) < 1e-12);
+        Node steiner = Assert.Single(
+            nodes,
+            node => node.Position.Distance(new Vec2(1, 0.75)) < 1e-12);
+        Assert.Equal(NodeKind.SteinerRefinement, steiner.Kind);
     }
 
     [Fact]
@@ -90,6 +93,7 @@ public class MeshRefinerTests
             fixture.Traversal.Nodes(),
             node => node.Position == new Vec2(1, 1));
         Assert.True(midpoint.Constrained);
+        Assert.Equal(NodeKind.SteinerRefinement, midpoint.Kind);
         Assert.Equal(1, bc.ConstraintCount);
     }
 

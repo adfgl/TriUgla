@@ -14,6 +14,7 @@ public class NodeInserterTests
         Assert.NotNull(result.FaceSplit);
         Assert.Null(result.EdgeSplit);
         Assert.Equal(new NodeData(15, 25), result.Node!.Data);
+        Assert.Equal(NodeKind.Normal, result.Node.Kind);
     }
 
     [Fact]
@@ -28,6 +29,7 @@ public class NodeInserterTests
         Assert.NotNull(result.EdgeSplit);
         Assert.Null(result.FaceSplit);
         Assert.Equal(new NodeData(30, 40), result.Node!.Data);
+        Assert.Equal(NodeKind.Normal, result.Node.Kind);
     }
 
     [Fact]

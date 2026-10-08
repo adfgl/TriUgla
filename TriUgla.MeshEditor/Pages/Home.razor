@@ -13,11 +13,16 @@
                 <input type="checkbox" checked="@_showSuperStructure" @onchange="ToggleSuperStructure" />
                 <span>Super structure</span>
             </label>
-            <button type="button" title="Undo (Cmd+Z)" disabled="@(!_canUndo)" @onclick="Undo">Undo</button>
-            <button type="button" title="Redo (Cmd+Shift+Z)" disabled="@(!_canRedo)" @onclick="Redo">Redo</button>
+            <button type="button" class="@(_quadMode ? "quad-toggle active" : "quad-toggle")"
+                    title="@(_quadMode ? "Return to editable triangular mesh" : "Build and show read-only quad representation")"
+                    aria-pressed="@_quadMode" @onclick="ToggleQuadMesh">
+                @(_quadMode ? "Back to triangles" : "Quad overlay")
+            </button>
+            <button type="button" title="Undo (Cmd+Z)" disabled="@(_quadMode || !_canUndo)" @onclick="Undo">Undo</button>
+            <button type="button" title="Redo (Cmd+Shift+Z)" disabled="@(_quadMode || !_canRedo)" @onclick="Redo">Redo</button>
             <button type="button" title="Reset view (0)" @onclick="Reset">Reset <kbd>0</kbd></button>
             <button type="button" title="Fit mesh to viewport (F)" @onclick="Fit">Fit <kbd>F</kbd></button>
-            <button type="button" title="Remove inserted nodes" @onclick="ResetMesh">Reset mesh</button>
+            <button type="button" title="Remove inserted nodes" disabled="@_quadMode" @onclick="ResetMesh">Reset mesh</button>
         </div>
     </header>
 
@@ -29,19 +34,19 @@
                 </svg>
                 <span class="sr-only">Select</span>
             </button>
-            <button type="button" class="@(ToolClass("constraint"))" title="Constraint line" aria-label="Constraint line" @onclick="ConstraintTool">
+            <button type="button" disabled="@_quadMode" class="@(ToolClass("constraint"))" title="Constraint line" aria-label="Constraint line" @onclick="ConstraintTool">
                 <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="5" cy="18" r="2" /><circle cx="19" cy="6" r="2" /><path d="m6.5 16.7 11-9.4" />
                 </svg>
                 <span class="sr-only">Constraint line</span>
             </button>
-            <button type="button" class="@(ToolClass("polyline"))" title="Polyline" aria-label="Polyline" @onclick="PolylineTool">
+            <button type="button" disabled="@_quadMode" class="@(ToolClass("polyline"))" title="Polyline" aria-label="Polyline" @onclick="PolylineTool">
                 <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m4 17 5-9 5 7 6-9" /><circle cx="4" cy="17" r="1.7" /><circle cx="9" cy="8" r="1.7" /><circle cx="14" cy="15" r="1.7" /><circle cx="20" cy="6" r="1.7" />
                 </svg>
                 <span class="sr-only">Polyline</span>
             </button>
-            <button type="button" class="@(ToolClass("polygon"))" title="Polygon" aria-label="Polygon" @onclick="PolygonTool">
+            <button type="button" disabled="@_quadMode" class="@(ToolClass("polygon"))" title="Polygon" aria-label="Polygon" @onclick="PolygonTool">
                 <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m12 3 8 6-3 10H7L4 9l8-6Z" /><circle cx="12" cy="3" r="1.4" /><circle cx="20" cy="9" r="1.4" /><circle cx="17" cy="19" r="1.4" /><circle cx="7" cy="19" r="1.4" /><circle cx="4" cy="9" r="1.4" />
                 </svg>
@@ -95,7 +100,14 @@
     </section>
 
     <footer class="statusbar">
-        <span>Click: select <i></i> Shift: add <i></i> Ctrl: toggle <i></i> Cmd+click: insert <i></i> Middle-drag: pan</span>
+        @if (_quadMode)
+        {
+            <span class="mode-status"><strong>QUAD REPRESENTATION</strong> Read-only <i></i> Click: select <i></i> Middle-drag: pan</span>
+        }
+        else
+        {
+            <span>Click: select <i></i> Shift: add <i></i> Ctrl: toggle <i></i> Cmd+click: insert <i></i> Middle-drag: pan</span>
+        }
         <output class="coordinates">X @_x.ToString("0.00").PadLeft(7) &nbsp; Y @_y.ToString("0.00").PadLeft(7)</output>
         <output class="zoom">@_selection &nbsp; @_nodeCount nodes &nbsp; @(_zoom.ToString("0"))%</output>
     </footer>
@@ -113,6 +125,7 @@
     bool _showSuperStructure = true;
     bool _canUndo;
     bool _canRedo;
+    bool _quadMode;
     string _tool = "select";
     IReadOnlyList<SelectionInfo> _selectedObjects = [];
     readonly EditorMeshModel _mesh = new();
@@ -130,6 +143,17 @@
     async Task ResetMesh() => await InvokeEditor("resetMesh");
     async Task Undo() => await InvokeEditor("undo");
     async Task Redo() => await InvokeEditor("redo");
+
+    async Task ToggleQuadMesh()
+    {
+        if (_module is null) return;
+        _quadMode = !_quadMode;
+        _tool = "select";
+        if (_quadMode)
+            await _module.InvokeVoidAsync("showQuadMesh", _canvas, _mesh.QuadState());
+        else
+            await _module.InvokeVoidAsync("hideQuadMesh", _canvas);
+    }
 
     async Task SetTool(string tool)
     {
@@ -180,23 +204,23 @@
     }
 
     [JSInvokable]
-    public MeshView InsertNode(double x, double y) => _mesh.Insert(x, y);
+    public MeshView InsertNode(double x, double y) => _quadMode ? _mesh.State() : _mesh.Insert(x, y);
 
     [JSInvokable]
     public ElementHit? FindElement(double x, double y, double tolerance)
         => _mesh.Find(x, y, tolerance);
 
     [JSInvokable]
-    public MeshView RemoveNode(int nodeId) => _mesh.Remove(nodeId);
+    public MeshView RemoveNode(int nodeId) => _quadMode ? _mesh.State() : _mesh.Remove(nodeId);
 
     [JSInvokable]
-    public MeshView ResetMeshState() => _mesh.Reset();
+    public MeshView ResetMeshState() => _quadMode ? _mesh.State() : _mesh.Reset();
 
     [JSInvokable]
-    public MeshView UndoAction() => _mesh.Undo();
+    public MeshView UndoAction() => _quadMode ? _mesh.State() : _mesh.Undo();
 
     [JSInvokable]
-    public MeshView RedoAction() => _mesh.Redo();
+    public MeshView RedoAction() => _quadMode ? _mesh.State() : _mesh.Redo();
 
     [JSInvokable]
     public Task SelectDefaultTool()
@@ -207,13 +231,16 @@
     }
 
     [JSInvokable]
-    public MeshView InsertConstraintLine(int fromId, int toId) => _mesh.InsertConstraint(fromId, toId);
+    public MeshView InsertConstraintLine(int fromId, int toId)
+        => _quadMode ? _mesh.State() : _mesh.InsertConstraint(fromId, toId);
 
     [JSInvokable]
-    public MeshView InsertPolyline(int[] nodeIds) => _mesh.InsertPolyline(nodeIds);
+    public MeshView InsertPolyline(int[] nodeIds)
+        => _quadMode ? _mesh.State() : _mesh.InsertPolyline(nodeIds);
 
     [JSInvokable]
-    public MeshView InsertPolygon(int[] nodeIds) => _mesh.InsertPolygon(nodeIds);
+    public MeshView InsertPolygon(int[] nodeIds)
+        => _quadMode ? _mesh.State() : _mesh.InsertPolygon(nodeIds);
 
     [JSInvokable]
     public IReadOnlyList<EdgeView> CollectConstraintLine(int startId, int endId)
@@ -221,7 +248,7 @@
 
     [JSInvokable]
     public MeshView RemoveConstraintLine(int constraintId)
-        => _mesh.RemoveConstraint(constraintId);
+        => _quadMode ? _mesh.State() : _mesh.RemoveConstraint(constraintId);
 
     public async ValueTask DisposeAsync()
     {

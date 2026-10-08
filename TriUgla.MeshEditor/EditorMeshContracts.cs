@@ -12,9 +12,17 @@ public sealed record MeshView(
     bool CanUndo,
     bool CanRedo);
 
-public sealed record NodeView(int Id, double X, double Y, bool IsSuper);
+public sealed record NodeView(int Id, double X, double Y, bool IsSuper, string Kind);
 public sealed record FaceView(int A, int B, int C, bool IsSuper, string Kind);
 public sealed record EdgeView(int A, int B);
+public sealed record QuadOverlayView(
+    IReadOnlyList<QuadNodeView> Nodes,
+    IReadOnlyList<QuadFaceView> Quads,
+    IReadOnlyList<QuadTriangleView> Triangles,
+    int EdgeFlips);
+public sealed record QuadNodeView(double X, double Y, string Kind);
+public sealed record QuadFaceView(int A, int B, int C, int D, string Kind);
+public sealed record QuadTriangleView(int A, int B, int C, string Kind);
 public sealed record ConstraintView(
     int Id,
     string Name,

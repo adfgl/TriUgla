@@ -65,6 +65,7 @@ public sealed class EdgeInserter(
             Node inserted = nodes.Create(
                 intersection,
                 LocateResult.From(crossed));
+            inserted.Kind = NodeKind.SteinerInsertion;
             EdgeSplitResult split = splitter.Split(crossed, inserted);
 
             insertedNodes.Add(inserted);

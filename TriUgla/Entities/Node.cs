@@ -6,6 +6,7 @@ public sealed class Node : MeshElement
 
     public Vec2 Position;
     public NodeData Data;
+    public NodeKind Kind { get; internal set; } = NodeKind.Normal;
     public Edge Edge = null!;
 
     public bool Constrained => _constraints > 0;

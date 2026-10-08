@@ -12,6 +12,7 @@ public class QuadMeshTests
         QuadMeshFace quad = Assert.Single(result.Quads);
         Assert.Empty(result.Triangles);
         Assert.Equal(4, result.Nodes.Count);
+        Assert.All(result.Nodes, node => Assert.Equal(NodeKind.Normal, node.Kind));
         Vec2[] positions =
         [
             result.Nodes[quad.Indices.A].Position,

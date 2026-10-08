@@ -16,6 +16,8 @@ button, canvas { font: inherit; }
 .brand span { display: block; color: #22d3ee; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
 .brand h1 { margin: 1px 0 0; font-size: 18px; line-height: 1.15; font-weight: 650; }
 .toolbar-actions { display: flex; gap: 8px; }
+.quad-toggle.active { border-color: #f59e0b; background: #422006; color: #fde68a; }
+.quad-toggle.active:hover { border-color: #fbbf24; background: #52280a; }
 .toggle { display: flex; align-items: center; gap: 7px; margin-right: 4px; color: #a8b4c8; font-size: 12px; cursor: pointer; }
 .toggle input { width: 16px; height: 16px; margin: 0; accent-color: #22d3ee; cursor: pointer; }
 button { min-height: 36px; padding: 6px 14px; border: 1px solid #25324a; border-radius: 5px; background: #19243a; color: #f8fafc; cursor: pointer; }
@@ -53,6 +55,7 @@ canvas.dragging { cursor: grabbing; }
 .statusbar i::after { content: "•"; padding: 0 7px; font-style: normal; color: #4b5d78; }
 .coordinates, .zoom { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
 .zoom { color: #22d3ee; }
+.mode-status strong { margin-right: 8px; color: #fbbf24; font-size: 10px; letter-spacing: .08em; }
 #blazor-error-ui { display: none; position: fixed; inset: auto 16px 16px; padding: 12px 16px; border: 1px solid #7f1d1d; border-radius: 6px; background: #450a0a; }
 #blazor-error-ui .dismiss { min-height: auto; margin-left: 12px; padding: 2px 7px; }
 

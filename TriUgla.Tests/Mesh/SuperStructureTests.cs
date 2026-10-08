@@ -30,6 +30,7 @@ public class SuperStructureTests
         Assert.Equal(3, faces.Count);
         Assert.Equal(5, structure.Nodes.Count);
         Assert.Equal(5, nodes.Length);
+        Assert.All(nodes, node => Assert.Equal(NodeKind.Super, node.Kind));
         Assert.DoesNotContain(nodes, node => node.Position == Vec2.Zero);
     }
 

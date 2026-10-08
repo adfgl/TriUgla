@@ -127,6 +127,7 @@ public sealed class MeshRefiner(
         InsertNodeResult insertion = nodeInserter.Insert(candidate, face);
         TopologyChange? change = insertion.FaceSplit?.Change ?? insertion.EdgeSplit?.Change;
         if (change is null) return false;
+        insertion.Node!.Kind = NodeKind.SteinerRefinement;
 
         DrainAffected(change.Value, ranker, settings);
         return true;
@@ -140,7 +141,11 @@ public sealed class MeshRefiner(
         ArgumentNullException.ThrowIfNull(edge);
         if (edge.Dead || !edge.OrTwinConstrained) return false;
 
-        var node = new Node { Position = Candidate(edge) };
+        var node = new Node
+        {
+            Position = Candidate(edge),
+            Kind = NodeKind.SteinerRefinement
+        };
         node.Data = Barycentric.FromSegment(
             node.Position,
             edge.NodeStart.Position,

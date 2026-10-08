@@ -9,7 +9,8 @@ public sealed partial class EditorMeshModel
         MeshSnapshot snapshot = _mesher.Traversal.Snapshot();
         NodeView[] nodes = snapshot.Nodes.Where(node => !node.Dead)
             .Select(node => new NodeView(
-                Id(node), node.Position.X, node.Position.Y, structure?.SuperNode(node) == true)).ToArray();
+                Id(node), node.Position.X, node.Position.Y,
+                structure?.SuperNode(node) == true, node.Kind.ToString())).ToArray();
         FaceView[] faces = snapshot.Faces.Where(face => !face.Dead)
             .Select(face =>
             {
@@ -64,5 +65,21 @@ public sealed partial class EditorMeshModel
         SuperStructure? structure = _mesher.SuperStructure;
         if (structure is not null)
             new FaceClassifier(_mesher.Mesh, _mesher.Traversal, structure).Classify();
+    }
+
+    public QuadOverlayView QuadState()
+    {
+        Classify();
+        QuadMesh mesh = QuadMesh.From(_mesher.Mesh);
+        return new QuadOverlayView(
+            mesh.Nodes.Select(node => new QuadNodeView(
+                node.Position.X, node.Position.Y, node.Kind.ToString())).ToArray(),
+            mesh.Quads.Select(face => new QuadFaceView(
+                face.Indices.A, face.Indices.B, face.Indices.C, face.Indices.D,
+                face.Kind.ToString())).ToArray(),
+            mesh.Triangles.Select(face => new QuadTriangleView(
+                face.Indices.A, face.Indices.B, face.Indices.C,
+                face.Kind.ToString())).ToArray(),
+            mesh.EdgeFlips);
     }
 }

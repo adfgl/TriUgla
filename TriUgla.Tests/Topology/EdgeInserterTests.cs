@@ -64,6 +64,7 @@ public class EdgeInserterTests
         Node inserted = Assert.Single(result.InsertedNodes);
         Assert.Equal(new Vec2(1, 1), inserted.Position);
         Assert.Equal(new NodeData(30, 40), inserted.Data);
+        Assert.Equal(NodeKind.SteinerInsertion, inserted.Kind);
         Assert.Equal(2, result.ConstrainedEdges.Count);
         Assert.All(result.ConstrainedEdges, edge => Assert.Equal(1, edge.ConstraintCount));
         Assert.Same(fixture.A, result.ConstrainedEdges[0].NodeStart);
