@@ -6,10 +6,10 @@ public sealed class Mesher
     readonly List<Loop> _loops = [];
     readonly Mesh _mesh;
     readonly MeshLocator _locator;
-    readonly INodeInserter _nodeInserter;
-    readonly INodeRemover _nodeRemover;
-    readonly IEdgeInserter _edgeInserter;
-    readonly IEdgeLegalizer _edgeLegalizer;
+    readonly NodeInserter _nodeInserter;
+    readonly NodeRemover _nodeRemover;
+    readonly EdgeInserter _edgeInserter;
+    readonly EdgeLegalizer _edgeLegalizer;
     readonly MeshRefiner _refiner;
     readonly GeometryPredicates _geometry;
     readonly SuperStructure? _superStructure;

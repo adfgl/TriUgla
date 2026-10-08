@@ -9,6 +9,7 @@ public sealed partial class EditorMeshModel
 
     readonly Dictionary<Node, int> _ids = new(ReferenceEqualityComparer.Instance);
     readonly Dictionary<int, PointHandle> _handles = new();
+    readonly Dictionary<Constraint, ConstraintHandle> _constraintHandles = new(ReferenceEqualityComparer.Instance);
     readonly Stack<IEditorCommand> _undo = new();
     readonly Stack<IEditorCommand> _redo = new();
     readonly List<PointHandle> _loopPoints = [];
@@ -55,7 +56,7 @@ public sealed partial class EditorMeshModel
 
         var handle = new ConstraintHandle(
             $"Constraint {fromId}-{toId}",
-            [(Handle(from), Handle(to))]);
+            [new ConstraintPathHandle([Handle(from), Handle(to)])]);
         bool inserted = Execute(new InsertConstraintCommand(this, handle));
         return Snapshot(inserted, null);
     }
@@ -71,7 +72,7 @@ public sealed partial class EditorMeshModel
         var handle = new ConstraintHandle(
             polyline.Name,
             polyline.Nodes.Zip(polyline.Nodes.Skip(1),
-                (from, to) => (Handle(from), Handle(to))).ToArray());
+                (from, to) => new ConstraintPathHandle([Handle(from), Handle(to)])).ToArray());
         bool inserted = Execute(new InsertConstraintCommand(this, handle));
         return Snapshot(inserted, null);
     }
@@ -101,7 +102,19 @@ public sealed partial class EditorMeshModel
     {
         Constraint? constraint = FindConstraint(startId, endId);
         if (constraint is null) return Snapshot(false, null);
-        ConstraintHandle handle = ConstraintHandle.From(constraint, Handle);
+        return RemoveConstraint(constraint);
+    }
+
+    public MeshView RemoveConstraint(int constraintId)
+    {
+        if (constraintId < 0 || constraintId >= _mesher.Constraints.Count)
+            return Snapshot(false, null);
+        return RemoveConstraint(_mesher.Constraints[constraintId]);
+    }
+
+    MeshView RemoveConstraint(Constraint constraint)
+    {
+        ConstraintHandle handle = Handle(constraint);
         bool removed = Execute(new RemoveConstraintCommand(this, handle));
         return Snapshot(removed, null);
     }
@@ -110,6 +123,7 @@ public sealed partial class EditorMeshModel
     {
         _ids.Clear();
         _handles.Clear();
+        _constraintHandles.Clear();
         _undo.Clear();
         _redo.Clear();
         _loopPoints.Clear();

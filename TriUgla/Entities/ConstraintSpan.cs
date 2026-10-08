@@ -98,18 +98,28 @@ public sealed class ConstraintSpan : INamable
     {
         Edge? first = node.Edge;
         Edge? edge = first;
+        Edge? best = null;
+        double bestProjection = MinimumDirectionDot;
 
         while (edge is not null)
         {
-            if (!edge.Dead && NearlyColliniear(direction, edge))
+            if (!edge.Dead)
             {
-                return edge;
+                Vec2 candidateDirection = Direction(edge);
+                double projection = candidateDirection == Vec2.Zero
+                    ? double.NegativeInfinity
+                    : direction.Dot(candidateDirection);
+                if (projection >= bestProjection)
+                {
+                    best = edge;
+                    bestProjection = projection;
+                }
             }
 
             edge = edge.Prev?.Twin;
             if (ReferenceEquals(edge, first)) break;
         }
 
-        return null;
+        return best;
     }
 }

@@ -22,6 +22,14 @@ public sealed partial class EditorMeshModel
         return handle;
     }
 
+    ConstraintHandle Handle(Constraint constraint)
+    {
+        if (_constraintHandles.TryGetValue(constraint, out ConstraintHandle? handle)) return handle;
+        handle = ConstraintHandle.From(constraint, Handle);
+        _constraintHandles[constraint] = handle;
+        return handle;
+    }
+
     internal bool InsertPoint(PointHandle point, int? loopIndex)
     {
         if (loopIndex is not null && !ReleaseInitialLoop()) return false;
@@ -55,23 +63,36 @@ public sealed partial class EditorMeshModel
 
     internal bool InsertConstraintHandle(ConstraintHandle handle)
     {
-        var spans = new List<ConstraintSpan>(handle.Spans.Count);
-        foreach ((PointHandle fromHandle, PointHandle toHandle) in handle.Spans)
+        var spans = new List<ConstraintSpan>();
+        foreach (ConstraintPathHandle path in handle.Paths)
         {
-            Node? from = LiveNode(fromHandle.NodeId);
-            Node? to = LiveNode(toHandle.NodeId);
-            if (from is null || to is null) return false;
-            spans.Add(new ConstraintSpan(from, to));
+            if (path.Points.Count < 2) return false;
+            Node[] nodes = path.Points.Select(point => LiveNode(point.NodeId)).OfType<Node>().ToArray();
+            if (nodes.Length != path.Points.Count) return false;
+            spans.AddRange(nodes.Zip(nodes.Skip(1), (from, to) => new ConstraintSpan(from, to)));
         }
 
-        var constraint = new Constraint(spans: spans, name: handle.Name);
+        ConstraintPoint[] points = handle.Points.Select(point =>
+        {
+            Node? node = LiveNode(point.Node.NodeId);
+            return node is null ? null : new ConstraintPoint(node, point.Name);
+        }).OfType<ConstraintPoint>().ToArray();
+        if (points.Length != handle.Points.Count) return false;
+
+        var constraint = new Constraint(points: points, spans: spans, name: handle.Name);
         if (!_mesher.TryInsertConstraint(constraint, out _)) return false;
+        if (handle.Current is not null) _constraintHandles.Remove(handle.Current);
         handle.Current = constraint;
+        _constraintHandles[constraint] = handle;
         return true;
     }
 
     internal bool RemoveConstraintHandle(ConstraintHandle handle)
-        => handle.Current is not null && _mesher.TryRemoveConstraint(handle.Current, out _);
+    {
+        if (handle.Current is null) return false;
+        handle.CapturePaths(handle.Current, Handle);
+        return _mesher.TryRemoveConstraint(handle.Current, out _);
+    }
 
     internal bool InsertLoopHandle(LoopHandle handle)
     {

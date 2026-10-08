@@ -235,8 +235,11 @@ function onKey(view, event) {
 async function deleteSelected(view) {
     const selected = [...view.selections.values()];
     let changedMesh = false;
-    for (const item of selected.filter(item => item.type === "constraint")) {
-        const mesh = await view.dotnet.invokeMethodAsync("RemoveConstraintLine", item.a, item.b);
+    const constraints = selected
+        .filter(item => item.type === "constraint")
+        .sort((left, right) => right.id - left.id);
+    for (const item of constraints) {
+        const mesh = await view.dotnet.invokeMethodAsync("RemoveConstraintLine", item.id);
         if (mesh.succeeded) { applyMesh(view, mesh); changedMesh = true; }
     }
     for (const item of selected.filter(item => item.type === "node")) {
@@ -567,19 +570,12 @@ function drawMesh(view, ctx) {
     }
     ctx.strokeStyle = "#f472b6";
     ctx.lineWidth = 2.4;
-    for (const [start, end] of view.constraintEdges) {
-        const a = worldToScreen(view, view.vertices[start]);
-        const b = worldToScreen(view, view.vertices[end]);
-        line(ctx, a.x, a.y, b.x, b.y);
-    }
+    for (const constraint of view.constraints)
+        strokeEdgePath(view, ctx, constraint.edges.map(edge => [edge.a, edge.b]));
     if (view.hoverLine.length) {
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 5;
-        for (const [start, end] of view.hoverLine) {
-            const a = worldToScreen(view, view.vertices[start]);
-            const b = worldToScreen(view, view.vertices[end]);
-            line(ctx, a.x, a.y, b.x, b.y);
-        }
+        strokeEdgePath(view, ctx, view.hoverLine);
     }
     if (view.tool === "polyline" && view.polylineNodes.length) {
         ctx.strokeStyle = "#fbbf24";
@@ -633,11 +629,7 @@ function drawMesh(view, ctx) {
     for (const constraint of [...view.selections.values()].filter(item => item.type === "constraint")) {
         ctx.strokeStyle = "#f59e0b";
         ctx.lineWidth = 5;
-        for (const [start, end] of constraint.edges ?? []) {
-            const a = worldToScreen(view, view.vertices[start]);
-            const b = worldToScreen(view, view.vertices[end]);
-            line(ctx, a.x, a.y, b.x, b.y);
-        }
+        strokeEdgePath(view, ctx, constraint.edges ?? []);
     }
     if (view.showSuperStructure) {
         ctx.strokeStyle = "#8b74c9";
@@ -738,6 +730,21 @@ function localPoint(canvas, event) { const r = canvas.getBoundingClientRect(); r
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function niceStep(target) { const p = 10 ** Math.floor(Math.log10(target)); const n = target / p; return (n < 2 ? 1 : n < 5 ? 2 : 5) * p; }
 function line(ctx, x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+function strokeEdgePath(view, ctx, edges) {
+    if (!edges.length) return;
+    ctx.beginPath();
+    let end = null;
+    for (const edge of edges) {
+        let [startId, endId] = edge;
+        if (end === endId) [startId, endId] = [endId, startId];
+        const start = worldToScreen(view, view.vertices[startId]);
+        const next = worldToScreen(view, view.vertices[endId]);
+        if (end !== startId) ctx.moveTo(start.x, start.y);
+        ctx.lineTo(next.x, next.y);
+        end = endId;
+    }
+    ctx.stroke();
+}
 function edgeId(a, b) { return a < b ? `${a}-${b}` : `${b}-${a}`; }
 function selectionKey(selection) { return `${selection.type}:${selection.id}`; }
 function selectionKeyOrEmpty(selection) { return selection ? selectionKey(selection) : ""; }

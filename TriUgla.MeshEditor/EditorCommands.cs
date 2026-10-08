@@ -54,19 +54,42 @@ internal sealed class PointHandle(Vec2 position, int nodeId = -1)
 
 internal sealed class ConstraintHandle(
     string? name,
-    IReadOnlyList<(PointHandle From, PointHandle To)> spans,
+    IEnumerable<ConstraintPathHandle> paths,
+    IEnumerable<ConstraintPointHandle>? points = null,
     Constraint? current = null)
 {
     public string? Name { get; } = name;
-    public IReadOnlyList<(PointHandle From, PointHandle To)> Spans { get; } = spans;
+    public List<ConstraintPathHandle> Paths { get; } = paths.ToList();
+    public List<ConstraintPointHandle> Points { get; } = points?.ToList() ?? [];
     public Constraint? Current { get; set; } = current;
 
     public static ConstraintHandle From(Constraint constraint, Func<Node, PointHandle> handle)
-        => new(
+    {
+        var result = new ConstraintHandle(
             constraint.Name,
-            constraint.Spans.Select(span => (handle(span.From), handle(span.To))).ToArray(),
+            [],
+            constraint.Points.Select(point => new ConstraintPointHandle(handle(point.Node), point.Name)),
             constraint);
+        result.CapturePaths(constraint, handle);
+        return result;
+    }
+
+    public void CapturePaths(Constraint constraint, Func<Node, PointHandle> handle)
+    {
+        Paths.Clear();
+        foreach (ConstraintSpan span in constraint.Spans)
+        {
+            var edges = new List<Edge>();
+            span.Edges(edges);
+            var path = new List<PointHandle>(edges.Count + 1) { handle(span.From) };
+            path.AddRange(edges.Select(edge => handle(edge.NodeEnd)));
+            Paths.Add(new ConstraintPathHandle(path));
+        }
+    }
 }
+
+internal sealed record ConstraintPathHandle(IReadOnlyList<PointHandle> Points);
+internal sealed record ConstraintPointHandle(PointHandle Node, string? Name);
 
 internal sealed class LoopHandle(
     string? name,

@@ -220,8 +220,8 @@
         => _mesh.CollectConstraintLine(startId, endId);
 
     [JSInvokable]
-    public MeshView RemoveConstraintLine(int startId, int endId)
-        => _mesh.RemoveConstraint(startId, endId);
+    public MeshView RemoveConstraintLine(int constraintId)
+        => _mesh.RemoveConstraint(constraintId);
 
     public async ValueTask DisposeAsync()
     {
