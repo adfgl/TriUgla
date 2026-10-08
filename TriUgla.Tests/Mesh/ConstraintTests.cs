@@ -106,6 +106,23 @@ public class ConstraintTests
     }
 
     [Fact]
+    public void Edges_DoesNotFollowAlignedEdgePastDestination()
+    {
+        Node start = NodeAt(0, 0);
+        Node target = NodeAt(1, 0);
+        Node pastTarget = NodeAt(2, 0);
+        Edge overshooting = DirectedEdge(start, pastTarget);
+        Edge destination = DirectedEdge(start, target);
+        var incoming = new Edge { Twin = destination };
+        overshooting.Prev = incoming;
+        start.Edge = overshooting;
+
+        List<Edge> result = new ConstraintSpan(start, target).Edges([]);
+
+        Assert.Equal([destination], result);
+    }
+
+    [Fact]
     public void Edges_ThrowsForDistinctCoincidentNodes()
     {
         Node a = NodeAt(1, 1);

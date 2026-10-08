@@ -82,7 +82,7 @@ public sealed class Mesher
     public RemoveNodeResult Remove(Node node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        if (!Traversal.Nodes().Any(candidate => ReferenceEquals(candidate, node)))
+        if (!ContainsNode(node))
         {
             return RemoveNodeResult.Failed(node);
         }
@@ -413,10 +413,17 @@ public sealed class Mesher
         if (node.Dead) { why = "node is invalid."; return false; }
         if (_superStructure?.SuperNode(node) == true)
         { why = "node is part of the super structure."; return false; }
-        if (!Traversal.Nodes().Any(candidate => ReferenceEquals(candidate, node)))
+        if (!ContainsNode(node))
         { why = "node does not belong to this mesh."; return false; }
         why = string.Empty;
         return true;
+    }
+
+    bool ContainsNode(Node node)
+    {
+        if (node.Dead) return false;
+        LocateResult location = _locator.Locate(node.Position);
+        return ReferenceEquals(location.Node, node);
     }
 
     bool SelfIntersects(Loop loop)

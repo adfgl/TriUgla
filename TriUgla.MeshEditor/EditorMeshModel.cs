@@ -8,14 +8,16 @@ public sealed partial class EditorMeshModel
     ];
 
     readonly Dictionary<Node, int> _ids = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<int, PointHandle> _handles = new();
-    readonly Dictionary<Constraint, ConstraintHandle> _constraintHandles = new(ReferenceEqualityComparer.Instance);
     readonly Stack<IEditorCommand> _undo = new();
     readonly Stack<IEditorCommand> _redo = new();
-    readonly List<PointHandle> _loopPoints = [];
+    readonly List<Vec2> _loopPoints = [];
     Mesher _mesher = null!;
     Loop? _initialLoop;
+    string? _failureReason;
     int _nextId;
+
+    internal void ClearFailure() => _failureReason = null;
+    internal void Fail(string? reason) => _failureReason = reason ?? "The mesh operation failed.";
 
     public EditorMeshModel() => Reset();
 
@@ -23,8 +25,7 @@ public sealed partial class EditorMeshModel
 
     public MeshView Insert(double x, double y)
     {
-        var point = new PointHandle(new Vec2(x, y));
-        var command = new InsertNodeCommand(this, point);
+        var command = new InsertNodeCommand(this, new Vec2(x, y));
         bool inserted = Execute(command);
         return Snapshot(inserted, command.ChangedNodeId);
     }
@@ -44,13 +45,11 @@ public sealed partial class EditorMeshModel
         ArgumentNullException.ThrowIfNull(constraintIds);
         ArgumentNullException.ThrowIfNull(nodeIds);
         int[] distinctConstraintIds = constraintIds.Distinct().ToArray();
-        Constraint[] constraints = distinctConstraintIds
-            .Select(id => id >= 0 && id < _mesher.Constraints.Count
-                ? _mesher.Constraints[id]
-                : null)
-            .OfType<Constraint>()
+        if (distinctConstraintIds.Any(id => id < 0 || id >= _mesher.Constraints.Count))
+            return Snapshot(false, null);
+        (int Index, Constraint Constraint)[] constraints = distinctConstraintIds
+            .Select(id => (Index: id, Constraint: _mesher.Constraints[id]))
             .ToArray();
-        if (constraints.Length != distinctConstraintIds.Length) return Snapshot(false, null);
 
         int[] distinctNodeIds = nodeIds.Distinct().ToArray();
         Node[] selectedNodes = distinctNodeIds
@@ -67,7 +66,9 @@ public sealed partial class EditorMeshModel
             .ToArray();
 
         IEditorCommand[] commands = constraints
-            .Select(constraint => (IEditorCommand)new RemoveConstraintCommand(this, Handle(constraint)))
+            .OrderByDescending(item => item.Index)
+            .Select(item => (IEditorCommand)new RemoveConstraintCommand(
+                this, ConstraintHandle.From(item.Constraint)))
             .Concat(nodes)
             .ToArray();
         if (commands.Length == 0) return Snapshot(false, null);
@@ -79,13 +80,8 @@ public sealed partial class EditorMeshModel
     {
         Node? node = _ids.FirstOrDefault(pair => pair.Value == nodeId).Key;
         if (node is null || node.Dead) return null;
-        if (!_handles.TryGetValue(nodeId, out PointHandle? point))
-        {
-            point = new PointHandle(node.Position, nodeId);
-            _handles[nodeId] = point;
-        }
-        int loopIndex = _loopPoints.IndexOf(point);
-        return new RemoveNodeCommand(this, point, loopIndex >= 0 ? loopIndex : null);
+        int loopIndex = _loopPoints.IndexOf(node.Position);
+        return new RemoveNodeCommand(this, node.Position, loopIndex >= 0 ? loopIndex : null);
     }
 
     public MeshView InsertConstraint(int fromId, int toId)
@@ -96,7 +92,7 @@ public sealed partial class EditorMeshModel
 
         var handle = new ConstraintHandle(
             $"Constraint {fromId}-{toId}",
-            [new ConstraintPathHandle([Handle(from), Handle(to)])]);
+            [new ConstraintPathHandle([from.Position, to.Position])]);
         bool inserted = Execute(new InsertConstraintCommand(this, handle));
         return Snapshot(inserted, null);
     }
@@ -112,7 +108,7 @@ public sealed partial class EditorMeshModel
         var handle = new ConstraintHandle(
             polyline.Name,
             polyline.Nodes.Zip(polyline.Nodes.Skip(1),
-                (from, to) => new ConstraintPathHandle([Handle(from), Handle(to)])).ToArray());
+                (from, to) => new ConstraintPathHandle([from.Position, to.Position])).ToArray());
         bool inserted = Execute(new InsertConstraintCommand(this, handle));
         return Snapshot(inserted, null);
     }
@@ -126,7 +122,7 @@ public sealed partial class EditorMeshModel
 
         var handle = new LoopHandle(
             $"Polygon {_mesher.Loops.Count + 1}",
-            nodes.Select(Handle).ToArray());
+            nodes.Select(node => node.Position).ToArray());
         bool inserted = Execute(new InsertLoopCommand(this, handle));
         return Snapshot(inserted, null);
     }
@@ -136,6 +132,12 @@ public sealed partial class EditorMeshModel
         Constraint? constraint = FindConstraint(startId, endId);
         if (constraint is null) return [];
         return ConstraintEdges(constraint);
+    }
+
+    public IReadOnlyList<EdgeView> CollectConstraint(int constraintId)
+    {
+        if (constraintId < 0 || constraintId >= _mesher.Constraints.Count) return [];
+        return ConstraintEdges(_mesher.Constraints[constraintId]);
     }
 
     public MeshView RemoveConstraint(int startId, int endId)
@@ -154,7 +156,7 @@ public sealed partial class EditorMeshModel
 
     MeshView RemoveConstraint(Constraint constraint)
     {
-        ConstraintHandle handle = Handle(constraint);
+        ConstraintHandle handle = ConstraintHandle.From(constraint);
         bool removed = Execute(new RemoveConstraintCommand(this, handle));
         return Snapshot(removed, null);
     }
@@ -162,8 +164,6 @@ public sealed partial class EditorMeshModel
     public MeshView Reset()
     {
         _ids.Clear();
-        _handles.Clear();
-        _constraintHandles.Clear();
         _undo.Clear();
         _redo.Clear();
         _loopPoints.Clear();
@@ -181,9 +181,7 @@ public sealed partial class EditorMeshModel
                 $"Could not insert initial loop node at ({x}, {y}).");
             Id(node);
             loopNodes.Add(node);
-            var point = new PointHandle(node.Position, Id(node));
-            _handles[point.NodeId] = point;
-            _loopPoints.Add(point);
+            _loopPoints.Add(node.Position);
         }
         _initialLoop = new Loop(loopNodes, "Initial rectangle");
         if (!_mesher.TryInsertLoop(_initialLoop, out string? reason))

@@ -28,8 +28,11 @@ public sealed partial class EditorMeshModel
 
         return element switch
         {
-            Node node => new ElementHit("node", Id(node), null, null),
-            Edge edge => new ElementHit("edge", null, Id(edge.NodeStart), Id(edge.NodeEnd)),
+            Node node => new ElementHit(
+                "node", Id(node), null, null, node.ConstraintCount),
+            Edge edge => new ElementHit(
+                "edge", null, Id(edge.NodeStart), Id(edge.NodeEnd),
+                edge.ConstraintCount + (edge.Twin?.ConstraintCount ?? 0)),
             Face foundFace => new ElementHit(
                 "face",
                 _mesher.Traversal.Faces().Where(candidate => !candidate.Dead).ToList().IndexOf(foundFace),

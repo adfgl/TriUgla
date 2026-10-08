@@ -10,7 +10,8 @@ public sealed partial class EditorMeshModel
         NodeView[] nodes = snapshot.Nodes.Where(node => !node.Dead)
             .Select(node => new NodeView(
                 Id(node), node.Position.X, node.Position.Y,
-                structure?.SuperNode(node) == true, node.Kind.ToString())).ToArray();
+                structure?.SuperNode(node) == true, node.Kind.ToString(),
+                node.ConstraintCount)).ToArray();
         FaceView[] faces = snapshot.Faces.Where(face => !face.Dead)
             .Select(face =>
             {
@@ -55,9 +56,12 @@ public sealed partial class EditorMeshModel
                 end,
                 views);
         }).ToArray();
-        return new MeshView(
+        var view = new MeshView(
             nodes, faces, boundaryEdges, loopEdges, constraintEdges, constraints,
-            succeeded, changedNodeId, _undo.Count > 0, _redo.Count > 0);
+            succeeded, changedNodeId, _undo.Count > 0, _redo.Count > 0,
+            succeeded ? null : _failureReason);
+        _failureReason = null;
+        return view;
     }
 
     void Classify()

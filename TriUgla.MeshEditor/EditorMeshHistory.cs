@@ -4,6 +4,7 @@ public sealed partial class EditorMeshModel
 {
     public MeshView Undo()
     {
+        ClearFailure();
         if (!_undo.TryPop(out IEditorCommand? command)) return Snapshot(false, null);
         if (!command.Undo())
         {
@@ -16,6 +17,7 @@ public sealed partial class EditorMeshModel
 
     public MeshView Redo()
     {
+        ClearFailure();
         if (!_redo.TryPop(out IEditorCommand? command)) return Snapshot(false, null);
         if (!command.Execute())
         {
@@ -28,6 +30,7 @@ public sealed partial class EditorMeshModel
 
     bool Execute(IEditorCommand command)
     {
+        ClearFailure();
         if (!command.Execute()) return false;
         _undo.Push(command);
         _redo.Clear();

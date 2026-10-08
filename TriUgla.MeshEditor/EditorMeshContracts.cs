@@ -10,9 +10,16 @@ public sealed record MeshView(
     bool Succeeded,
     int? ChangedNodeId,
     bool CanUndo,
-    bool CanRedo);
+    bool CanRedo,
+    string? FailureReason);
 
-public sealed record NodeView(int Id, double X, double Y, bool IsSuper, string Kind);
+public sealed record NodeView(
+    int Id,
+    double X,
+    double Y,
+    bool IsSuper,
+    string Kind,
+    int ConstraintCount);
 public sealed record FaceView(int A, int B, int C, bool IsSuper, string Kind);
 public sealed record EdgeView(int A, int B);
 public sealed record QuadOverlayView(
@@ -37,4 +44,9 @@ public sealed record SelectionInfo(
     string Title,
     IReadOnlyList<SelectionProperty> Properties);
 public sealed record SelectionProperty(string Name, string Value);
-public sealed record ElementHit(string Type, int? Id, int? A, int? B);
+public sealed record ElementHit(
+    string Type,
+    int? Id,
+    int? A,
+    int? B,
+    int ConstraintCount = 0);

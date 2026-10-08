@@ -9,10 +9,11 @@ export function initialize(canvas, dotnet, mesh) {
         readOnly: false, quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
         polylineNodes: [], polygonNodes: [],
         mutationQueue: Promise.resolve(),
+        meshVersion: 0,
         renderPending: false, reportTimer: null, hoverLookupTimer: null, hoverPoint: null,
         hoverLookupVersion: 0,
         hoverLine: [], hoverRequest: 0,
-        vertices: [], nodeKinds: [], triangles: [], boundaryEdges: [], loopEdges: [], constraintEdges: [],
+        vertices: [], nodeKinds: [], nodeConstraintCounts: [], triangles: [], boundaryEdges: [], loopEdges: [], constraintEdges: [],
         superNodes: new Set(), superFaces: new Set(), constraintEdgeIds: new Set(),
         constraintByEdge: new Map(), constraints: [], faceKinds: []
     };
@@ -73,11 +74,11 @@ export function fit(canvas) {
 export async function resetMesh(canvas) {
     const view = views.get(canvas);
     if (!view) return;
-    applyMesh(view, await view.dotnet.invokeMethodAsync("ResetMeshState"));
-    view.selections.clear();
-    view.hover = null;
-    view.message = null;
-    fit(canvas);
+    return enqueueMutation(view, async () => {
+        applyMesh(view, await view.dotnet.invokeMethodAsync("ResetMeshState"));
+        view.message = null;
+        fit(canvas);
+    });
 }
 
 export function setSuperStructureVisibility(canvas, visible) {
@@ -134,10 +135,9 @@ export async function undo(canvas) {
     if (!view) return;
     return enqueueMutation(view, async () => {
         if (view.readOnly || !view.canUndo) return;
-        applyMesh(view, await view.dotnet.invokeMethodAsync("UndoAction"));
-        view.selections.clear();
-        view.hover = null;
-        view.message = null;
+        const mesh = await view.dotnet.invokeMethodAsync("UndoAction");
+        applyMesh(view, mesh);
+        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Undo failed";
         changed(view);
     });
 }
@@ -147,10 +147,9 @@ export async function redo(canvas) {
     if (!view) return;
     return enqueueMutation(view, async () => {
         if (view.readOnly || !view.canRedo) return;
-        applyMesh(view, await view.dotnet.invokeMethodAsync("RedoAction"));
-        view.selections.clear();
-        view.hover = null;
-        view.message = null;
+        const mesh = await view.dotnet.invokeMethodAsync("RedoAction");
+        applyMesh(view, mesh);
+        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Redo failed";
         changed(view);
     });
 }
@@ -280,11 +279,8 @@ async function deleteSelected(view) {
             ? await view.dotnet.invokeMethodAsync("RemoveElements", constraintIds, nodeIds)
             : null;
         const changedMesh = mesh?.succeeded === true;
-        if (changedMesh) applyMesh(view, mesh);
-        view.selections.clear();
-        view.hover = null;
-        view.hoverLine = [];
-        view.message = changedMesh ? null : "Selected elements cannot be deleted";
+        if (mesh) applyMesh(view, mesh);
+        view.message = changedMesh ? null : mesh?.failureReason ?? "Selected elements cannot be deleted";
         changed(view);
     });
 }
@@ -296,58 +292,69 @@ function enqueueMutation(view, mutation) {
 }
 
 async function insertNode(view, event) {
-    if (view.readOnly) return;
-    const screen = localPoint(view.canvas, event);
-    const existing = await resolveHit(view, screen);
-    if (existing?.type === "node") {
-        view.selections.clear();
-        addSelection(view, existing);
+    return enqueueMutation(view, async () => {
+        if (view.readOnly) return;
+        const screen = localPoint(view.canvas, event);
+        const existing = await resolveHit(view, screen);
+        if (existing?.type === "node") {
+            view.selections.clear();
+            addSelection(view, existing);
+            changed(view);
+            return;
+        }
+        const point = screenToWorld(view, screen.x, screen.y);
+        const mesh = await view.dotnet.invokeMethodAsync("InsertNode", point.x, point.y);
+        applyMesh(view, mesh);
+        if (!mesh.succeeded || mesh.changedNodeId === null) {
+            view.message = mesh.failureReason ?? "Node could not be inserted";
+            changed(view);
+            return;
+        }
+        addSelection(view, { type: "node", id: mesh.changedNodeId });
+        view.message = null;
         changed(view);
-        return;
-    }
-    const point = screenToWorld(view, screen.x, screen.y);
-    const mesh = await view.dotnet.invokeMethodAsync("InsertNode", point.x, point.y);
-    if (!mesh.succeeded || mesh.changedNodeId === null) return;
-    applyMesh(view, mesh);
-    view.selections.clear();
-    addSelection(view, { type: "node", id: mesh.changedNodeId });
-    view.hover = null;
-    view.message = null;
-    changed(view);
+    });
 }
 
 async function deleteNode(view, event) {
     event.preventDefault();
-    if (view.readOnly) return;
-    const screen = localPoint(view.canvas, event);
-    const hit = await resolveHit(view, screen);
-    if (hit?.type !== "node" && hit?.type !== "constraint") return;
-    const mesh = hit.type === "constraint"
-        ? await view.dotnet.invokeMethodAsync("RemoveConstraintLine", hit.id)
-        : await view.dotnet.invokeMethodAsync("RemoveNode", hit.id);
-    if (!mesh.succeeded) {
-        view.message = hit.type === "constraint"
-            ? "Constraint cannot be removed"
-            : `Node ${hit.id} cannot be removed`;
-        report(view);
-        return;
-    }
-    applyMesh(view, mesh);
-    view.selections.clear();
-    view.hover = null;
-    view.message = null;
-    changed(view);
+    return enqueueMutation(view, async () => {
+        if (view.readOnly) return;
+        const screen = localPoint(view.canvas, event);
+        const hit = await resolveHit(view, screen);
+        if (hit?.type !== "node" && hit?.type !== "constraint") return;
+        const mesh = hit.type === "constraint"
+            ? await view.dotnet.invokeMethodAsync("RemoveConstraintLine", hit.id)
+            : await view.dotnet.invokeMethodAsync("RemoveNode", hit.id);
+        applyMesh(view, mesh);
+        if (!mesh.succeeded) {
+            view.message = hit.type === "constraint"
+                ? mesh.failureReason ?? "Constraint cannot be removed"
+                : mesh.failureReason ?? `Node ${hit.id} cannot be removed`;
+            report(view);
+            return;
+        }
+        view.message = null;
+        changed(view);
+    });
 }
 
 function applyMesh(view, mesh) {
+    view.meshVersion++;
     view.hoverLookupVersion++;
+    view.hoverRequest++;
     view.hoverPoint = null;
+    view.hover = null;
+    view.hoverLine = [];
+    view.selections.clear();
     const maxId = mesh.nodes.reduce((maximum, node) => Math.max(maximum, node.id), -1);
     view.vertices = Array(maxId + 1).fill(null);
     view.nodeKinds = Array(maxId + 1).fill("Normal");
+    view.nodeConstraintCounts = Array(maxId + 1).fill(0);
     for (const node of mesh.nodes) {
         view.vertices[node.id] = [node.x, node.y];
         view.nodeKinds[node.id] = node.kind;
+        view.nodeConstraintCounts[node.id] = node.constraintCount;
     }
     view.triangles = mesh.faces.map(face => [face.a, face.b, face.c]);
     view.faceKinds = mesh.faces.map(face => face.kind);
@@ -370,10 +377,6 @@ function applyMesh(view, mesh) {
 async function selectAt(view, screen, event) {
     view.message = null;
     const hit = await resolveHit(view, screen);
-    if (hit?.type === "constraint") {
-        const edges = await view.dotnet.invokeMethodAsync("CollectConstraintLine", hit.a, hit.b);
-        hit.edges = edges.map(edge => [edge.a, edge.b]);
-    }
     if (!hit) {
         if (!event.shiftKey && !event.ctrlKey) view.selections.clear();
     } else {
@@ -397,18 +400,17 @@ function setHover(view, hit) {
     if (selectionKeyOrEmpty(view.hover) === selectionKeyOrEmpty(hit)) return;
     view.hover = hit;
     view.hoverLine = [];
-    const request = ++view.hoverRequest;
+    view.hoverRequest++;
+    if (hit?.type === "constraint") view.hoverLine = hit.edges ?? [];
+    else if (hit?.type === "edge") view.hoverLine = [[hit.a, hit.b]];
     draw(view);
-    if (hit?.type === "edge" || hit?.type === "constraint") {
-        view.dotnet.invokeMethodAsync("CollectConstraintLine", hit.a, hit.b).then(edges => {
-            if (request !== view.hoverRequest) return;
-            view.hoverLine = edges.map(edge => [edge.a, edge.b]);
-            draw(view);
-        });
-    }
 }
 
 async function chooseConstraintNode(view, event) {
+    return enqueueMutation(view, () => chooseConstraintNodeCore(view, event));
+}
+
+async function chooseConstraintNodeCore(view, event) {
     const node = await nodeAtOrInsert(view, event);
     if (!node || view.superNodes.has(node.id)) return;
     if (view.constraintStart === null) {
@@ -422,19 +424,22 @@ async function chooseConstraintNode(view, event) {
     if (view.constraintStart === node.id) return;
     const mesh = await view.dotnet.invokeMethodAsync(
         "InsertConstraintLine", view.constraintStart, node.id);
+    applyMesh(view, mesh);
     if (!mesh.succeeded) {
-        view.message = "Constraint could not be inserted";
+        view.message = mesh.failureReason ?? "Constraint could not be inserted";
         report(view);
         return;
     }
-    applyMesh(view, mesh);
     view.constraintStart = null;
-    view.selections.clear();
     view.message = null;
     changed(view);
 }
 
 async function choosePolylineNode(view, event) {
+    return enqueueMutation(view, () => choosePolylineNodeCore(view, event));
+}
+
+async function choosePolylineNodeCore(view, event) {
     const node = await nodeAtOrInsert(view, event);
     if (!node || view.superNodes.has(node.id) || view.polylineNodes.at(-1) === node.id) return;
     view.polylineNodes.push(node.id);
@@ -444,21 +449,28 @@ async function choosePolylineNode(view, event) {
 }
 
 async function finishPolyline(view) {
+    return enqueueMutation(view, () => finishPolylineCore(view));
+}
+
+async function finishPolylineCore(view) {
     if (view.polylineNodes.length < 2) return;
     const mesh = await view.dotnet.invokeMethodAsync("InsertPolyline", view.polylineNodes);
+    applyMesh(view, mesh);
     if (!mesh.succeeded) {
-        view.message = "Polyline could not be inserted";
+        view.message = mesh.failureReason ?? "Polyline could not be inserted";
         report(view);
         return;
     }
-    applyMesh(view, mesh);
     view.polylineNodes = [];
-    view.selections.clear();
     view.message = null;
     changed(view);
 }
 
 async function choosePolygonNode(view, event) {
+    return enqueueMutation(view, () => choosePolygonNodeCore(view, event));
+}
+
+async function choosePolygonNodeCore(view, event) {
     const node = await nodeAtOrInsert(view, event);
     if (!node || view.superNodes.has(node.id) || view.polygonNodes.includes(node.id)) return;
     view.polygonNodes.push(node.id);
@@ -468,16 +480,19 @@ async function choosePolygonNode(view, event) {
 }
 
 async function finishPolygon(view) {
+    return enqueueMutation(view, () => finishPolygonCore(view));
+}
+
+async function finishPolygonCore(view) {
     if (view.polygonNodes.length < 3) return;
     const mesh = await view.dotnet.invokeMethodAsync("InsertPolygon", view.polygonNodes);
+    applyMesh(view, mesh);
     if (!mesh.succeeded) {
-        view.message = "Polygon could not be inserted";
+        view.message = mesh.failureReason ?? "Polygon could not be inserted";
         report(view);
         return;
     }
-    applyMesh(view, mesh);
     view.polygonNodes = [];
-    view.selections.clear();
     view.message = null;
     changed(view);
 }
@@ -490,9 +505,8 @@ async function nodeAtOrInsert(view, event) {
 
     const point = screenToWorld(view, screen.x, screen.y);
     const inserted = await view.dotnet.invokeMethodAsync("InsertNode", point.x, point.y);
-    if (!inserted.succeeded || inserted.changedNodeId === null) return null;
     applyMesh(view, inserted);
-    view.hover = null;
+    if (!inserted.succeeded || inserted.changedNodeId === null) return null;
     return { type: "node", id: inserted.changedNodeId };
 }
 
@@ -517,13 +531,15 @@ function scheduleMeshHover(view, screen) {
 
 async function resolveHit(view, screen) {
     if (!screen) return null;
+    const meshVersion = view.meshVersion;
     const world = screenToWorld(view, screen.x, screen.y);
     const hit = await view.dotnet.invokeMethodAsync(
         "FindElement", world.x, world.y, 9 / (baseScale * view.zoom));
+    if (meshVersion !== view.meshVersion) return null;
     if (!hit) return null;
     if (hit.type === "node") {
         if (!view.showSuperStructure && view.superNodes.has(hit.id)) return null;
-        return { type: "node", id: hit.id };
+        return { type: "node", id: hit.id, constraintCount: hit.constraintCount };
     }
     if (hit.type === "face") {
         if (!view.showSuperStructure && view.superFaces.has(hit.id)) return null;
@@ -536,7 +552,7 @@ async function resolveHit(view, screen) {
     return constraint
         ? { type: "constraint", id: constraint.id, a, b, constraint,
             edges: constraint.edges.map(edge => [edge.a, edge.b]) }
-        : { type: "edge", id, a, b };
+        : { type: "edge", id, a, b, constraintCount: hit.constraintCount };
 }
 
 function zoomAround(view, x, y, factor) {
@@ -658,8 +674,11 @@ function drawMesh(view, ctx) {
     }
     ctx.strokeStyle = "#f472b6";
     ctx.lineWidth = 2.4;
-    for (const constraint of view.constraints)
-        strokeEdgePath(view, ctx, constraint.edges.map(edge => [edge.a, edge.b]));
+    for (const [start, end] of view.constraintEdges) {
+        const a = worldToScreen(view, view.vertices[start]);
+        const b = worldToScreen(view, view.vertices[end]);
+        line(ctx, a.x, a.y, b.x, b.y);
+    }
     if (view.hoverLine.length) {
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 5;
@@ -761,9 +780,16 @@ function report(view) {
     const selectedObjects = selected.map(item => describeSelection(view, item));
     const selection = view.message || (selected.length === 0 ? "No selection" : selected.length === 1
         ? `${capitalize(selected[0].type)} ${selected[0].id}` : `${selected.length} selected`);
+    const nodeCount = view.vertices.filter((vertex, id) => vertex && !view.superNodes.has(id)).length;
+    const edges = new Set();
+    for (const triangle of view.triangles) {
+        for (const [a, b] of [[triangle[0], triangle[1]], [triangle[1], triangle[2]], [triangle[2], triangle[0]]]) {
+            if (!view.superNodes.has(a) && !view.superNodes.has(b)) edges.add(edgeId(a, b));
+        }
+    }
     view.dotnet.invokeMethodAsync(
         "UpdateStatus", view.x, view.y, view.zoom,
-        view.vertices.filter((vertex, id) => vertex && !view.superNodes.has(id)).length,
+        nodeCount, edges.size, view.constraints.length,
         selection, view.canUndo, view.canRedo, selectedObjects);
 }
 function describeSelection(view, item) {
@@ -772,6 +798,7 @@ function describeSelection(view, item) {
         return selectionInfo("Node", `Node ${item.id}`, [
             ["ID", item.id], ["X", number(point[0])], ["Y", number(point[1])],
             ["Kind", view.nodeKinds[item.id]],
+            ["ConstraintCount", view.nodeConstraintCounts[item.id]],
             ["Super structure", view.superNodes.has(item.id) ? "Yes" : "No"]
         ]);
     }
@@ -802,7 +829,8 @@ function describeSelection(view, item) {
     const kind = view.loopEdges.some(edge => edgeId(edge[0], edge[1]) === item.id)
         ? "Boundary" : view.constraintEdgeIds.has(item.id) ? "Feature" : "Interior";
     return selectionInfo("Edge", `Edge ${item.id}`, [
-        ["Start node", item.a], ["End node", item.b], ["Length", number(length)], ["Kind", kind]
+        ["Start node", item.a], ["End node", item.b], ["Length", number(length)], ["Kind", kind],
+        ["ConstraintCount", item.constraintCount ?? 0]
     ]);
 }
 function selectionInfo(type, title, entries) {

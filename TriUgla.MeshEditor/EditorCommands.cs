@@ -33,21 +33,21 @@ internal sealed class CompositeEditorCommand(IEnumerable<IEditorCommand> command
     }
 }
 
-internal sealed class InsertNodeCommand(EditorMeshModel model, PointHandle point, int? loopIndex = null)
+internal sealed class InsertNodeCommand(EditorMeshModel model, Vec2 position, int? loopIndex = null)
     : IEditorCommand
 {
-    public int? ChangedNodeId => point.NodeId >= 0 ? point.NodeId : null;
-    public bool Execute() => model.InsertPoint(point, loopIndex);
-    public bool Undo() => model.RemovePoint(point, loopIndex);
+    public int? ChangedNodeId => model.NodeIdAt(position);
+    public bool Execute() => model.InsertPoint(position, loopIndex);
+    public bool Undo() => model.RemovePoint(position, loopIndex);
 }
 
-internal sealed class RemoveNodeCommand(EditorMeshModel model, PointHandle point, int? loopIndex = null)
+internal sealed class RemoveNodeCommand(EditorMeshModel model, Vec2 position, int? loopIndex = null)
     : IEditorCommand
 {
-    public int? ChangedNodeId => point.NodeId;
+    public int? ChangedNodeId => model.NodeIdAt(position);
     public int? LoopIndex => loopIndex;
-    public bool Execute() => model.RemovePoint(point, loopIndex);
-    public bool Undo() => model.InsertPoint(point, loopIndex);
+    public bool Execute() => model.RemovePoint(position, loopIndex);
+    public bool Undo() => model.InsertPoint(position, loopIndex);
 }
 
 internal sealed class InsertConstraintCommand(EditorMeshModel model, ConstraintHandle constraint)
@@ -73,41 +73,30 @@ internal sealed class InsertLoopCommand(EditorMeshModel model, LoopHandle loop) 
     public bool Undo() => model.RemoveLoopHandle(loop);
 }
 
-internal sealed class PointHandle(Vec2 position, int nodeId = -1)
-{
-    public Vec2 Position { get; } = position;
-    public int NodeId { get; set; } = nodeId;
-}
-
 internal sealed class ConstraintHandle(
     string? name,
     IEnumerable<ConstraintPathHandle> paths,
-    IEnumerable<ConstraintPointHandle>? points = null,
-    Constraint? current = null)
+    IEnumerable<ConstraintPointHandle>? points = null)
 {
     public string? Name { get; } = name;
     public List<ConstraintPathHandle> Paths { get; } = paths.ToList();
     public List<ConstraintPointHandle> Points { get; } = points?.ToList() ?? [];
-    public Constraint? Current { get; set; } = current;
 
-    public static ConstraintHandle From(Constraint constraint, Func<Node, PointHandle> handle)
+    public static ConstraintHandle From(Constraint constraint)
         => new(
             constraint.Name,
             constraint.Spans.Select(span =>
-                new ConstraintPathHandle([handle(span.From), handle(span.To)])),
-            constraint.Points.Select(point => new ConstraintPointHandle(handle(point.Node), point.Name)),
-            constraint);
+                new ConstraintPathHandle([span.From.Position, span.To.Position])),
+            constraint.Points.Select(point => new ConstraintPointHandle(point.Node.Position, point.Name)));
 }
 
-internal sealed record ConstraintPathHandle(IReadOnlyList<PointHandle> Points);
-internal sealed record ConstraintPointHandle(PointHandle Node, string? Name);
+internal sealed record ConstraintPathHandle(IReadOnlyList<Vec2> Points);
+internal sealed record ConstraintPointHandle(Vec2 Position, string? Name);
 
 internal sealed class LoopHandle(
     string? name,
-    IReadOnlyList<PointHandle> points,
-    Loop? current = null)
+    IReadOnlyList<Vec2> points)
 {
     public string? Name { get; } = name;
-    public IReadOnlyList<PointHandle> Points { get; } = points;
-    public Loop? Current { get; set; } = current;
+    public IReadOnlyList<Vec2> Points { get; } = points;
 }

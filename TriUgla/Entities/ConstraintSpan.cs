@@ -60,7 +60,7 @@ public sealed class ConstraintSpan : INamable
         Node current = From;
         while (!ReferenceEquals(current, To))
         {
-            Edge? next = FindAlong(current, direction);
+            Edge? next = FindAlong(current, To, direction);
             if (next is null)
             {
                 throw new InvalidOperationException(
@@ -94,22 +94,25 @@ public sealed class ConstraintSpan : INamable
         return (to.Position - from.Position).Normalize();
     }
 
-    static Edge? FindAlong(Node node, Vec2 direction)
+    static Edge? FindAlong(Node node, Node target, Vec2 direction)
     {
         Edge? first = node.Edge;
         Edge? edge = first;
         Edge? best = null;
         double bestProjection = MinimumDirectionDot;
+        double distanceToTarget = node.Position.DistanceSquared(target.Position);
 
         while (edge is not null)
         {
-            if (!edge.Dead)
+            double nextDistance = edge.NodeEnd.Position.DistanceSquared(target.Position);
+            if (!edge.Dead && nextDistance < distanceToTarget)
             {
                 Vec2 candidateDirection = Direction(edge);
                 double projection = candidateDirection == Vec2.Zero
                     ? double.NegativeInfinity
                     : direction.Dot(candidateDirection);
-                if (projection >= bestProjection)
+                if (projection > bestProjection ||
+                    projection == bestProjection && edge.Constrained && best?.Constrained != true)
                 {
                     best = edge;
                     bestProjection = projection;

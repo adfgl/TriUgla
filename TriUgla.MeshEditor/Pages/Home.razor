@@ -76,6 +76,15 @@
         </section>
         <aside class="properties-panel" aria-label="Selected object properties">
             <h2>Properties</h2>
+            <section class="property-card">
+                <span class="property-type">Mesh</span>
+                <h3>Summary</h3>
+                <dl>
+                    <div><dt>Nodes</dt><dd>@_nodeCount</dd></div>
+                    <div><dt>Edges</dt><dd>@_edgeCount</dd></div>
+                    <div><dt>Constraints</dt><dd>@_constraintCount</dd></div>
+                </dl>
+            </section>
             @if (_selectedObjects.Count == 0)
             {
                 <p class="empty-properties">Select a node, edge, face, or constraint.</p>
@@ -123,6 +132,8 @@
     int _nodeCount = 11;
     string _selection = "No selection";
     bool _showSuperStructure = true;
+    int _edgeCount;
+    int _constraintCount;
     bool _canUndo;
     bool _canRedo;
     bool _quadMode;
@@ -186,6 +197,8 @@
         double y,
         double zoom,
         int nodeCount,
+        int edgeCount,
+        int constraintCount,
         string selection,
         bool canUndo,
         bool canRedo,
@@ -195,6 +208,8 @@
         _y = y;
         _zoom = zoom * 100;
         _nodeCount = nodeCount;
+        _edgeCount = edgeCount;
+        _constraintCount = constraintCount;
         _selection = selection;
         _canUndo = canUndo;
         _canRedo = canRedo;
@@ -245,6 +260,10 @@
     [JSInvokable]
     public IReadOnlyList<EdgeView> CollectConstraintLine(int startId, int endId)
         => _mesh.CollectConstraintLine(startId, endId);
+
+    [JSInvokable]
+    public IReadOnlyList<EdgeView> CollectConstraint(int constraintId)
+        => _mesh.CollectConstraint(constraintId);
 
     [JSInvokable]
     public MeshView RemoveConstraintLine(int constraintId)

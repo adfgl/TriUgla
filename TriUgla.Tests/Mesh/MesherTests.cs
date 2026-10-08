@@ -55,6 +55,20 @@ public class MesherTests
     }
 
     [Fact]
+    public void RemoveRejectsForeignNodeAtSamePositionAsLiveNode()
+    {
+        var mesher = new Mesher(CreateTriangle());
+        Node live = mesher.Traversal.Nodes().First();
+        var foreign = new Node { Position = live.Position };
+
+        RemoveNodeResult result = mesher.Remove(foreign);
+
+        Assert.False(result.Removed);
+        Assert.False(foreign.Dead);
+        Assert.False(live.Dead);
+    }
+
+    [Fact]
     public void ExposesRootFace()
     {
         Face root = CreateTriangle();
