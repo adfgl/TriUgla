@@ -35,7 +35,7 @@ public sealed partial class EditorMeshModel
                 edge.ConstraintCount + (edge.Twin?.ConstraintCount ?? 0)),
             Face foundFace => new ElementHit(
                 "face",
-                _mesher.Traversal.Faces().Where(candidate => !candidate.Dead).ToList().IndexOf(foundFace),
+                _mesher.Mesh.Faces().Where(candidate => !candidate.Dead).ToList().IndexOf(foundFace),
                 null,
                 null),
             _ => null

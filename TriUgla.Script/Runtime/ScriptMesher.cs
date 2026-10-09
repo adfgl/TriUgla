@@ -185,7 +185,7 @@ public static class ScriptMesher
         Mesher mesher,
         int steinerNodes)
     {
-        ScriptMeshFace[] faces = mesher.Traversal.Faces()
+        ScriptMeshFace[] faces = mesher.Mesh.Faces()
             .Where(face => !face.Dead)
             .Select(face => new ScriptMeshFace(
                 surfaceTag,

@@ -6,7 +6,7 @@ public sealed partial class EditorMeshModel
     {
         SuperStructure? structure = _mesher.SuperStructure;
         Classify();
-        MeshSnapshot snapshot = _mesher.Traversal.Snapshot();
+        MeshSnapshot snapshot = _mesher.Mesh.Snapshot();
         NodeView[] nodes = snapshot.Nodes.Where(node => !node.Dead)
             .Select(node => new NodeView(
                 Id(node), node.Position.X, node.Position.Y,
@@ -86,7 +86,7 @@ public sealed partial class EditorMeshModel
     {
         SuperStructure? structure = _mesher.SuperStructure;
         if (structure is not null)
-            new FaceClassifier(_mesher.Mesh, _mesher.Traversal, structure).Classify();
+            new FaceClassifier(_mesher.Mesh, structure).Classify();
     }
 
     public QuadOverlayView QuadState()

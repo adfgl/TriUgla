@@ -14,8 +14,8 @@ public class MeshRefinerTests
             new RefineSettings(1, 8, 1e-4));
 
         Assert.Equal(1, inserted);
-        Assert.Equal(3, fixture.Traversal.Faces().Count());
-        Node[] nodes = fixture.Traversal.Nodes().ToArray();
+        Assert.Equal(3, fixture.Mesh.Faces().Count());
+        Node[] nodes = fixture.Mesh.Nodes().ToArray();
         Assert.Equal(4, nodes.Length);
         Node steiner = Assert.Single(
             nodes,
@@ -34,8 +34,8 @@ public class MeshRefinerTests
             new RefineSettings(0, 8, 1e-4));
 
         Assert.Equal(0, inserted);
-        Assert.Single(fixture.Traversal.Faces());
-        Assert.Equal(3, fixture.Traversal.Nodes().Count());
+        Assert.Single(fixture.Mesh.Faces());
+        Assert.Equal(3, fixture.Mesh.Nodes().Count());
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class MeshRefinerTests
             new RefineSettings(1, 0, 0));
 
         Assert.Equal(1, inserted);
-        Assert.Equal(4, fixture.Traversal.Nodes().Count());
+        Assert.Equal(4, fixture.Mesh.Nodes().Count());
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class MeshRefinerTests
         {
             edge.Constrain(EdgeConstraintKind.Boundary);
         }
-        foreach (Node node in fixture.Traversal.Nodes())
+        foreach (Node node in fixture.Mesh.Nodes())
         {
             node.Data = node.Data with { Area = 0.05 };
         }
@@ -119,11 +119,11 @@ public class MeshRefinerTests
 
         int first = fixture.Refiner.Refine([fixture.Face], ranker, settings);
         int second = fixture.Refiner.Refine(
-            fixture.Traversal.Faces().ToArray(), ranker, settings);
+            fixture.Mesh.Faces().ToArray(), ranker, settings);
 
         Assert.True(first > 0);
         Assert.Equal(0, second);
-        Assert.All(fixture.Traversal.Faces(), face => Assert.Equal(0, ranker.Rank(face)));
+        Assert.All(fixture.Mesh.Faces(), face => Assert.Equal(0, ranker.Rank(face)));
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class MeshRefinerTests
         Fixture fixture = CreateFixture(new Vec2(1, Math.Sqrt(3)));
         foreach (Edge edge in fixture.Face.Edges)
             edge.Constrain(EdgeConstraintKind.Boundary);
-        foreach (Node node in fixture.Traversal.Nodes())
+        foreach (Node node in fixture.Mesh.Nodes())
             node.Data = node.Data with { Area = 0.05 };
         var ranker = new FaceRanker();
         ranker.Angle.Weight = 0;
@@ -140,7 +140,7 @@ public class MeshRefinerTests
         RefineResult first = fixture.Refiner.RefineDetailed(
             [fixture.Face], ranker, RefineSettings.Default);
         RefineResult second = fixture.Refiner.RefineDetailed(
-            fixture.Traversal.Faces().ToArray(), ranker, RefineSettings.Default);
+            fixture.Mesh.Faces().ToArray(), ranker, RefineSettings.Default);
 
         Assert.Equal(RefineStatus.Completed, first.Status);
         Assert.Equal(0, first.RemainingBadFaces);
@@ -199,9 +199,9 @@ public class MeshRefinerTests
             [first, second], ranker, new RefineSettings(1, 8, 1e-4));
 
         Assert.Equal(1, inserted);
-        Assert.Equal(5, fixture.Traversal.Nodes().Count());
+        Assert.Equal(5, fixture.Mesh.Nodes().Count());
         Node midpoint = Assert.Single(
-            fixture.Traversal.Nodes(),
+            fixture.Mesh.Nodes(),
             node => node.Position == new Vec2(1, 1));
         Assert.True(midpoint.Constrained);
         Assert.Equal(NodeKind.SteinerRefinement, midpoint.Kind);
@@ -236,10 +236,10 @@ public class MeshRefinerTests
 
         Assert.Equal(1, inserted);
         Assert.Contains(
-            fixture.Traversal.Nodes(),
+            fixture.Mesh.Nodes(),
             node => node.Position == Vec2.Zero && node.Constrained);
         Assert.DoesNotContain(
-            fixture.Traversal.Nodes(),
+            fixture.Mesh.Nodes(),
             node => node.Position == new Vec2(0, 0.75));
     }
 
@@ -255,10 +255,10 @@ public class MeshRefinerTests
             new RefineSettings(1, 8, 1e-4));
 
         Assert.Equal(1, inserted);
-        Assert.Equal(2, fixture.Traversal.Faces().Count());
-        Assert.Equal(4, fixture.Traversal.Nodes().Count());
+        Assert.Equal(2, fixture.Mesh.Faces().Count());
+        Assert.Equal(4, fixture.Mesh.Nodes().Count());
         Assert.Contains(
-            fixture.Traversal.Nodes(),
+            fixture.Mesh.Nodes(),
             node => node.Position == new Vec2(1, 0) && node.Constrained);
     }
 
@@ -285,7 +285,7 @@ public class MeshRefinerTests
             AreaRanker(1),
             new RefineSettings(10, 8, 1e-4),
             cancellation.Token));
-        Assert.Single(fixture.Traversal.Faces());
+        Assert.Single(fixture.Mesh.Faces());
     }
 
     [Fact]
@@ -300,7 +300,7 @@ public class MeshRefinerTests
             AreaRanker(1),
             new RefineSettings(0, 8, 1e-4),
             cancellation.Token));
-        Assert.Single(fixture.Traversal.Faces());
+        Assert.Single(fixture.Mesh.Faces());
     }
 
     [Fact]
@@ -352,9 +352,8 @@ public class MeshRefinerTests
 
     static Fixture CreateFixture(Face face)
     {
-        var stamps = new StampSource();
-        var traversal = new MeshTraversal(face, stamps);
-        var locator = new MeshLocator(face, traversal, stamps);
+        var mesh = new Mesh(face);
+        var locator = new MeshLocator(mesh);
         var geometry = new GeometryPredicates();
         var splitter = new Splitter();
         var legalizer = new EdgeLegalizer(new EdgeFlipper(geometry));
@@ -365,8 +364,8 @@ public class MeshRefinerTests
             legalizer,
             splitter,
             inserter);
-        return new Fixture(face, traversal, refiner);
+        return new Fixture(face, mesh, refiner);
     }
 
-    sealed record Fixture(Face Face, MeshTraversal Traversal, MeshRefiner Refiner);
+    sealed record Fixture(Face Face, Mesh Mesh, MeshRefiner Refiner);
 }

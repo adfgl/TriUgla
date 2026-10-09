@@ -1,16 +1,109 @@
 namespace TriUgla;
 
-public sealed class NodeRemover
+public sealed class NodeRemover(IGeometry? geometry = null)
 {
+    readonly IGeometry _geometry = geometry ?? new GeometryPredicates();
+
+    public RemoveNodeResult Remove(Node node, out ConstrainedRemoval? constrained)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        constrained = null;
+        if (!TryPlan(node, out RemovalPlan plan))
+            return RemoveNodeResult.Failed(node);
+
+        Prepare(plan);
+        if (!TryTriangulate(plan, out Triangulation triangulation))
+        {
+            RollBack(plan);
+            return RemoveNodeResult.Failed(node);
+        }
+
+        constrained = plan.Constraint;
+        return Commit(plan, triangulation);
+    }
+
     public RemoveNodeResult Remove(Node node)
     {
         ArgumentNullException.ThrowIfNull(node);
+        return Remove(node, out _);
+    }
 
-        if (!TryCollectCavity(node, out Cavity cavity)) return RemoveNodeResult.Failed(node);
-        if (!EarClipper.TryTriangulate(cavity.BoundaryNodes, out var triangles))
-            return RemoveNodeResult.Failed(node);
+    bool TryPlan(Node node, out RemovalPlan plan)
+    {
+        plan = default;
+        if (node.Dead || node.Kind == NodeKind.Super) return false;
 
-        Face[] affectedFaces = Retriangulate(cavity, triangles);
+        ConstrainedSpoke[] spokes = CollectConstrainedSpokes(node);
+        ConstrainedRemoval? constraint = null;
+        if (spokes.Length != 0)
+        {
+            if (!TryPlanConstraint(node, spokes, out ConstrainedRemoval removal)) return false;
+            constraint = removal;
+        }
+        else if (node.Kind == NodeKind.SteinerInsertion)
+        {
+            return false;
+        }
+
+        plan = new RemovalPlan(node, constraint);
+        return true;
+    }
+
+    bool TryPlanConstraint(
+        Node node,
+        ConstrainedSpoke[] spokes,
+        out ConstrainedRemoval removal)
+    {
+        removal = default;
+        if (node.Kind is not (NodeKind.SteinerRefinement or NodeKind.SteinerInsertion) ||
+            spokes.Length != 2)
+            return false;
+
+        ConstrainedSpoke first = spokes[0];
+        ConstrainedSpoke second = spokes[1];
+        ConstraintCounts forward = CountConstraints(first, first.Other, node);
+        ConstraintCounts reverse = CountConstraints(first, node, first.Other);
+        if (forward != CountConstraints(second, node, second.Other) ||
+            reverse != CountConstraints(second, second.Other, node) ||
+            _geometry.Orient(first.Other, second.Other, node.Position) != EOrientaiton.Collinear ||
+            (first.Other.Position - node.Position).Dot(second.Other.Position - node.Position) >= 0d)
+            return false;
+
+        EdgeConstraintState[] states = CaptureConstraintStates(first, second);
+        removal = new ConstrainedRemoval(
+            first.Other, second.Other, forward, reverse, states);
+        return true;
+    }
+
+    static void Prepare(RemovalPlan plan)
+    {
+        if (plan.Constraint is ConstrainedRemoval constraint)
+            Release(constraint.Edges);
+    }
+
+    static bool TryTriangulate(RemovalPlan plan, out Triangulation triangulation)
+    {
+        triangulation = default;
+        if (!TryCollectCavity(plan.Node, out Cavity cavity) ||
+            !EarClipper.TryTriangulate(cavity.BoundaryNodes, out var triangles))
+            return false;
+
+        triangulation = new Triangulation(cavity, triangles);
+        return true;
+    }
+
+    static void RollBack(RemovalPlan plan)
+    {
+        if (plan.Constraint is ConstrainedRemoval constraint)
+            Restore(constraint.Edges);
+    }
+
+    static RemoveNodeResult Commit(RemovalPlan plan, Triangulation triangulation)
+    {
+        Cavity cavity = triangulation.Cavity;
+        Node node = plan.Node;
+
+        Face[] affectedFaces = Retriangulate(cavity, triangulation.Triangles);
         Face[] deadFaces = [.. cavity.Faces[affectedFaces.Length..]];
         Edge[] deadEdges = [.. cavity.RadialEdges];
         Retire(node, deadFaces, deadEdges);
@@ -55,7 +148,7 @@ public sealed class NodeRemover
         }
         while (!ReferenceEquals(current, start));
 
-        if (boundaryNodes.Count < 3 || faces.Distinct().Count() != faces.Count) return false;
+        if (boundaryNodes.Count < 3 || ContainsDuplicateFaces(faces)) return false;
 
         cavity = new Cavity(
             boundaryNodes.ToArray(),
@@ -63,6 +156,130 @@ public sealed class NodeRemover
             faces.ToArray(),
             radialEdges.ToArray());
         return true;
+    }
+
+    static bool ContainsDuplicateFaces(List<Face> faces)
+    {
+        var unique = new HashSet<Face>(ReferenceEqualityComparer.Instance);
+        for (int index = 0; index < faces.Count; index++)
+        {
+            if (!unique.Add(faces[index])) return true;
+        }
+        return false;
+    }
+
+    static ConstrainedSpoke[] CollectConstrainedSpokes(Node node)
+    {
+        var groups = new Dictionary<Node, HashSet<Edge>>(ReferenceEqualityComparer.Instance);
+        foreach (Edge outgoing in IncidentEdges(node))
+        {
+            Add(outgoing);
+            if (outgoing.Twin is not null) Add(outgoing.Twin);
+        }
+        var spokes = new ConstrainedSpoke[groups.Count];
+        int index = 0;
+        foreach (KeyValuePair<Node, HashSet<Edge>> group in groups)
+            spokes[index++] = new ConstrainedSpoke(group.Key, CopyToArray(group.Value));
+        return spokes;
+
+        void Add(Edge edge)
+        {
+            if (edge.Dead || !edge.Constrained || !edge.Contains(node)) return;
+            Node other = ReferenceEquals(edge.NodeStart, node) ? edge.NodeEnd : edge.NodeStart;
+            if (!groups.TryGetValue(other, out HashSet<Edge>? halfEdges))
+                groups.Add(other, halfEdges = new HashSet<Edge>(ReferenceEqualityComparer.Instance));
+            halfEdges.Add(edge);
+        }
+    }
+
+    static IEnumerable<Edge> IncidentEdges(Node node)
+    {
+        Edge first = node.Edge;
+        if (first is null) yield break;
+        Edge current = first;
+        bool closed = false;
+        do
+        {
+            yield return current;
+            Edge? next = current.Prev.Twin;
+            if (next is null) break;
+            current = next;
+            closed = ReferenceEquals(current, first);
+        }
+        while (!closed);
+        if (closed) yield break;
+
+        current = first;
+        while (current.Twin is not null)
+        {
+            current = current.Twin.Next;
+            if (ReferenceEquals(current, first)) yield break;
+            yield return current;
+        }
+    }
+
+    static ConstraintCounts CountConstraints(ConstrainedSpoke spoke, Node from, Node to)
+    {
+        int features = 0;
+        int boundaries = 0;
+        for (int index = 0; index < spoke.HalfEdges.Length; index++)
+        {
+            Edge edge = spoke.HalfEdges[index];
+            if (!ReferenceEquals(edge.NodeStart, from) || !ReferenceEquals(edge.NodeEnd, to))
+                continue;
+            features += edge.FeatureConstraints;
+            boundaries += edge.BoundaryConstraints;
+        }
+        return new ConstraintCounts(features, boundaries);
+    }
+
+    static EdgeConstraintState[] CaptureConstraintStates(
+        ConstrainedSpoke first,
+        ConstrainedSpoke second)
+    {
+        var states = new EdgeConstraintState[first.HalfEdges.Length + second.HalfEdges.Length];
+        int count = Capture(first.HalfEdges, states, 0);
+        Capture(second.HalfEdges, states, count);
+        return states;
+    }
+
+    static int Capture(Edge[] edges, EdgeConstraintState[] states, int offset)
+    {
+        for (int index = 0; index < edges.Length; index++)
+        {
+            Edge edge = edges[index];
+            states[offset + index] = new EdgeConstraintState(
+                edge, edge.FeatureConstraints, edge.BoundaryConstraints);
+        }
+        return offset + edges.Length;
+    }
+
+    static T[] CopyToArray<T>(HashSet<T> source)
+    {
+        var result = new T[source.Count];
+        source.CopyTo(result);
+        return result;
+    }
+
+    static void Release(IEnumerable<EdgeConstraintState> states)
+    {
+        foreach (EdgeConstraintState state in states)
+        {
+            Edge edge = state.Edge;
+            while (edge.HasFeature) edge.Release(EdgeConstraintKind.Feature);
+            while (edge.HasBoundary) edge.Release(EdgeConstraintKind.Boundary);
+        }
+    }
+
+    static void Restore(IEnumerable<EdgeConstraintState> states)
+    {
+        foreach (EdgeConstraintState state in states)
+        {
+            for (int index = 0; index < state.Features; index++)
+                state.Edge.Constrain(EdgeConstraintKind.Feature);
+            for (int index = 0; index < state.Boundaries; index++)
+                state.Edge.Constrain(EdgeConstraintKind.Boundary);
+        }
     }
 
     static bool TryAdvance(
@@ -157,19 +374,16 @@ public sealed class NodeRemover
         var visited = new HashSet<Edge>();
         var result = new List<Edge>();
 
-        foreach (Edge edge in faces.SelectMany(face => face.Edges))
+        foreach (Face face in faces)
         {
-            if (!visited.Add(edge))
+            foreach (Edge edge in face.Edges)
             {
-                continue;
-            }
+                if (!visited.Add(edge)) continue;
 
-            if (edge.Twin is not null)
-            {
-                visited.Add(edge.Twin);
-            }
+                if (edge.Twin is not null) visited.Add(edge.Twin);
 
-            result.Add(edge);
+                result.Add(edge);
+            }
         }
 
         return result.ToArray();
@@ -184,4 +398,26 @@ public sealed class NodeRemover
         Edge[] BoundaryEdges,
         Face[] Faces,
         Edge[] RadialEdges);
+
+    readonly record struct RemovalPlan(Node Node, ConstrainedRemoval? Constraint);
+
+    readonly record struct Triangulation(
+        Cavity Cavity,
+        IReadOnlyList<TriangleIndices> Triangles);
+
+    readonly record struct ConstrainedSpoke(Node Other, Edge[] HalfEdges);
+
+    public readonly record struct ConstraintCounts(int Features, int Boundaries);
+
+    public readonly record struct ConstrainedRemoval(
+        Node First,
+        Node Second,
+        ConstraintCounts Forward,
+        ConstraintCounts Reverse,
+        EdgeConstraintState[] Edges);
+
+    public readonly record struct EdgeConstraintState(
+        Edge Edge,
+        int Features,
+        int Boundaries);
 }

@@ -17,7 +17,7 @@ public sealed partial class EditorMeshModel
 
     Node? LiveNode(Vec2 position)
     {
-        Node[] nodes = _mesher.Traversal.Nodes().Where(node => !node.Dead).ToArray();
+        Node[] nodes = _mesher.Mesh.Nodes().Where(node => !node.Dead).ToArray();
         Node? exact = nodes.FirstOrDefault(node => node.Position == position);
         if (exact is not null) return exact;
         double toleranceSquared = CommandPositionTolerance * CommandPositionTolerance;

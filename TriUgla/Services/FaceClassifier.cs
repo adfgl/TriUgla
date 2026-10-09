@@ -7,32 +7,26 @@ namespace TriUgla;
 public sealed class FaceClassifier
 {
     readonly Mesh _mesh;
-    readonly MeshTraversal _traversal;
     readonly SuperStructure _superStructure;
     readonly Queue<(Face Face, FaceKind Kind)> _regions;
     readonly Stack<Face> _stack;
 
     public FaceClassifier(
         Face root,
-        MeshTraversal traversal,
         SuperStructure superStructure,
         int queueCapacity = 64,
         int stackCapacity = 256)
-        : this(new Mesh(root), traversal, superStructure, queueCapacity, stackCapacity)
+        : this(new Mesh(root), superStructure, queueCapacity, stackCapacity)
     {
     }
 
     public FaceClassifier(
         Mesh mesh,
-        MeshTraversal traversal,
         SuperStructure superStructure,
         int queueCapacity = 64,
         int stackCapacity = 256)
     {
         _mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
-        _traversal = traversal ?? throw new ArgumentNullException(nameof(traversal));
-        if (!ReferenceEquals(mesh.Root, traversal.Root))
-            throw new ArgumentException("The root must match the traversal root.", nameof(mesh));
         _superStructure = superStructure ?? throw new ArgumentNullException(nameof(superStructure));
         _regions = new Queue<(Face, FaceKind)>(Math.Max(0, queueCapacity));
         _stack = new Stack<Face>(Math.Max(0, stackCapacity));
@@ -40,7 +34,7 @@ public sealed class FaceClassifier
 
     public Face Classify()
     {
-        Face[] faces = _traversal.Faces().ToArray();
+        Face[] faces = _mesh.Faces().ToArray();
         foreach (Face face in faces) face.Kind = FaceKind.Undefined;
 
         _regions.Clear();

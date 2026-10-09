@@ -47,7 +47,7 @@ public class MeshTests
     {
         Face root = CreateTwoTriangles();
         var mesher = new Mesher(root);
-        MeshTraversal traversal = mesher.Traversal;
+        Mesh traversal = mesher.Mesh;
 
         Assert.Same(root, mesher.Root);
         Assert.Equal(2, traversal.Faces().Count());
@@ -66,7 +66,7 @@ public class MeshTests
         Face root = CreateTwoTriangles();
         var mesher = new Mesher(root);
 
-        Face[] faces = mesher.Traversal
+        Face[] faces = mesher.Mesh
             .Faces(canTraverse: (_, _, _) => false)
             .ToArray();
 
@@ -101,14 +101,14 @@ public class MeshTests
     public void ResetVisitStampsResetsAllReachableElements()
     {
         var mesher = new Mesher(CreateTwoTriangles());
-        MeshSnapshot snapshot = mesher.Traversal.Snapshot();
+        MeshSnapshot snapshot = mesher.Mesh.Snapshot();
         var stamp = new Stamp(42);
 
         MarkVisited(snapshot.Faces, stamp);
         MarkVisited(snapshot.Edges, stamp);
         MarkVisited(snapshot.Nodes, stamp);
 
-        mesher.Traversal.ResetVisitStamps();
+        mesher.Mesh.ResetVisitStamps();
 
         AssertReset(snapshot.Faces, stamp);
         AssertReset(snapshot.Edges, stamp);

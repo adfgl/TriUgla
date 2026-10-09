@@ -114,7 +114,7 @@ public sealed partial class EditorMeshModel
         bool refineLakes = false)
     {
         ArgumentNullException.ThrowIfNull(faceIds);
-        Face[] faces = _mesher.Traversal.Faces().Where(face => !face.Dead).ToArray();
+        Face[] faces = _mesher.Mesh.Faces().Where(face => !face.Dead).ToArray();
         int[] distinctIds = faceIds.Distinct().ToArray();
         if (distinctIds.Length == 0)
         {
@@ -157,6 +157,186 @@ public sealed partial class EditorMeshModel
             Fail($"Mesh refinement failed: {exception.Message}");
             return Snapshot(false, null);
         }
+    }
+
+    public MeshView BrushDensity(
+        IReadOnlyList<double> coordinates,
+        double radius,
+        bool increaseDensity,
+        bool refineLand = true,
+        bool refineLakes = false,
+        string effectMode = "percentage",
+        double effectValue = 1d,
+        string propertyName = "Target area")
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+        if (coordinates.Count < 2 || coordinates.Count % 2 != 0 ||
+            coordinates.Any(value => !double.IsFinite(value)) ||
+            !double.IsFinite(radius) || radius <= 0d ||
+            !ValidBrushEffect(effectMode, effectValue, propertyName) ||
+            propertyName is not ("Target area" or "Elevation"))
+        {
+            Fail("A brush stroke needs finite points, a positive radius, a supported property, and a valid effect.");
+            return Snapshot(false, null);
+        }
+
+        Vec2[] samples = Enumerable.Range(0, coordinates.Count / 2)
+            .Select(index => new Vec2(coordinates[index * 2], coordinates[index * 2 + 1]))
+            .ToArray();
+        double radiusSquared = radius * radius;
+        bool InStroke(Vec2 point) => StrokeDistanceSquared(point, samples) <= radiusSquared;
+
+        try
+        {
+            Face[] localFaces = _mesher.Mesh.Faces()
+                .Where(face => !face.Dead &&
+                               EligibleFace(face, refineLand, refineLakes) &&
+                               FaceTouchesStroke(face, samples, radiusSquared))
+                .ToArray();
+            Node[] targets = localFaces.SelectMany(face => face.Edges)
+                .Select(edge => edge.NodeStart)
+                .Where(node => !node.Dead && node.Kind != NodeKind.Super)
+                .Distinct()
+                .ToArray();
+            if (localFaces.Length == 0 || targets.Length == 0)
+                return Snapshot(true, null);
+
+            double baselineArea = LocalAreaBaseline(localFaces);
+            foreach (Node node in targets)
+            {
+                if (propertyName == "Target area")
+                {
+                    double current = node.Data.Area > 0d ? node.Data.Area : baselineArea;
+                    node.Data = node.Data with
+                    {
+                        Area = ApplyBrushEffect(
+                            current, increaseDensity, effectMode, effectValue,
+                            inverseDirection: true)
+                    };
+                }
+                else
+                {
+                    node.Data = node.Data with
+                    {
+                        Elevation = ApplyBrushEffect(
+                            node.Data.Elevation, increaseDensity,
+                            effectMode, effectValue, inverseDirection: false)
+                    };
+                }
+            }
+
+            if (propertyName == "Elevation") return Snapshot(true, null);
+
+            if (!increaseDensity)
+            {
+                Node[] candidates = _mesher.Mesh.Nodes()
+                    .Where(node => !node.Dead &&
+                                   node.Kind is (NodeKind.SteinerRefinement or NodeKind.SteinerInsertion) &&
+                                   InStroke(node.Position))
+                    .ToArray();
+                _mesher.Degrade(candidates);
+                return Snapshot(true, null);
+            }
+
+            RefineResult result = _mesher.RefineDetailed(
+                localFaces, new FaceRanker(), RefinementSettings(refineLand, refineLakes));
+            if (!result.Completed) return RefinementFailed(result);
+            return Snapshot(true, null);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            Fail($"Brush failed: {exception.Message}");
+            return Snapshot(false, null);
+        }
+    }
+
+    static bool ValidBrushEffect(string mode, double value, string propertyName)
+        => double.IsFinite(value) && mode switch
+        {
+            "percentage" => value > 0d && value < 100d,
+            "absolute" => value > 0d,
+            "value" => propertyName == "Elevation" || value >= 0d,
+            _ => false
+        };
+
+    static double ApplyBrushEffect(
+        double current,
+        bool increaseDensity,
+        string mode,
+        double value,
+        bool inverseDirection)
+    {
+        bool increaseValue = inverseDirection ? !increaseDensity : increaseDensity;
+        return mode switch
+        {
+            "percentage" => current * (increaseValue ? 1d + value / 100d : 1d - value / 100d),
+            "absolute" when increaseValue => current + value,
+            "absolute" => inverseDirection ? Math.Max(0d, current - value) : current - value,
+            "value" => value,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode))
+        };
+    }
+
+    static double LocalAreaBaseline(IReadOnlyList<Face> faces)
+    {
+        double[] areas = faces.Select(face => face.Area)
+            .Where(area => double.IsFinite(area) && area > 1e-12)
+            .OrderBy(area => area)
+            .ToArray();
+        return areas.Length == 0 ? 1d : areas[areas.Length / 2];
+    }
+
+    static bool EligibleFace(Face face, bool refineLand, bool refineLakes)
+        => face.Kind == FaceKind.Undefined ||
+           face.Kind == FaceKind.Island && refineLand ||
+           face.Kind == FaceKind.Lake && refineLakes;
+
+    static bool FaceTouchesStroke(Face face, IReadOnlyList<Vec2> samples, double radiusSquared)
+    {
+        Node[] nodes = face.Edges.Select(edge => edge.NodeStart).ToArray();
+        if (nodes.Any(node => StrokeDistanceSquared(node.Position, samples) <= radiusSquared))
+            return true;
+        foreach (Vec2 sample in samples)
+        {
+            if (PointInTriangle(sample, nodes[0].Position, nodes[1].Position, nodes[2].Position))
+                return true;
+            if (nodes.Select(node => node.Position).Zip(
+                    nodes.Select(node => node.Position).Skip(1).Append(nodes[0].Position),
+                    (start, end) => SegmentDistanceSquared(sample, start, end))
+                .Any(distance => distance <= radiusSquared))
+                return true;
+        }
+        return false;
+    }
+
+    static double StrokeDistanceSquared(Vec2 point, IReadOnlyList<Vec2> samples)
+    {
+        double best = double.PositiveInfinity;
+        for (int index = 0; index < samples.Count; index++)
+        {
+            best = Math.Min(best, point.DistanceSquared(samples[index]));
+            if (index > 0)
+                best = Math.Min(best, SegmentDistanceSquared(
+                    point, samples[index - 1], samples[index]));
+        }
+        return best;
+    }
+
+    static bool PointInTriangle(Vec2 point, Vec2 a, Vec2 b, Vec2 c)
+    {
+        double ab = (b - a).Cross(point - a);
+        double bc = (c - b).Cross(point - b);
+        double ca = (a - c).Cross(point - c);
+        return ab >= 0d && bc >= 0d && ca >= 0d || ab <= 0d && bc <= 0d && ca <= 0d;
+    }
+
+    static double SegmentDistanceSquared(Vec2 point, Vec2 start, Vec2 end)
+    {
+        Vec2 segment = end - start;
+        double lengthSquared = segment.Dot(segment);
+        if (lengthSquared <= 0d) return point.DistanceSquared(start);
+        double t = Math.Clamp((point - start).Dot(segment) / lengthSquared, 0d, 1d);
+        return point.DistanceSquared(start + segment * t);
     }
 
     static RefineSettings RefinementSettings(bool refineLand, bool refineLakes)

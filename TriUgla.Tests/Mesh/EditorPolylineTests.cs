@@ -115,6 +115,109 @@ public class EditorPolylineTests
     }
 
     [Fact]
+    public void DensityBrushEstablishesAndScalesLocalTargetArea()
+    {
+        var editor = new EditorMeshModel();
+
+        MeshView first = editor.BrushDensity([0d, 0d], 10d, increaseDensity: false);
+        MeshView second = editor.BrushDensity([0d, 0d], 10d, increaseDensity: false);
+
+        Assert.True(first.Succeeded, first.FailureReason);
+        Assert.True(second.Succeeded, second.FailureReason);
+        NodeView firstCorner = Assert.Single(first.Nodes, node => node.Id == 4);
+        NodeView secondCorner = Assert.Single(second.Nodes, node => node.Id == 4);
+        Assert.True(firstCorner.TargetArea > 0d);
+        Assert.Equal(firstCorner.TargetArea * 1.01d, secondCorner.TargetArea, 10);
+    }
+
+    [Fact]
+    public void DecreaseDensityBrushCanCoarsenARefinementSteiner()
+    {
+        var editor = new EditorMeshModel();
+        MeshView inserted = editor.Insert(0, 0);
+        int id = Assert.IsType<int>(inserted.ChangedNodeId);
+        var ids = Assert.IsType<Dictionary<Node, int>>(
+            typeof(EditorMeshModel)
+                .GetField("_ids", System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(editor));
+        Node node = ids.Single(pair => pair.Value == id).Key;
+        typeof(Node).GetProperty(nameof(Node.Kind))!.SetValue(node, NodeKind.SteinerRefinement);
+        foreach (NodeView editable in editor.State().Nodes.Where(candidate => !candidate.IsSuper))
+            Assert.True(editor.UpdateNodeData(editable.Id, editable.Elevation, 2000d).Succeeded);
+
+        MeshView result = editor.BrushDensity([0d, 0d], 10d, increaseDensity: false);
+
+        Assert.True(result.Succeeded, result.FailureReason);
+        Assert.DoesNotContain(result.Nodes, candidate => candidate.X == 0d && candidate.Y == 0d);
+    }
+
+    [Fact]
+    public void DensityBrushRejectsInvalidStroke()
+    {
+        var editor = new EditorMeshModel();
+
+        MeshView result = editor.BrushDensity([0d], 1d, increaseDensity: true);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("finite points", result.FailureReason);
+    }
+
+    [Theory]
+    [InlineData("percentage", 10d, true, 9d)]
+    [InlineData("percentage", 10d, false, 11d)]
+    [InlineData("absolute", 2d, true, 8d)]
+    [InlineData("absolute", 2d, false, 12d)]
+    [InlineData("value", 3d, true, 3d)]
+    [InlineData("value", 3d, false, 3d)]
+    public void DensityBrushSupportsConfiguredEffects(
+        string mode,
+        double effect,
+        bool increaseDensity,
+        double expected)
+    {
+        var editor = new EditorMeshModel();
+        foreach (int id in new[] { 4, 5, 6, 7 })
+            Assert.True(editor.UpdateNodeData(id, 0d, 10d).Succeeded);
+
+        MeshView result = editor.BrushDensity(
+            [0d, 0d], 10d, increaseDensity, effectMode: mode, effectValue: effect);
+
+        Assert.True(result.Succeeded, result.FailureReason);
+        Assert.All(result.Nodes.Where(node => !node.IsSuper),
+            node => Assert.Equal(expected, node.TargetArea, 10));
+    }
+
+    [Theory]
+    [InlineData("percentage", 10d, true, 11d)]
+    [InlineData("percentage", 10d, false, 9d)]
+    [InlineData("absolute", 2d, true, 12d)]
+    [InlineData("absolute", 2d, false, 8d)]
+    [InlineData("value", 3d, true, 3d)]
+    [InlineData("value", 3d, false, 3d)]
+    [InlineData("value", -3d, true, -3d)]
+    public void ElevationBrushSupportsConfiguredEffects(
+        string mode,
+        double effect,
+        bool increase,
+        double expected)
+    {
+        var editor = new EditorMeshModel();
+        foreach (int id in new[] { 4, 5, 6, 7 })
+            Assert.True(editor.UpdateNodeData(id, 10d, 0d).Succeeded);
+        int nodeCount = editor.State().Nodes.Count;
+
+        MeshView result = editor.BrushDensity(
+            [0d, 0d], 10d, increase, effectMode: mode,
+            effectValue: effect, propertyName: "Elevation");
+
+        Assert.True(result.Succeeded, result.FailureReason);
+        Assert.Equal(nodeCount, result.Nodes.Count);
+        Assert.All(result.Nodes.Where(node => !node.IsSuper),
+            node => Assert.Equal(expected, node.Elevation, 10));
+    }
+
+    [Fact]
     public void InsertedPolygonCanBeRemovedAndRestoredThroughHistory()
     {
         var editor = new EditorMeshModel();
@@ -567,6 +670,25 @@ public class EditorPolylineTests
 
         Assert.False(failed.Succeeded);
         Assert.Contains("ConstraintCount", failed.FailureReason);
+    }
+
+    [Fact]
+    public void NonStructuralSteinerInsertionCanBeRemovedFromConstraint()
+    {
+        var editor = new EditorMeshModel();
+        int start = Insert(editor, -2, 0);
+        int middle = Insert(editor, 0, 0);
+        int end = Insert(editor, 2, 0);
+        Assert.True(editor.InsertConstraint(start, end).Succeeded);
+        Assert.Equal(nameof(NodeKind.SteinerInsertion),
+            Assert.Single(editor.State().Nodes, node => node.Id == middle).Kind);
+
+        MeshView removed = editor.RemoveElements([], [middle]);
+
+        Assert.True(removed.Succeeded, removed.FailureReason);
+        Assert.DoesNotContain(removed.Nodes, node => node.Id == middle);
+        ConstraintView constraint = Assert.Single(removed.Constraints);
+        Assert.Equal(1, constraint.SegmentCount);
     }
 
     [Fact]

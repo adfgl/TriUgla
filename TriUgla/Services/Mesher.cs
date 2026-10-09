@@ -9,6 +9,7 @@ public sealed class Mesher
     readonly EdgeInserter _edgeInserter;
     readonly EdgeLegalizer _edgeLegalizer;
     readonly MeshRefiner _refiner;
+    readonly MeshDegrader _degrader;
     readonly GeometryPredicates _geometry;
     readonly SuperStructure? _superStructure;
     readonly Constraints _constraints = new();
@@ -29,15 +30,12 @@ public sealed class Mesher
     public Mesher(Mesh mesh)
     {
         _mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
-        Face root = mesh.Root;
-        var stamps = new StampSource();
-        Traversal = new MeshTraversal(root, stamps);
-        _locator = new MeshLocator(mesh, Traversal, stamps);
+        _locator = new MeshLocator(mesh);
         var splitter = new Splitter();
         _geometry = new GeometryPredicates();
         var flipper = new EdgeFlipper(_geometry);
         _nodeInserter = new NodeInserter(new NodeFactory(), splitter, _locator);
-        _nodeRemover = new NodeRemover();
+        _nodeRemover = new NodeRemover(_geometry);
         _edgeInserter = new EdgeInserter(_geometry, flipper, splitter, new NodeFactory());
         _edgeLegalizer = new EdgeLegalizer(flipper);
         _refiner = new MeshRefiner(
@@ -46,11 +44,11 @@ public sealed class Mesher
             _edgeLegalizer,
             splitter,
             _nodeInserter);
+        _degrader = new MeshDegrader(this);
     }
 
     public Mesh Mesh => _mesh;
     public Face Root => _mesh.Root;
-    public MeshTraversal Traversal { get; }
     public GeometryPredicates Geometry => _geometry;
     public SuperStructure? SuperStructure => _superStructure;
     public IConstraints Constraints => _constraints;
@@ -79,14 +77,34 @@ public sealed class Mesher
     public RemoveNodeResult Remove(Node node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        if (node.Kind == NodeKind.Super) return RemoveNodeResult.Failed(node);
-        RemoveNodeResult result = _nodeRemover.Remove(node);
-        if (result.Removed)
+        RemoveNodeResult result = _nodeRemover.Remove(
+            node, out NodeRemover.ConstrainedRemoval? constrained);
+        if (!result.Removed) return result;
+        TopologyChanged(result.Change.AffectedFaces);
+        Legalize(result.Change.EdgesToLegalize);
+        if (constrained is NodeRemover.ConstrainedRemoval dissolved)
         {
-            TopologyChanged(result.Change.AffectedFaces);
-            Legalize(result.Change.EdgesToLegalize);
+            RestoreSegment(
+                dissolved.First, dissolved.Second,
+                dissolved.Forward, dissolved.Reverse);
         }
         return result;
+    }
+
+    void RestoreSegment(
+        Node first,
+        Node second,
+        NodeRemover.ConstraintCounts forward,
+        NodeRemover.ConstraintCounts reverse)
+    {
+        for (int count = 0; count < forward.Features; count++)
+            InsertEdge(first, second, EdgeConstraintKind.Feature);
+        for (int count = 0; count < forward.Boundaries; count++)
+            InsertEdge(first, second, EdgeConstraintKind.Boundary);
+        for (int count = 0; count < reverse.Features; count++)
+            InsertEdge(second, first, EdgeConstraintKind.Feature);
+        for (int count = 0; count < reverse.Boundaries; count++)
+            InsertEdge(second, first, EdgeConstraintKind.Boundary);
     }
 
     public RemoveNodeResult Remove(Vec2 position)
@@ -97,13 +115,13 @@ public sealed class Mesher
     }
 
     public int Refine(FaceRanker ranker, in RefineSettings settings)
-        => Refine(Traversal.Faces(), ranker, in settings, CancellationToken.None);
+        => Refine(_mesh.Faces(), ranker, in settings, CancellationToken.None);
 
     public int Refine(
         FaceRanker ranker,
         in RefineSettings settings,
         CancellationToken cancellationToken)
-        => Refine(Traversal.Faces(), ranker, in settings, cancellationToken);
+        => Refine(_mesh.Faces(), ranker, in settings, cancellationToken);
 
     public int Refine(
         IEnumerable<Face> faces,
@@ -122,7 +140,7 @@ public sealed class Mesher
         FaceRanker ranker,
         in RefineSettings settings,
         CancellationToken cancellationToken = default)
-        => RefineDetailed(Traversal.Faces(), ranker, in settings, cancellationToken);
+        => RefineDetailed(_mesh.Faces(), ranker, in settings, cancellationToken);
 
     public RefineResult RefineDetailed(
         IEnumerable<Face> faces,
@@ -141,6 +159,9 @@ public sealed class Mesher
         SynchronizeTopology();
         return result;
     }
+
+    public int Degrade(IEnumerable<Node> candidates)
+        => _degrader.Degrade(candidates);
 
     public bool TryInsertConstraint(ConstraintPoint point, out string? reason)
     {
@@ -469,101 +490,14 @@ public sealed class Mesher
                 continue;
             }
             if (!ShouldRemoveInsertionSteiner(node)) continue;
-            ConstrainedSpoke[] spokes = ConstrainedSpokes(node);
-            if (spokes.Length == 0)
-            {
-                if (!Remove(node).Removed) node.ReleaseInsertionRole();
-                continue;
-            }
-            if (spokes.Length == 1)
-            {
-                Release(spokes[0]);
-                if (!Remove(node).Removed) node.ReleaseInsertionRole();
-                continue;
-            }
-            if (spokes.Length != 2 || !CanDissolve(node, spokes[0], spokes[1]))
-            {
-                if (!node.Constrained) node.ReleaseInsertionRole();
-                continue;
-            }
-
-            Node first = spokes[0].Other;
-            Node second = spokes[1].Other;
-            ConstraintCounts forward = Counts(spokes[0], first, node);
-            ConstraintCounts reverse = Counts(spokes[0], node, first);
-            Release(spokes[0]);
-            Release(spokes[1]);
-            if (!Remove(node).Removed)
-                throw new InvalidOperationException(
-                    $"Could not dissolve non-structural Steiner node at {node.Position}.");
-            for (int count = 0; count < forward.Features; count++)
-                InsertEdge(first, second, EdgeConstraintKind.Feature);
-            for (int count = 0; count < forward.Boundaries; count++)
-                InsertEdge(first, second, EdgeConstraintKind.Boundary);
-            for (int count = 0; count < reverse.Features; count++)
-                InsertEdge(second, first, EdgeConstraintKind.Feature);
-            for (int count = 0; count < reverse.Boundaries; count++)
-                InsertEdge(second, first, EdgeConstraintKind.Boundary);
+            if (!node.Constrained) node.ReleaseInsertionRole();
+            if (!Remove(node).Removed && !node.Constrained) node.ReleaseInsertionRole();
         }
     }
 
     bool ShouldRemoveInsertionSteiner(Node node)
         => node.Kind == NodeKind.SteinerInsertion &&
-           !node.Dead &&
-           !IsStructuralAnchor(node);
-
-    bool IsStructuralAnchor(Node node)
-        => Constraints.Points.Any(point => ReferenceEquals(point.Node, node)) ||
-           Constraints.Lines.Any(line =>
-               ReferenceEquals(line.From, node) || ReferenceEquals(line.To, node)) ||
-           Constraints.Polylines.Any(polyline => polyline.Nodes.Any(candidate => ReferenceEquals(candidate, node))) ||
-           Constraints.Loops.Any(loop => loop.Nodes.Any(candidate => ReferenceEquals(candidate, node)));
-
-    bool CanDissolve(Node node, ConstrainedSpoke first, ConstrainedSpoke second)
-        => Counts(first, first.Other, node) == Counts(second, node, second.Other) &&
-           Counts(first, node, first.Other) == Counts(second, second.Other, node) &&
-           _geometry.Orient(first.Other, second.Other, node.Position) == EOrientaiton.Collinear &&
-           (first.Other.Position - node.Position).Dot(second.Other.Position - node.Position) < 0d;
-
-    static ConstraintCounts Counts(ConstrainedSpoke spoke, Node from, Node to)
-    {
-        Edge[] directed = spoke.HalfEdges.Where(edge =>
-            ReferenceEquals(edge.NodeStart, from) && ReferenceEquals(edge.NodeEnd, to)).ToArray();
-        return new ConstraintCounts(
-            directed.Sum(edge => edge.FeatureConstraints),
-            directed.Sum(edge => edge.BoundaryConstraints));
-    }
-
-    ConstrainedSpoke[] ConstrainedSpokes(Node node)
-    {
-        var groups = new Dictionary<Node, List<Edge>>(ReferenceEqualityComparer.Instance);
-        foreach (Edge edge in Traversal.Edges())
-        {
-            if (edge.Dead || !edge.Contains(node) || !edge.Constrained) continue;
-            Node other = ReferenceEquals(edge.NodeStart, node) ? edge.NodeEnd : edge.NodeStart;
-            if (!groups.TryGetValue(other, out List<Edge>? halfEdges))
-                groups.Add(other, halfEdges = []);
-            halfEdges.Add(edge);
-        }
-        return groups.Select(group => new ConstrainedSpoke(
-            group.Key,
-            group.Value.ToArray())).ToArray();
-    }
-
-    static void Release(ConstrainedSpoke spoke)
-    {
-        foreach (Edge edge in spoke.HalfEdges)
-        {
-            while (edge.HasFeature) edge.Release(EdgeConstraintKind.Feature);
-            while (edge.HasBoundary) edge.Release(EdgeConstraintKind.Boundary);
-        }
-    }
-
-    readonly record struct ConstrainedSpoke(
-        Node Other,
-        Edge[] HalfEdges);
-
-    readonly record struct ConstraintCounts(int Features, int Boundaries);
+           !node.Dead;
 
     void Legalize(IEnumerable<Edge> candidates)
     {
@@ -635,13 +569,12 @@ public sealed class Mesher
 
     void TopologyChanged(IReadOnlyList<Face> affectedFaces)
     {
-        if (Traversal.Root.Dead)
+        if (_mesh.RootDead)
         {
             Face replacement = affectedFaces.FirstOrDefault(face => !face.Dead)
                 ?? throw new InvalidOperationException(
                     "A topology change retired the root without a replacement face.");
             _mesh.SetRoot(replacement);
-            Traversal.SetRoot(replacement);
         }
         _locator.Reset();
     }
@@ -655,14 +588,14 @@ public sealed class Mesher
                 "so faces can be classified first.");
         }
 
-        new FaceClassifier(_mesh, Traversal, _superStructure).Classify();
+        new FaceClassifier(_mesh, _superStructure).Classify();
     }
 
     void SynchronizeTopology()
     {
-        if (Traversal.Root.Dead)
+        if (_mesh.RootDead)
         {
-            Traversal.SetRoot(_mesh.Root);
+            _ = _mesh.Root;
         }
         _locator.Reset();
     }

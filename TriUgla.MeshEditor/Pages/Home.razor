@@ -33,6 +33,37 @@
             <button type="button" title="Refine selected faces, or all eligible faces when none are selected"
                     disabled="@(ReadOnlyMode || (!_refineLand && !_refineLakes))"
                     @onclick="RefineSelectedFaces">Refine</button>
+            <label class="brush-property" title="Node property changed by the brush">
+                <span>Brush</span>
+                <select @bind="_brushProperty" disabled="@ReadOnlyMode" aria-label="Brush property">
+                    <option value="Target area">Target area</option>
+                    <option value="Elevation">Elevation</option>
+                </select>
+            </label>
+            <label class="brush-radius" title="Brush radius in mesh units">
+                <span>Brush radius</span>
+                <input type="number" min="0.01" step="0.1" value="@_brushRadius"
+                       disabled="@ReadOnlyMode" @onchange="ChangeBrushRadius" />
+            </label>
+            <label class="brush-effect" title="How each brush stroke changes the selected property">
+                <span>Effect</span>
+                <select @bind="_brushEffectMode" disabled="@ReadOnlyMode" aria-label="Brush effect mode">
+                    <option value="percentage">Percentage</option>
+                    <option value="absolute">Absolute</option>
+                    <option value="value">Value</option>
+                </select>
+                <input type="number" step="any"
+                       min="@(_brushEffectMode == "value" && _brushProperty == "Elevation" ? null :
+                           _brushEffectMode == "value" ? "0" : "0.000001")"
+                       max="@(_brushEffectMode == "percentage" ? "99.999999" : null)"
+                       value="@_brushEffectValue"
+                       disabled="@ReadOnlyMode" aria-label="Brush effect value"
+                       @onchange="ChangeBrushEffectValue" />
+                @if (_brushEffectMode == "percentage")
+                {
+                    <span aria-hidden="true">%</span>
+                }
+            </label>
             <button type="button" title="Reset view (0)" @onclick="Reset">Reset <kbd>0</kbd></button>
             <button type="button" title="Fit mesh to viewport (F)" @onclick="Fit">Fit <kbd>F</kbd></button>
             <button type="button" title="Remove inserted nodes" disabled="@ReadOnlyMode" @onclick="ResetMesh">Reset mesh</button>
@@ -65,6 +96,18 @@
                 </svg>
                 <span class="sr-only">Polygon</span>
             </button>
+            <button type="button" disabled="@ReadOnlyMode" class="@(ToolClass("density-increase"))" title="@IncreaseBrushTitle" aria-label="@IncreaseBrushTitle" @onclick="IncreaseDensityTool">
+                <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8" /><path d="M12 8v8M8 12h8" />
+                </svg>
+                <span class="sr-only">@IncreaseBrushTitle</span>
+            </button>
+            <button type="button" disabled="@ReadOnlyMode" class="@(ToolClass("density-decrease"))" title="@DecreaseBrushTitle" aria-label="@DecreaseBrushTitle" @onclick="DecreaseDensityTool">
+                <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8" /><path d="M8 12h8" />
+                </svg>
+                <span class="sr-only">@DecreaseBrushTitle</span>
+            </button>
             @if (_tool == "constraint")
             {
                 <p>Choose two nodes. Cmd+click empty space to insert an endpoint first.</p>
@@ -76,6 +119,10 @@
             else if (_tool == "polygon")
             {
                 <p>Choose at least three ordered vertices. Enter closes the polygon; Escape cancels.</p>
+            }
+            else if (_tool is "density-increase" or "density-decrease")
+            {
+                <p>Press and drag to paint density. The stroke is applied on release.</p>
             }
             <div class="face-legend" aria-label="Face classification colors">
                 <span title="Land"><i class="land-swatch"></i><span class="sr-only">Land</span></span>
@@ -178,6 +225,14 @@
     bool ReadOnlyMode => _quadMode || _view3D;
     bool _refineLand = true;
     bool _refineLakes;
+    double _brushRadius = 0.75;
+    string _brushProperty = "Target area";
+    string _brushEffectMode = "percentage";
+    double _brushEffectValue = 1d;
+    string IncreaseBrushTitle => _brushProperty == "Elevation"
+        ? "Increase elevation brush" : "Increase density brush";
+    string DecreaseBrushTitle => _brushProperty == "Elevation"
+        ? "Decrease elevation brush" : "Decrease density brush";
     string _tool = "select";
     IReadOnlyList<SelectionInfo> _selectedObjects = [];
     readonly EditorMeshModel _mesh = new();
@@ -241,6 +296,27 @@
     Task ConstraintTool() => SetTool("constraint");
     Task PolylineTool() => SetTool("polyline");
     Task PolygonTool() => SetTool("polygon");
+    Task IncreaseDensityTool() => SetTool("density-increase");
+    Task DecreaseDensityTool() => SetTool("density-decrease");
+
+    async Task ChangeBrushRadius(ChangeEventArgs args)
+    {
+        if (!double.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double radius) ||
+            !double.IsFinite(radius) || radius <= 0d) return;
+        _brushRadius = radius;
+        if (_module is not null)
+            await _module.InvokeVoidAsync("setBrushRadius", _canvas, radius);
+    }
+
+    void ChangeBrushEffectValue(ChangeEventArgs args)
+    {
+        if (!double.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double value) ||
+            !double.IsFinite(value) ||
+            value < 0d && !(_brushEffectMode == "value" && _brushProperty == "Elevation")) return;
+        _brushEffectValue = value;
+    }
 
     string ToolClass(string tool) => _tool == tool ? "tool active" : "tool";
 
@@ -322,6 +398,14 @@
     [JSInvokable]
     public MeshView RefineAll(bool refineLand, bool refineLakes)
         => ReadOnlyMode ? _mesh.State() : _mesh.RefineAll(refineLand, refineLakes);
+
+    [JSInvokable]
+    public MeshView BrushDensity(double[] coordinates, bool increaseDensity)
+        => ReadOnlyMode
+            ? _mesh.State()
+            : _mesh.BrushDensity(
+                coordinates, _brushRadius, increaseDensity, _refineLand, _refineLakes,
+                _brushEffectMode, _brushEffectValue, _brushProperty);
 
     [JSInvokable]
     public MeshView ResetMeshState() => ReadOnlyMode ? _mesh.State() : _mesh.Reset();

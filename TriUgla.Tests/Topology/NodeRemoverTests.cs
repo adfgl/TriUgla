@@ -74,6 +74,40 @@ public class NodeRemoverTests
         Assert.All(fixture.Faces, face => Assert.False(face.Dead));
     }
 
+    [Fact]
+    public void CollectsAndRemovesSteinerInsertionWithTwoCollinearConstrainedSpokes()
+    {
+        Fixture fixture = CreateFixture();
+        typeof(Node).GetProperty(nameof(Node.Kind))!
+            .SetValue(fixture.Center, NodeKind.SteinerInsertion);
+        fixture.AO.Constrain(EdgeConstraintKind.Feature);
+        fixture.OC.Constrain(EdgeConstraintKind.Feature);
+        var remover = new NodeRemover();
+
+        RemoveNodeResult result = remover.Remove(
+            fixture.Center, out NodeRemover.ConstrainedRemoval? removedConstraint);
+
+        Assert.True(result.Removed);
+        NodeRemover.ConstrainedRemoval constrained = Assert.IsType<NodeRemover.ConstrainedRemoval>(
+            removedConstraint);
+        Assert.True(fixture.Center.Dead);
+        Assert.Equal(1, constrained.Forward.Features + constrained.Reverse.Features);
+        Assert.Equal(0, constrained.Forward.Boundaries + constrained.Reverse.Boundaries);
+    }
+
+    [Fact]
+    public void RejectsSteinerInsertionWithoutTwoConstrainedSpokes()
+    {
+        Fixture fixture = CreateFixture();
+        typeof(Node).GetProperty(nameof(Node.Kind))!
+            .SetValue(fixture.Center, NodeKind.SteinerInsertion);
+
+        RemoveNodeResult result = new NodeRemover().Remove(fixture.Center);
+
+        Assert.False(result.Removed);
+        Assert.False(fixture.Center.Dead);
+    }
+
     static void AssertTriangle(Face face)
     {
         Edge[] edges = face.Edges.ToArray();
@@ -114,7 +148,7 @@ public class NodeRemoverTests
         Linker.LinkTwins(oc, co);
         Linker.LinkTwins(od, @do);
 
-        return new Fixture(center, ab, bc, cd, da, faces);
+        return new Fixture(center, ab, bc, cd, da, ao, oc, faces);
     }
 
     sealed record Fixture(
@@ -123,5 +157,7 @@ public class NodeRemoverTests
         Edge BC,
         Edge CD,
         Edge DA,
+        Edge AO,
+        Edge OC,
         Face[] Faces);
 }

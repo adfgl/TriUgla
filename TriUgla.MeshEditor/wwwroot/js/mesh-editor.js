@@ -8,6 +8,7 @@ export function initialize(canvas, dotnet, mesh) {
         canUndo: false, canRedo: false, tool: "select", constraintStart: null,
         readOnly: false, viewMode: "edit", quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
         yaw: -.65, pitch: .72,
+        brushRadius: .75, brushStroke: [],
         polylineNodes: [], polygonNodes: [],
         mutationQueue: Promise.resolve(),
         meshVersion: 0,
@@ -115,6 +116,13 @@ export function setToolMode(canvas, tool) {
     view.selections.clear();
     view.message = null;
     changed(view);
+}
+
+export function setBrushRadius(canvas, radius) {
+    const view = views.get(canvas);
+    if (!view || !Number.isFinite(radius) || radius <= 0) return;
+    view.brushRadius = radius;
+    requestDraw(view);
 }
 
 export function showQuadMesh(canvas, overlay) {
@@ -272,9 +280,12 @@ function onPointerDown(view, event) {
     if (event.button !== 0 && event.button !== 1) return;
     event.preventDefault();
     view.canvas.focus();
+    const brushing = !view.readOnly && event.button === 0 &&
+        (view.tool === "density-increase" || view.tool === "density-decrease");
     view.rotating = view.viewMode === "3d" && event.button === 0;
     view.dragging = event.button === 1;
-    view.selecting = event.button === 0;
+    view.selecting = event.button === 0 && !brushing;
+    view.brushing = brushing;
     view.pointerId = event.pointerId;
     view.lastX = event.clientX;
     view.lastY = event.clientY;
@@ -282,6 +293,21 @@ function onPointerDown(view, event) {
     view.downY = event.clientY;
     view.moved = false;
     view.canvas.setPointerCapture(event.pointerId);
+    if (brushing) {
+        const p = localPoint(view.canvas, event);
+        const world = screenToWorld(view, p.x, p.y);
+        view.x = world.x; view.y = world.y;
+        view.brushStroke = [[world.x, world.y]];
+        view.suppressBrush = true;
+        draw(view);
+        view.suppressBrush = false;
+        view.brushBase = document.createElement("canvas");
+        view.brushBase.width = view.canvas.width;
+        view.brushBase.height = view.canvas.height;
+        view.brushBase.getContext("2d").drawImage(view.canvas, 0, 0);
+        view.canvas.classList.add("brushing");
+        requestBrushDraw(view);
+    }
     if (view.dragging || view.rotating) view.canvas.classList.add("dragging");
 }
 
@@ -307,6 +333,12 @@ function onPointerMove(view, event) {
         view.lastX = event.clientX;
         view.lastY = event.clientY;
         draw(view);
+    } else if (view.brushing && event.pointerId === view.pointerId) {
+        const previous = view.brushStroke[view.brushStroke.length - 1];
+        const spacing = Math.max(view.brushRadius * .5, 4 / (baseScale * view.zoom));
+        if (!previous || (world.x - previous[0]) ** 2 + (world.y - previous[1]) ** 2 >= spacing ** 2)
+            view.brushStroke.push([world.x, world.y]);
+        requestBrushDraw(view);
     } else {
         scheduleMeshHover(view, p, event.ctrlKey);
     }
@@ -317,16 +349,38 @@ function onPointerMove(view, event) {
 function onPointerUp(view, event) {
     if (event.pointerId !== view.pointerId) return;
     const shouldSelect = view.selecting && !view.moved && view.viewMode !== "3d";
+    const brushStroke = view.brushing && event.type !== "pointercancel" ? view.brushStroke.slice() : null;
+    const increaseDensity = view.tool === "density-increase";
     view.dragging = false;
     view.rotating = false;
     view.selecting = false;
+    view.brushing = false;
     view.pointerId = null;
     view.canvas.classList.remove("dragging");
+    view.canvas.classList.remove("brushing");
+    view.brushStroke = [];
+    view.brushBase = null;
+    if (brushStroke?.length) {
+        applyDensityBrush(view, brushStroke, increaseDensity);
+        return;
+    }
     if (shouldSelect && !view.readOnly && view.tool === "constraint") chooseConstraintNode(view, event);
     else if (shouldSelect && view.tool === "polyline") choosePolylineNode(view, event);
     else if (shouldSelect && view.tool === "polygon") choosePolygonNode(view, event);
     else if (shouldSelect && event.metaKey && !view.readOnly) insertNode(view, event);
     else if (shouldSelect) selectAt(view, localPoint(view.canvas, event), event);
+}
+
+async function applyDensityBrush(view, stroke, increaseDensity) {
+    return enqueueMutation(view, async () => {
+        const coordinates = stroke.flat();
+        const mesh = await view.dotnet.invokeMethodAsync(
+            "BrushDensity", coordinates, increaseDensity);
+        applyMesh(view, mesh);
+        view.message = mesh.succeeded ? "Brush applied" :
+            mesh.failureReason ?? "Brush failed";
+        changed(view);
+    });
 }
 
 function onKey(view, event) {
@@ -1012,6 +1066,39 @@ function drawMesh(view, ctx) {
             view.superNodes.has(index) ? "#a78bfa" : "#f8fafc";
         ctx.beginPath(); ctx.arc(p.x, p.y, selected ? 6 : hovered ? 5 : 3.2, 0, Math.PI * 2); ctx.fill();
     }
+    drawDensityBrush(view, ctx);
+}
+
+function drawDensityBrush(view, ctx) {
+    if (view.suppressBrush ||
+        view.tool !== "density-increase" && view.tool !== "density-decrease") return;
+    const points = view.brushStroke.length ? view.brushStroke : [[view.x, view.y]];
+    const radius = view.brushRadius * baseScale * view.zoom;
+    ctx.save();
+    ctx.fillStyle = view.tool === "density-increase" ? "rgba(34, 211, 238, .10)" : "rgba(245, 158, 11, .10)";
+    ctx.strokeStyle = view.tool === "density-increase" ? "#22d3ee" : "#f59e0b";
+    const screenPoints = points.map(point => worldToScreen(view, point));
+    if (screenPoints.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+        for (let index = 1; index < screenPoints.length; index++)
+            ctx.lineTo(screenPoints[index].x, screenPoints[index].y);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = radius * 2;
+        ctx.strokeStyle = view.tool === "density-increase" ? "rgba(34, 211, 238, .16)" : "rgba(245, 158, 11, .16)";
+        ctx.setLineDash([]);
+        ctx.stroke();
+    }
+    const screen = screenPoints[screenPoints.length - 1];
+    ctx.beginPath();
+    ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = view.tool === "density-increase" ? "#22d3ee" : "#f59e0b";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.restore();
 }
 
 function changed(view) { draw(view); report(view); }
@@ -1021,6 +1108,19 @@ function requestDraw(view) {
     requestAnimationFrame(() => {
         view.renderPending = false;
         draw(view);
+    });
+}
+function requestBrushDraw(view) {
+    if (view.renderPending) return;
+    view.renderPending = true;
+    requestAnimationFrame(() => {
+        view.renderPending = false;
+        if (!view.brushBase) return draw(view);
+        view.ctx.save();
+        view.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        view.ctx.drawImage(view.brushBase, 0, 0);
+        view.ctx.restore();
+        drawDensityBrush(view, view.ctx);
     });
 }
 function scheduleReport(view) {

@@ -85,9 +85,5 @@ public class MeshLocatorTests
     }
 
     static MeshLocator CreateLocator(Face root)
-    {
-        var stamps = new StampSource();
-        var traversal = new MeshTraversal(root, stamps);
-        return new MeshLocator(root, traversal, stamps);
-    }
+        => new(new Mesh(root));
 }

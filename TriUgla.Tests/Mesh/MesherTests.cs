@@ -11,15 +11,15 @@ public class MesherTests
 
         Assert.Equal(InsertNodeStatus.InsertedIntoFace, insertion.Status);
         Node inserted = Assert.IsType<Node>(insertion.Node);
-        Assert.Equal(4, mesher.Traversal.Nodes().Count());
-        Assert.Equal(3, mesher.Traversal.Faces().Count());
+        Assert.Equal(4, mesher.Mesh.Nodes().Count());
+        Assert.Equal(3, mesher.Mesh.Faces().Count());
 
         RemoveNodeResult removal = mesher.Remove(inserted);
 
         Assert.True(removal.Removed);
         Assert.True(inserted.Dead);
-        Assert.Equal(3, mesher.Traversal.Nodes().Count());
-        Assert.Single(mesher.Traversal.Faces());
+        Assert.Equal(3, mesher.Mesh.Nodes().Count());
+        Assert.Single(mesher.Mesh.Faces());
         Assert.IsType<Face>(mesher.Find(new Vec2(0.5, 0.5)));
     }
 
@@ -77,7 +77,7 @@ public class MesherTests
     public void InsertAndRemoveConstraintTracksFeaturesAndPoints()
     {
         var mesher = new Mesher(CreateTriangle());
-        Node[] nodes = mesher.Traversal.Nodes().ToArray();
+        Node[] nodes = mesher.Mesh.Nodes().ToArray();
         Node a = nodes.Single(node => node.Position == new Vec2(0, 0));
         Node b = nodes.Single(node => node.Position == new Vec2(2, 0));
         var point = new ConstraintPoint(a, "profile point");
@@ -104,7 +104,7 @@ public class MesherTests
     public void InsertAndRemovePolylineTracksFeatureEdges()
     {
         var mesher = new Mesher(CreateTriangle());
-        Node[] nodes = mesher.Traversal.Nodes().ToArray();
+        Node[] nodes = mesher.Mesh.Nodes().ToArray();
         Node a = nodes.Single(node => node.Position == new Vec2(0, 0));
         Node b = nodes.Single(node => node.Position == new Vec2(2, 0));
         var polyline = new Polyline([a, b], "profile");
@@ -152,7 +152,7 @@ public class MesherTests
         Assert.True(mesher.TryInsertConstraint(first, out string? firstReason), firstReason);
         Assert.True(mesher.TryInsertConstraint(second, out string? secondReason), secondReason);
         Node intersection = Assert.Single(
-            mesher.Traversal.Nodes(),
+            mesher.Mesh.Nodes(),
             node => node.Kind == NodeKind.SteinerInsertion);
 
         Assert.True(mesher.TryRemoveConstraint(second, out string? removeSecondReason), removeSecondReason);
@@ -163,7 +163,7 @@ public class MesherTests
 
         Assert.True(mesher.TryRemoveConstraint(first, out string? removeFirstReason), removeFirstReason);
         Assert.DoesNotContain(
-            mesher.Traversal.Nodes(),
+            mesher.Mesh.Nodes(),
             node => node.Kind == NodeKind.SteinerInsertion);
     }
 
@@ -188,11 +188,54 @@ public class MesherTests
         Assert.Equal(originalKind, middle.Kind);
     }
 
+    [Theory]
+    [InlineData(NodeKind.SteinerInsertion)]
+    [InlineData(NodeKind.SteinerRefinement)]
+    public void RemovesNonStructuralSteinerFromConstrainedSpan(NodeKind kind)
+    {
+        var mesher = new Mesher(new Vec2(-3, -2), new Vec2(3, 2), 4);
+        Node start = mesher.Insert(new Vec2(-2, 0)).Node!;
+        Node middle = mesher.Insert(Vec2.Zero).Node!;
+        Node end = mesher.Insert(new Vec2(2, 0)).Node!;
+        var constraint = new ConstraintLine(start, end);
+        Assert.True(mesher.TryInsertConstraint(constraint, out string? reason), reason);
+        typeof(Node).GetProperty(nameof(Node.Kind))!.SetValue(middle, kind);
+
+        RemoveNodeResult removal = mesher.Remove(middle);
+
+        Assert.True(removal.Removed);
+        Assert.True(middle.Dead);
+        Edge[] path = constraint.Edges([]).ToArray();
+        Assert.Single(path);
+        Assert.True(path[0].HasFeature);
+        Assert.Same(start, path[0].NodeStart);
+        Assert.Same(end, path[0].NodeEnd);
+    }
+
+    [Fact]
+    public void DoesNotRemoveStructuralSteinerAtConstraintIntersection()
+    {
+        var mesher = new Mesher(new Vec2(-1, -1), new Vec2(3, 3), 4);
+        Node a = mesher.Insert(new Vec2(0, 0)).Node!;
+        Node b = mesher.Insert(new Vec2(2, 2)).Node!;
+        Node c = mesher.Insert(new Vec2(0, 2)).Node!;
+        Node d = mesher.Insert(new Vec2(2, 0)).Node!;
+        Assert.True(mesher.TryInsertConstraint(new ConstraintLine(a, b), out string? first), first);
+        Assert.True(mesher.TryInsertConstraint(new ConstraintLine(c, d), out string? second), second);
+        Node intersection = Assert.Single(mesher.Mesh.Nodes(), node =>
+            node.Kind == NodeKind.SteinerInsertion);
+
+        RemoveNodeResult removal = mesher.Remove(intersection);
+
+        Assert.False(removal.Removed);
+        Assert.False(intersection.Dead);
+    }
+
     [Fact]
     public void InsertAndRemoveLoopTracksBoundaryEdges()
     {
         var mesher = new Mesher(CreateTriangle());
-        Node[] nodes = mesher.Traversal.Nodes().ToArray();
+        Node[] nodes = mesher.Mesh.Nodes().ToArray();
         Node a = nodes.Single(node => node.Position == new Vec2(0, 0));
         Node b = nodes.Single(node => node.Position == new Vec2(2, 0));
         Node c = nodes.Single(node => node.Position == new Vec2(0, 2));
@@ -221,7 +264,7 @@ public class MesherTests
         Assert.False(mesher.TryInsertLoop(loop, out string? reason));
         Assert.Contains("self-intersecting", reason);
         Assert.Empty(mesher.Constraints.Loops);
-        Assert.DoesNotContain(mesher.Traversal.Edges(), edge => edge.Constrained);
+        Assert.DoesNotContain(mesher.Mesh.Edges(), edge => edge.Constrained);
     }
 
     [Fact]
@@ -250,7 +293,7 @@ public class MesherTests
             new RefineSettings(0, 8, 1e-4));
 
         Assert.Equal(0, inserted);
-        FaceKind[] kinds = mesher.Traversal.Faces().Select(face => face.Kind).Distinct().ToArray();
+        FaceKind[] kinds = mesher.Mesh.Faces().Select(face => face.Kind).Distinct().ToArray();
         Assert.Contains(FaceKind.Outside, kinds);
         Assert.Contains(FaceKind.Island, kinds);
         Assert.DoesNotContain(FaceKind.Undefined, kinds);
@@ -281,7 +324,7 @@ public class MesherTests
         Assert.True(first > 1_000);
         Assert.Equal(0, second);
         Assert.DoesNotContain(
-            mesher.Traversal.Faces(),
+            mesher.Mesh.Faces(),
             face => face.Kind == FaceKind.Island && ranker.Rank(face) > 0);
     }
 
@@ -311,7 +354,7 @@ public class MesherTests
     static void AssertDelaunay(Mesher mesher)
     {
         var flipper = new EdgeFlipper(mesher.Geometry);
-        foreach (Edge edge in mesher.Traversal.Edges())
+        foreach (Edge edge in mesher.Mesh.Edges())
         {
             if (!flipper.CanFlip(edge, out bool shouldFlip)) continue;
             Assert.False(shouldFlip, $"Edge {edge.NodeStart.Position}–{edge.NodeEnd.Position} was not legalized.");
