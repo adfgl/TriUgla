@@ -30,6 +30,12 @@ public sealed class Node : MeshElement
 
     public void Constrain() => _constraints++;
 
+    internal void CopyConstraintState(Node source)
+    {
+        _constraints = source._constraints;
+        _kindBeforeInsertion = source._kindBeforeInsertion;
+    }
+
     public void Relax()
     {
         if (Constrained)

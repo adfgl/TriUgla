@@ -33,6 +33,12 @@ public class Edge : MeshElement
     public bool Constrained => ConstraintCount > 0;
     public bool OrTwinConstrained => Constrained || (Twin != null && Twin.Constrained);
 
+    internal void CopyConstraintState(Edge source)
+    {
+        _featureConstraints = source._featureConstraints;
+        _boundaryConstraints = source._boundaryConstraints;
+    }
+
     public void Constrain(EdgeConstraintKind kind)
     {
         switch (kind)

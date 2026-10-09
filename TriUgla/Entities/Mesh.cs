@@ -1,5 +1,7 @@
 namespace TriUgla;
 
+public delegate bool CanTraverseAcrossEdge(Face from, Edge border, Face to);
+
 public sealed class Mesh
 {
     Face _root;
@@ -60,8 +62,8 @@ public sealed class Mesh
     public IEnumerable<Edge> Edges(Face? from = null, CanTraverseAcrossEdge? canTraverse = null)
     {
         foreach (Face face in Faces(from, canTraverse))
-        foreach (Edge edge in face.Edges)
-            yield return edge;
+            foreach (Edge edge in face.Edges)
+                yield return edge;
     }
 
     public IEnumerable<Node> Nodes(Face? from = null, CanTraverseAcrossEdge? canTraverse = null)

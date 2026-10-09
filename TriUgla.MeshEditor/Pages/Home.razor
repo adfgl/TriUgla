@@ -5,68 +5,77 @@
 <main class="editor-shell">
     <header class="toolbar">
         <div class="brand">
-            <span>TRIUGLA</span>
-            <h1>Mesh Editor</h1>
+            <strong>TRIUGLA</strong>
+            <span>Mesh Editor</span>
         </div>
         <div class="toolbar-actions">
-            <label class="toggle" title="Show or hide super-structure topology">
-                <input type="checkbox" checked="@_showSuperStructure" @onchange="ToggleSuperStructure" />
-                <span>Super structure</span>
-            </label>
-            <button type="button" class="@(_quadMode ? "quad-toggle active" : "quad-toggle")"
-                    title="@(_quadMode ? "Return to editable triangular mesh" : "Build and show read-only quad representation")"
-                    aria-pressed="@_quadMode" @onclick="ToggleQuadMesh">
-                @(_quadMode ? "Back to triangles" : "Quad overlay")
-            </button>
-            <button type="button" class="@(_view3D ? "view-toggle active" : "view-toggle")"
-                    title="@(_view3D ? "Return to editable plan view" : "Show read-only elevation view")"
-                    aria-pressed="@_view3D" @onclick="Toggle3DView">
-                @(_view3D ? "Back to plan" : "3D elevation")
-            </button>
-            <button type="button" title="Undo (Cmd+Z)" disabled="@(ReadOnlyMode || !_canUndo)" @onclick="Undo">Undo</button>
-            <button type="button" title="Redo (Cmd+Shift+Z)" disabled="@(ReadOnlyMode || !_canRedo)" @onclick="Redo">Redo</button>
-            <fieldset class="refine-scope" disabled="@ReadOnlyMode" aria-label="Face kinds to refine">
-                <legend>Refine</legend>
-                <label title="Include land faces"><input type="checkbox" @bind="_refineLand" /> Land</label>
-                <label title="Include lake faces"><input type="checkbox" @bind="_refineLakes" /> Lakes</label>
-            </fieldset>
-            <button type="button" title="Refine selected faces, or all eligible faces when none are selected"
-                    disabled="@(ReadOnlyMode || (!_refineLand && !_refineLakes))"
-                    @onclick="RefineSelectedFaces">Refine</button>
-            <label class="brush-property" title="Node property changed by the brush">
-                <span>Brush</span>
-                <select @bind="_brushProperty" disabled="@ReadOnlyMode" aria-label="Brush property">
-                    <option value="Target area">Target area</option>
-                    <option value="Elevation">Elevation</option>
-                </select>
-            </label>
-            <label class="brush-radius" title="Brush radius in mesh units">
-                <span>Brush radius</span>
-                <input type="number" min="0.01" step="0.1" value="@_brushRadius"
-                       disabled="@ReadOnlyMode" @onchange="ChangeBrushRadius" />
-            </label>
-            <label class="brush-effect" title="How each brush stroke changes the selected property">
-                <span>Effect</span>
-                <select @bind="_brushEffectMode" disabled="@ReadOnlyMode" aria-label="Brush effect mode">
-                    <option value="percentage">Percentage</option>
-                    <option value="absolute">Absolute</option>
-                    <option value="value">Value</option>
-                </select>
-                <input type="number" step="any"
-                       min="@(_brushEffectMode == "value" && _brushProperty == "Elevation" ? null :
-                           _brushEffectMode == "value" ? "0" : "0.000001")"
-                       max="@(_brushEffectMode == "percentage" ? "99.999999" : null)"
-                       value="@_brushEffectValue"
-                       disabled="@ReadOnlyMode" aria-label="Brush effect value"
-                       @onchange="ChangeBrushEffectValue" />
-                @if (_brushEffectMode == "percentage")
-                {
-                    <span aria-hidden="true">%</span>
-                }
-            </label>
-            <button type="button" title="Reset view (0)" @onclick="Reset">Reset <kbd>0</kbd></button>
-            <button type="button" title="Fit mesh to viewport (F)" @onclick="Fit">Fit <kbd>F</kbd></button>
-            <button type="button" title="Remove inserted nodes" disabled="@ReadOnlyMode" @onclick="ResetMesh">Reset mesh</button>
+            <div class="toolbar-group">
+                <label class="toggle" title="Show or hide super-structure topology">
+                    <input type="checkbox" checked="@_showSuperStructure" @onchange="ToggleSuperStructure" />
+                    <span>Super</span>
+                </label>
+                <button type="button" class="@(_quadMode ? "quad-toggle active" : "quad-toggle")"
+                        title="@(_quadMode ? "Return to editable triangular mesh" : "Build and show read-only quad representation")"
+                        aria-pressed="@_quadMode" @onclick="ToggleQuadMesh">@(_quadMode ? "Triangles" : "Quads")</button>
+                <button type="button" class="@(_view3D ? "view-toggle active" : "view-toggle")"
+                        title="@(_view3D ? "Return to editable plan view" : "Show read-only elevation view")"
+                        aria-pressed="@_view3D" @onclick="Toggle3DView">@(_view3D ? "Plan" : "3D")</button>
+            </div>
+            <div class="toolbar-group">
+                <button type="button" class="compact-action" title="Undo (Cmd+Z)" aria-label="Undo"
+                        disabled="@(ReadOnlyMode || !_canUndo)" @onclick="Undo">↶</button>
+                <button type="button" class="compact-action" title="Redo (Cmd+Shift+Z)" aria-label="Redo"
+                        disabled="@(ReadOnlyMode || !_canRedo)" @onclick="Redo">↷</button>
+            </div>
+            <details class="toolbar-menu">
+                <summary>Refine</summary>
+                <div class="menu-popover refine-menu">
+                    <fieldset class="refine-scope" disabled="@ReadOnlyMode" aria-label="Face kinds to refine">
+                        <legend>Include faces</legend>
+                        <label><input type="checkbox" @bind="_refineLand" /> Land</label>
+                        <label><input type="checkbox" @bind="_refineLakes" /> Lakes</label>
+                    </fieldset>
+                    <button type="button" title="Refine selected faces, or all eligible faces when none are selected"
+                            disabled="@(ReadOnlyMode || (!_refineLand && !_refineLakes))"
+                            @onclick="RefineSelectedFaces">Run refinement</button>
+                </div>
+            </details>
+            <details class="toolbar-menu">
+                <summary>Brush</summary>
+                <div class="menu-popover brush-menu">
+                    <label title="Node property changed by the brush">
+                        <span>Property</span>
+                        <select @bind="_brushProperty" disabled="@ReadOnlyMode">
+                            <option value="Target area">Target area</option>
+                            <option value="Elevation">Elevation</option>
+                        </select>
+                    </label>
+                    <label title="Brush radius in mesh units">
+                        <span>Radius</span>
+                        <input type="number" min="0.01" step="0.1" value="@_brushRadius"
+                               disabled="@ReadOnlyMode" @onchange="ChangeBrushRadius" />
+                    </label>
+                    <label title="How each brush stroke changes the selected property">
+                        <span>Effect</span>
+                        <select @bind="_brushEffectMode" disabled="@ReadOnlyMode">
+                            <option value="percentage">Percentage</option>
+                            <option value="absolute">Absolute</option>
+                            <option value="value">Value</option>
+                        </select>
+                        <span class="effect-value"><input type="number" step="any"
+                               min="@(_brushEffectMode == "value" && _brushProperty == "Elevation" ? null :
+                                   _brushEffectMode == "value" ? "0" : "0.000001")"
+                               max="@(_brushEffectMode == "percentage" ? "99.999999" : null)"
+                               value="@_brushEffectValue" disabled="@ReadOnlyMode"
+                               @onchange="ChangeBrushEffectValue" />@(_brushEffectMode == "percentage" ? "%" : "")</span>
+                    </label>
+                </div>
+            </details>
+            <div class="toolbar-group">
+                <button type="button" title="Reset view (0)" @onclick="Reset">Reset <kbd>0</kbd></button>
+                <button type="button" title="Fit mesh to viewport (F)" @onclick="Fit">Fit <kbd>F</kbd></button>
+            </div>
+            <button type="button" class="danger-action" title="Remove inserted nodes" disabled="@ReadOnlyMode" @onclick="ResetMesh">Reset mesh</button>
         </div>
     </header>
 
