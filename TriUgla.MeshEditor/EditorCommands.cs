@@ -82,12 +82,22 @@ internal sealed class ConstraintHandle(
     public List<ConstraintPathHandle> Paths { get; } = paths.ToList();
     public List<ConstraintPointHandle> Points { get; } = points?.ToList() ?? [];
 
-    public static ConstraintHandle From(Constraint constraint)
+    public static ConstraintHandle From(EditorConstraint constraint)
         => new(
             constraint.Name,
-            constraint.Spans.Select(span =>
-                new ConstraintPathHandle([span.From.Position, span.To.Position])),
+            constraint.Lines.Select(line =>
+                new ConstraintPathHandle([line.From.Position, line.To.Position])),
             constraint.Points.Select(point => new ConstraintPointHandle(point.Node.Position, point.Name)));
+}
+
+internal sealed class EditorConstraint(
+    string? name,
+    IEnumerable<ConstraintPoint> points,
+    IEnumerable<ConstraintLine> lines)
+{
+    public string? Name { get; } = name;
+    public List<ConstraintPoint> Points { get; } = points.ToList();
+    public List<ConstraintLine> Lines { get; } = lines.ToList();
 }
 
 internal sealed record ConstraintPathHandle(IReadOnlyList<Vec2> Points);

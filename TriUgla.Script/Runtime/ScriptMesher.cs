@@ -172,9 +172,8 @@ public static class ScriptMesher
         {
             cancellationToken.ThrowIfCancellationRequested();
             Node[] curveNodes = CurvePositions(geometry, curveTag).Select(GetNode).ToArray();
-            var spans = curveNodes.Zip(curveNodes.Skip(1), (from, to) => new ConstraintSpan(from, to));
-            var constraint = new Constraint(spans: spans, name: $"embedded Curve({curveTag})");
-            if (!mesher.TryInsertConstraint(constraint, out string? reason))
+            var polyline = new Polyline(curveNodes, $"embedded Curve({curveTag})");
+            if (!mesher.TryInsertPolyline(polyline, out string? reason))
                 throw new InvalidOperationException(reason);
         }
 

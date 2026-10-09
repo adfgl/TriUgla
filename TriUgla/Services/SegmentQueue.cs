@@ -18,11 +18,13 @@ public sealed class SegmentQueue(int capacity = 8)
         return false;
     }
 
-    public void Enqueue(Node start, Node end)
+    public bool TryEnqueue(Node start, Node end)
     {
         if (!ReferenceEquals(start, end))
         {
             _segments.Enqueue((start, end));
+            return true;
         }
+        return false;
     }
 }

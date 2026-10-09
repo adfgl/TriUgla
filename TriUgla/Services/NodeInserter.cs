@@ -1,9 +1,9 @@
 namespace TriUgla;
 
 public sealed class NodeInserter(
-    INodeFactory nodes,
-    ISplitter splitter,
-    IMeshLocator locator) : INodeInserter
+    NodeFactory nodes,
+    Splitter splitter,
+    MeshLocator locator)
 {
     public InsertNodeResult Insert(Vec2 position, Face? from = null)
     {

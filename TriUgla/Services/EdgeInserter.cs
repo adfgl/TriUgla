@@ -2,11 +2,12 @@ namespace TriUgla;
 
 public sealed class EdgeInserter(
     IGeometry geometry,
-    IEdgeFlipper flipper,
-    ISplitter splitter,
-    INodeFactory nodes) : IEdgeInserter
+    EdgeFlipper flipper,
+    Splitter splitter,
+    NodeFactory nodes)
 {
     const int MaximumOperations = 100_000;
+    readonly EdgeEntranceFinder _entrances = new(geometry);
 
     public bool SplitCrossedEdges { get; set; }
 
@@ -15,71 +16,52 @@ public sealed class EdgeInserter(
         Node end,
         EdgeConstraintKind kind = EdgeConstraintKind.Feature)
     {
-        ArgumentNullException.ThrowIfNull(start);
-        ArgumentNullException.ThrowIfNull(end);
-
-        var constrained = new List<Edge>(8);
-        var insertedNodes = new List<Node>();
-        var affectedFaces = new HashSet<Face>();
-        var edgesToLegalize = new List<Edge>();
-        var segments = new SegmentQueue();
-        segments.Enqueue(start, end);
-
-        int operations = 0;
-        while (segments.TryDequeue(out Node segmentStart, out Node segmentEnd))
+        var insertion = new Insertion(start, end, kind);
+        while (insertion.TryTake(out Node segmentStart, out Node segmentEnd))
         {
-            if (++operations > MaximumOperations)
-            {
-                throw new InvalidOperationException(
-                    "Edge insertion did not converge. The mesh may contain invalid topology.");
-            }
+            InsertSegment(insertion, segmentStart, segmentEnd);
+        }
+        return insertion.Complete();
+    }
 
-            Edge entrance = FindEntrance(segmentStart, segmentEnd)
-                ?? throw new InvalidOperationException(
-                    $"Cannot find a face leaving node at {segmentStart.Position} " +
-                    $"toward {segmentEnd.Position}.");
+    void InsertSegment(Insertion insertion, Node start, Node end)
+    {
+        Edge entrance = _entrances.Find(start, end)
+            ?? throw new InvalidOperationException(
+                $"Cannot find a face leaving node at {start.Position} toward {end.Position}.");
 
-            if (ReferenceEquals(entrance.NodeEnd, segmentEnd))
-            {
-                Constrain(constrained, entrance, kind);
-                continue;
-            }
-
-            if (ContinuesAlongSegment(entrance, segmentEnd))
-            {
-                Constrain(constrained, entrance, kind);
-                segments.Enqueue(entrance.NodeEnd, segmentEnd);
-                continue;
-            }
-
-            Edge crossed = entrance.Next;
-            if (CanRemoveByFlipping(crossed))
-            {
-                EdgeFlipResult flip = flipper.Flip(crossed);
-                AddResult(flip.Change, affectedFaces, edgesToLegalize);
-                segments.Enqueue(segmentStart, segmentEnd);
-                continue;
-            }
-
-            Vec2 intersection = FindIntersection(segmentStart, segmentEnd, crossed);
-            Node inserted = nodes.Create(
-                intersection,
-                LocateResult.From(crossed));
-            inserted.Kind = NodeKind.SteinerInsertion;
-            EdgeSplitResult split = splitter.Split(crossed, inserted);
-
-            insertedNodes.Add(inserted);
-            AddResult(split.Change, affectedFaces, edgesToLegalize);
-            segments.Enqueue(segmentStart, inserted);
-            segments.Enqueue(inserted, segmentEnd);
+        if (ReferenceEquals(entrance.NodeEnd, end))
+        {
+            insertion.Constrain(entrance);
+            return;
         }
 
-        return new EdgeInsertResult(
-            constrained,
-            insertedNodes,
-            new TopologyChange(
-                affectedFaces.ToArray(),
-                edgesToLegalize));
+        if (ContinuesAlongSegment(entrance, end))
+        {
+            insertion.Constrain(entrance);
+            insertion.Enqueue(entrance.NodeEnd, end);
+            return;
+        }
+
+        ResolveCrossing(insertion, start, end, entrance.Next);
+    }
+
+    void ResolveCrossing(Insertion insertion, Node start, Node end, Edge crossed)
+    {
+        if (CanRemoveByFlipping(crossed))
+        {
+            insertion.RecordTopologyChange(flipper.Flip(crossed).Change);
+            insertion.Enqueue(start, end);
+            return;
+        }
+
+        Node inserted = nodes.Create(
+            FindIntersection(start, end, crossed),
+            LocateResult.From(crossed));
+        inserted.Kind = NodeKind.SteinerInsertion;
+        insertion.RecordSplit(inserted, splitter.Split(crossed, inserted).Change);
+        insertion.Enqueue(start, inserted);
+        insertion.Enqueue(inserted, end);
     }
 
     bool CanRemoveByFlipping(Edge edge)
@@ -98,53 +80,6 @@ public sealed class EdgeInserter(
                candidate.LengthSquared <= segment.LengthSquared;
     }
 
-    Edge? FindEntrance(Node start, Node end)
-    {
-        if (start.Edge is null)
-        {
-            return null;
-        }
-
-        Edge first = start.Edge;
-        Edge current = first;
-
-        do
-        {
-            Edge previous = current.Prev;
-            EOrientaiton currentSide = geometry.Orient(current, end.Position);
-            EOrientaiton previousSide = geometry.Orient(previous, end.Position);
-
-            if (currentSide == EOrientaiton.Collinear &&
-                previousSide == EOrientaiton.Counterclockwise)
-            {
-                return current;
-            }
-
-            if (currentSide == EOrientaiton.Counterclockwise &&
-                previousSide == EOrientaiton.Counterclockwise)
-            {
-                return current;
-            }
-
-            Edge? next = previous.Twin;
-            if (currentSide == EOrientaiton.Counterclockwise &&
-                previousSide == EOrientaiton.Collinear)
-            {
-                return next;
-            }
-
-            if (next is null)
-            {
-                return null;
-            }
-
-            current = next;
-        }
-        while (!ReferenceEquals(first, current));
-
-        return null;
-    }
-
     static Vec2 FindIntersection(Node start, Node end, Edge crossed)
     {
         if (!Intersection.Intersect(
@@ -161,25 +96,55 @@ public sealed class EdgeInserter(
         return intersection;
     }
 
-    static void Constrain(
-        List<Edge> constrained,
-        Edge edge,
-        EdgeConstraintKind kind)
+    sealed class Insertion
     {
-        edge.Constrain(kind);
-        constrained.Add(edge);
-    }
+        readonly EdgeConstraintKind _kind;
+        readonly SegmentQueue _segments = new();
+        readonly List<Edge> _constrained = new(8);
+        readonly List<Node> _inserted = [];
+        readonly HashSet<Face> _affected = [];
+        readonly List<Edge> _toLegalize = [];
+        int _operations;
 
-    static void AddResult(
-        TopologyChange change,
-        HashSet<Face> affectedFaces,
-        List<Edge> edgesToLegalize)
-    {
-        foreach (Face face in change.AffectedFaces)
+        public Insertion(Node start, Node end, EdgeConstraintKind kind)
         {
-            affectedFaces.Add(face);
+            _kind = kind;
+            Enqueue(start, end);
         }
 
-        edgesToLegalize.AddRange(change.EdgesToLegalize);
+        public bool TryTake(out Node start, out Node end)
+        {
+            if (!_segments.TryDequeue(out start, out end)) return false;
+            if (++_operations > MaximumOperations)
+                throw new InvalidOperationException(
+                    "Edge insertion did not converge. The mesh may contain invalid topology.");
+            return true;
+        }
+
+        public void Enqueue(Node start, Node end) => _segments.TryEnqueue(start, end);
+
+        public void Constrain(Edge edge)
+        {
+            edge.Constrain(_kind);
+            _constrained.Add(edge);
+        }
+
+        public void RecordSplit(Node node, TopologyChange change)
+        {
+            _inserted.Add(node);
+            RecordTopologyChange(change);
+        }
+
+        public void RecordTopologyChange(TopologyChange change)
+        {
+            foreach (Face face in change.AffectedFaces) _affected.Add(face);
+            _toLegalize.AddRange(change.EdgesToLegalize);
+        }
+
+        public EdgeInsertResult Complete()
+            => new(
+                _constrained,
+                _inserted,
+                new TopologyChange(_affected.ToArray(), _toLegalize));
     }
 }

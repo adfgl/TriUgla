@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class MeshLocator : IMeshLocator
+public sealed class MeshLocator
 {
     readonly Mesh _mesh;
     readonly MeshTraversal _traversal;

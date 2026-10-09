@@ -80,19 +80,39 @@ public class MesherTests
         Node[] nodes = mesher.Traversal.Nodes().ToArray();
         Node a = nodes.Single(node => node.Position == new Vec2(0, 0));
         Node b = nodes.Single(node => node.Position == new Vec2(2, 0));
-        var constraint = new Constraint(
-            [new ConstraintPoint(a)],
-            [new ConstraintSpan(a, b)],
-            "profile");
+        var point = new ConstraintPoint(a, "profile point");
+        var span = new ConstraintLine(a, b, "profile line");
 
-        Assert.True(mesher.TryInsertConstraint(constraint, out string? insertReason), insertReason);
-        Assert.Same(constraint, Assert.Single(mesher.Constraints));
+        Assert.True(mesher.TryInsertConstraint(span, out string? spanReason), spanReason);
+        Assert.True(mesher.TryInsertConstraint(point, out string? pointReason), pointReason);
+        Assert.Same(point, Assert.Single(mesher.Constraints.Points));
+        Assert.Same(span, Assert.Single(mesher.Constraints.Lines));
         Assert.True(a.Constrained);
         Assert.True(Edge.Find(a, b)!.HasFeature);
 
-        Assert.True(mesher.TryRemoveConstraint(constraint, out string? removeReason), removeReason);
-        Assert.Empty(mesher.Constraints);
+        Assert.True(mesher.TryRemoveConstraint(span, out string? removeSpanReason), removeSpanReason);
+        Assert.True(mesher.TryRemoveConstraint(point, out string? removePointReason), removePointReason);
+        Assert.Empty(mesher.Constraints.Points);
+        Assert.Empty(mesher.Constraints.Lines);
         Assert.False(a.Constrained);
+        Assert.False(Edge.Find(a, b)!.HasFeature);
+    }
+
+    [Fact]
+    public void InsertAndRemovePolylineTracksFeatureEdges()
+    {
+        var mesher = new Mesher(CreateTriangle());
+        Node[] nodes = mesher.Traversal.Nodes().ToArray();
+        Node a = nodes.Single(node => node.Position == new Vec2(0, 0));
+        Node b = nodes.Single(node => node.Position == new Vec2(2, 0));
+        var polyline = new Polyline([a, b], "profile");
+
+        Assert.True(mesher.TryInsertPolyline(polyline, out string? insertReason), insertReason);
+        Assert.Same(polyline, Assert.Single(mesher.Constraints.Polylines));
+        Assert.True(Edge.Find(a, b)!.HasFeature);
+
+        Assert.True(mesher.TryRemovePolyline(polyline, out string? removeReason), removeReason);
+        Assert.Empty(mesher.Constraints.Polylines);
         Assert.False(Edge.Find(a, b)!.HasFeature);
     }
 
@@ -104,16 +124,16 @@ public class MesherTests
         Node b = mesher.Insert(new Vec2(2, 2)).Node!;
         Node c = mesher.Insert(new Vec2(0, 2)).Node!;
         Node d = mesher.Insert(new Vec2(2, 0)).Node!;
-        var first = new Constraint(spans: [new ConstraintSpan(a, b)]);
-        var second = new Constraint(spans: [new ConstraintSpan(c, d)]);
+        var first = new ConstraintLine(a, b);
+        var second = new ConstraintLine(c, d);
 
         Assert.True(mesher.TryInsertConstraint(first, out string? firstReason), firstReason);
         Assert.True(mesher.TryInsertConstraint(second, out string? secondReason), secondReason);
 
-        Assert.All(first.Spans[0].Edges([]), edge => Assert.True(edge.HasFeature));
-        Assert.All(second.Spans[0].Edges([]), edge => Assert.True(edge.HasFeature));
-        Assert.Equal(2, first.Spans[0].Edges([]).Count);
-        Assert.Equal(2, second.Spans[0].Edges([]).Count);
+        Assert.All(first.Edges([]), edge => Assert.True(edge.HasFeature));
+        Assert.All(second.Edges([]), edge => Assert.True(edge.HasFeature));
+        Assert.Equal(2, first.Edges([]).Count);
+        Assert.Equal(2, second.Edges([]).Count);
     }
 
     [Fact]
@@ -124,8 +144,8 @@ public class MesherTests
         Node b = mesher.Insert(new Vec2(2, 0)).Node!;
         Node c = mesher.Insert(new Vec2(2, 2)).Node!;
         Node d = mesher.Insert(new Vec2(0, 2)).Node!;
-        var first = new Constraint(spans: [new ConstraintSpan(a, c)], name: "first diagonal");
-        var second = new Constraint(spans: [new ConstraintSpan(b, d)], name: "second diagonal");
+        var first = new ConstraintLine(a, c, "first diagonal");
+        var second = new ConstraintLine(b, d, "second diagonal");
         Assert.True(mesher.TryInsertConstraint(first, out string? firstReason), firstReason);
         Assert.True(mesher.TryInsertConstraint(second, out string? secondReason), secondReason);
         Node intersection = Assert.Single(
@@ -134,7 +154,7 @@ public class MesherTests
 
         Assert.True(mesher.TryRemoveConstraint(second, out string? removeSecondReason), removeSecondReason);
         Assert.True(intersection.Dead);
-        Edge[] restoredFirst = new ConstraintSpan(a, c).Edges([]).ToArray();
+        Edge[] restoredFirst = new ConstraintLine(a, c).Edges([]).ToArray();
         Assert.All(restoredFirst, edge => Assert.True(edge.HasFeature));
         Assert.DoesNotContain(restoredFirst, edge => edge.Contains(intersection));
 
@@ -155,11 +175,11 @@ public class MesherTests
         var loop = new Loop([a, b, c], "domain");
 
         Assert.True(mesher.TryInsertLoop(loop, out string? insertReason), insertReason);
-        Assert.Same(loop, Assert.Single(mesher.Loops));
+        Assert.Same(loop, Assert.Single(mesher.Constraints.Loops));
         Assert.All(loop.Edges([]), edge => Assert.True(edge.HasBoundary));
 
         Assert.True(mesher.TryRemoveLoop(loop, out string? removeReason), removeReason);
-        Assert.Empty(mesher.Loops);
+        Assert.Empty(mesher.Constraints.Loops);
         Assert.All(loop.Edges([]), edge => Assert.False(edge.HasBoundary));
     }
 
@@ -175,7 +195,7 @@ public class MesherTests
 
         Assert.False(mesher.TryInsertLoop(loop, out string? reason));
         Assert.Contains("self-intersecting", reason);
-        Assert.Empty(mesher.Loops);
+        Assert.Empty(mesher.Constraints.Loops);
         Assert.DoesNotContain(mesher.Traversal.Edges(), edge => edge.Constrained);
     }
 
@@ -185,7 +205,7 @@ public class MesherTests
         SuperStructure super = SuperStructure.Make(new Vec2(0, 0), new Vec2(2, 2));
         var mesher = new Mesher(super);
         Node node = super.Nodes.First();
-        var constraint = new Constraint([new ConstraintPoint(node)]);
+        var constraint = new ConstraintPoint(node);
 
         Assert.False(mesher.TryInsertConstraint(constraint, out string? reason));
         Assert.Contains("super structure", reason);

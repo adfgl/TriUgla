@@ -42,11 +42,11 @@ public sealed partial class EditorMeshModel
         };
     }
 
-    Constraint? FindConstraint(int startId, int endId)
+    EditorConstraint? FindConstraint(int startId, int endId)
     {
-        foreach (Constraint constraint in _mesher.Constraints)
+        foreach (EditorConstraint constraint in _constraints)
         {
-            foreach (ConstraintSpan span in constraint.Spans)
+            foreach (ConstraintLine span in constraint.Lines)
             {
                 var spanEdges = new List<Edge>();
                 try { span.Edges(spanEdges); }
@@ -63,10 +63,10 @@ public sealed partial class EditorMeshModel
         return null;
     }
 
-    IReadOnlyList<EdgeView> ConstraintEdges(Constraint constraint)
+    IReadOnlyList<EdgeView> ConstraintEdges(EditorConstraint constraint)
     {
         var result = new List<EdgeView>();
-        foreach (ConstraintSpan span in constraint.Spans)
+        foreach (ConstraintLine span in constraint.Lines)
         {
             var edges = new List<Edge>();
             try { span.Edges(edges); }

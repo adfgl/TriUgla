@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class EdgeFlipper(IGeometry geometry) : IEdgeFlipper
+public sealed class EdgeFlipper(IGeometry geometry)
 {
     public EdgeFlipResult Flip(Edge edge)
     {

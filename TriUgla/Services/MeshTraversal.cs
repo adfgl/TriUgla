@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class MeshTraversal(Face root, StampSource stamps) : IMeshTraversal
+public sealed class MeshTraversal(Face root, StampSource stamps)
 {
     readonly StampSource _stamps = stamps ?? throw new ArgumentNullException(nameof(stamps));
 

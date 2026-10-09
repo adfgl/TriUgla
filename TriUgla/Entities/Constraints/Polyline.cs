@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class Polyline : INamable
+public sealed class Polyline
 {
     public Polyline(IEnumerable<Node> nodes, string? name = null)
     {
@@ -38,7 +38,7 @@ static class NodePathEdges
         {
             try
             {
-                new ConstraintSpan(nodes[index], nodes[index + 1]).Edges(edges);
+                new ConstraintLine(nodes[index], nodes[index + 1]).Edges(edges);
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
             {

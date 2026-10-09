@@ -49,7 +49,7 @@ public class PolylineTests
     }
 
     [Fact]
-    public void Edges_UnitesConstraintSpanEdgesBetweenPolylineNodes()
+    public void Edges_UnitesConstraintLineEdgesBetweenPolylineNodes()
     {
         Node a = NodeAt(0, 0);
         Node intermediate = NodeAt(1, 0);

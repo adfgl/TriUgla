@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class NodeFactory : INodeFactory
+public sealed class NodeFactory
 {
     public Node Create(Vec2 position, LocateResult location)
         => new()

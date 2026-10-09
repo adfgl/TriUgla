@@ -12,10 +12,10 @@ namespace TriUgla;
 /// </remarks>
 public sealed class MeshRefiner(
     IGeometry geometry,
-    IMeshLocator locator,
-    IEdgeLegalizer legalizer,
-    ISplitter splitter,
-    INodeInserter nodeInserter,
+    MeshLocator locator,
+    EdgeLegalizer legalizer,
+    Splitter splitter,
+    NodeInserter nodeInserter,
     MeshTraversal traversal)
 {
     readonly HashSet<Edge> _segments = new(ReferenceEqualityComparer.Instance);

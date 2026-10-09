@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class NodeRemover : INodeRemover
+public sealed class NodeRemover
 {
     public RemoveNodeResult Remove(Node node)
     {

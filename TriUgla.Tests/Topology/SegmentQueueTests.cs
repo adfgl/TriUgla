@@ -10,8 +10,8 @@ public class SegmentQueueTests
         var third = new Node();
         var queue = new SegmentQueue();
 
-        queue.Enqueue(first, second);
-        queue.Enqueue(second, third);
+        Assert.True(queue.TryEnqueue(first, second));
+        Assert.True(queue.TryEnqueue(second, third));
 
         Assert.True(queue.TryDequeue(out Node start, out Node end));
         Assert.Same(first, start);
@@ -23,13 +23,14 @@ public class SegmentQueueTests
     }
 
     [Fact]
-    public void Enqueue_IgnoresSegmentWithSameNodeAtBothEnds()
+    public void TryEnqueue_DoesNotEnqueueSegmentWithSameNodeAtBothEnds()
     {
         var node = new Node();
         var queue = new SegmentQueue();
 
-        queue.Enqueue(node, node);
+        bool enqueued = queue.TryEnqueue(node, node);
 
+        Assert.False(enqueued);
         Assert.False(queue.TryDequeue(out _, out _));
     }
 }

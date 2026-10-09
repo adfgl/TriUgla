@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class Splitter : ISplitter
+public sealed class Splitter
 {
     public FaceSplitResult Split(Face target, Node node)
     {

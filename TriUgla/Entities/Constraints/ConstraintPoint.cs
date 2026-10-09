@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class ConstraintPoint(Node node, string? name = null) : INamable
+public sealed class ConstraintPoint(Node node, string? name = null)
 {
     Node _node = node ?? throw new ArgumentNullException(nameof(node));
 

@@ -1,18 +1,18 @@
 namespace TriUgla;
 
-public sealed class ConstraintSpan : INamable
+public sealed class ConstraintLine
 {
     const double MinimumDirectionDot = .99;
     Node _from;
     Node _to;
 
-    public ConstraintSpan(Node from, Node to, string? name = null)
+    public ConstraintLine(Node from, Node to, string? name = null)
     {
         _from = from ?? throw new ArgumentNullException(nameof(from));
         _to = to ?? throw new ArgumentNullException(nameof(to));
         if (ReferenceEquals(_from, _to))
         {
-            throw new ArgumentException("A constraint span must connect two different nodes.", nameof(to));
+            throw new ArgumentException("A constraint line must connect two different nodes.", nameof(to));
         }
         Name = name;
     }
@@ -27,7 +27,7 @@ public sealed class ConstraintSpan : INamable
             ArgumentNullException.ThrowIfNull(value);
             if (ReferenceEquals(value, To))
             {
-                throw new ArgumentException("A constraint span must connect two different nodes.", nameof(value));
+                throw new ArgumentException("A constraint line must connect two different nodes.", nameof(value));
             }
             _from = value;
         }
@@ -41,7 +41,7 @@ public sealed class ConstraintSpan : INamable
             ArgumentNullException.ThrowIfNull(value);
             if (ReferenceEquals(value, From))
             {
-                throw new ArgumentException("A constraint span must connect two different nodes.", nameof(value));
+                throw new ArgumentException("A constraint line must connect two different nodes.", nameof(value));
             }
             _to = value;
         }
@@ -54,7 +54,7 @@ public sealed class ConstraintSpan : INamable
         if (direction == Vec2.Zero)
         {
             throw new InvalidOperationException(
-                "A constraint span cannot connect distinct nodes at the same position.");
+                "A constraint line cannot connect distinct nodes at the same position.");
         }
 
         Node current = From;
@@ -64,7 +64,7 @@ public sealed class ConstraintSpan : INamable
             if (next is null)
             {
                 throw new InvalidOperationException(
-                    $"Cannot resolve constraint span from {From.Position} to {To.Position}: " +
+                    $"Cannot resolve constraint line from {From.Position} to {To.Position}: " +
                     $"no aligned outgoing edge continues from {current.Position}.");
             }
 

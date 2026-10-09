@@ -15,16 +15,19 @@ public class EdgeLegalizerTests
             new TopologyChange(
                 [firstFace, flippedFace],
                 [followUp]));
-        var flipper = new StubFlipper(initial, flipResult);
+        int checkedCount = 0;
+        int flipCount = 0;
         var queue = new Queue<Edge>();
         queue.Enqueue(initial);
-        var legalizer = new EdgeLegalizer(flipper);
+        var legalizer = new EdgeLegalizer(
+            edge => { checkedCount++; return ReferenceEquals(edge, initial); },
+            edge => { Assert.Same(initial, edge); flipCount++; return flipResult; });
 
         EdgeLegalizationResult result = legalizer.Legalize(queue);
 
         Assert.Empty(queue);
-        Assert.Equal(2, flipper.CheckedCount);
-        Assert.Equal(1, flipper.FlipCount);
+        Assert.Equal(2, checkedCount);
+        Assert.Equal(1, flipCount);
         Assert.Equal(
             new[] { firstFace, flippedFace, followUpFace },
             result.AffectedFaces);
@@ -35,39 +38,15 @@ public class EdgeLegalizerTests
     [Fact]
     public void LegalizeReturnsEmptyResultForEmptyQueue()
     {
-        var edge = new Edge();
-        var flipper = new StubFlipper(
-            edge,
-            new EdgeFlipResult(edge, new TopologyChange([], [])));
         var queue = new Queue<Edge>();
-        var legalizer = new EdgeLegalizer(flipper);
+        var legalizer = new EdgeLegalizer(
+            _ => false,
+            _ => throw new InvalidOperationException("No edge should be flipped."));
 
         EdgeLegalizationResult result = legalizer.Legalize(queue);
 
         Assert.Empty(result.AffectedFaces);
         Assert.Empty(result.Flips);
         Assert.Empty(queue);
-    }
-
-    sealed class StubFlipper(
-        Edge flipTarget,
-        EdgeFlipResult flipResult) : IEdgeFlipper
-    {
-        public int CheckedCount { get; private set; }
-        public int FlipCount { get; private set; }
-
-        public bool CanFlip(Edge edge, out bool shouldFlip)
-        {
-            CheckedCount++;
-            shouldFlip = ReferenceEquals(edge, flipTarget);
-            return true;
-        }
-
-        public EdgeFlipResult Flip(Edge edge)
-        {
-            Assert.Same(flipTarget, edge);
-            FlipCount++;
-            return flipResult;
-        }
     }
 }

@@ -5,35 +5,22 @@ namespace TriUgla.Tests;
 public class ConstraintTests
 {
     [Fact]
-    public void Constraint_CopiesInitialCollectionsAndStoresNames()
+    public void Constraints_StartWithEmptyCollections()
     {
-        var point = new ConstraintPoint(NodeAt(0, 0), "anchor");
-        var span = new ConstraintSpan(NodeAt(0, 0), NodeAt(1, 0), "boundary");
+        var constraints = new Constraints();
 
-        var constraint = new Constraint([point], [span], "profile");
-
-        Assert.Equal("profile", constraint.Name);
-        Assert.Same(point, Assert.Single(constraint.Points));
-        Assert.Same(span, Assert.Single(constraint.Spans));
-        Assert.Equal("anchor", point.Name);
-        Assert.Equal("boundary", span.Name);
-    }
-
-    [Fact]
-    public void Constraint_DefaultsToEmptyCollections()
-    {
-        var constraint = new Constraint();
-
-        Assert.Empty(constraint.Points);
-        Assert.Empty(constraint.Spans);
+        Assert.Empty(constraints.Points);
+        Assert.Empty(constraints.Lines);
+        Assert.Empty(constraints.Polylines);
+        Assert.Empty(constraints.Loops);
     }
 
     [Fact]
     public void ConstraintPointAndSpan_RejectNullNodes()
     {
         Assert.Throws<ArgumentNullException>(() => new ConstraintPoint(null!));
-        Assert.Throws<ArgumentNullException>(() => new ConstraintSpan(null!, new Node()));
-        Assert.Throws<ArgumentNullException>(() => new ConstraintSpan(new Node(), null!));
+        Assert.Throws<ArgumentNullException>(() => new ConstraintLine(null!, new Node()));
+        Assert.Throws<ArgumentNullException>(() => new ConstraintLine(new Node(), null!));
     }
 
     [Fact]
@@ -46,7 +33,7 @@ public class ConstraintTests
         Edge bc = DirectedEdge(b, c);
         a.Edge = ab;
         b.Edge = bc;
-        var span = new ConstraintSpan(a, c);
+        var span = new ConstraintLine(a, c);
 
         List<Edge> result = span.Edges([]);
 
@@ -65,25 +52,25 @@ public class ConstraintTests
         wrong.Prev = incoming;
         start.Edge = wrong;
 
-        List<Edge> result = new ConstraintSpan(start, target).Edges([]);
+        List<Edge> result = new ConstraintLine(start, target).Edges([]);
 
         Assert.Equal([aligned], result);
     }
 
     [Fact]
-    public void ConstraintSpan_RejectsSameNode()
+    public void ConstraintLine_RejectsSameNode()
     {
         Node node = NodeAt(0, 0);
 
-        Assert.Throws<ArgumentException>(() => new ConstraintSpan(node, node));
+        Assert.Throws<ArgumentException>(() => new ConstraintLine(node, node));
     }
 
     [Fact]
-    public void ConstraintSpan_RejectsSettingEitherEndpointToTheOther()
+    public void ConstraintLine_RejectsSettingEitherEndpointToTheOther()
     {
         Node from = NodeAt(0, 0);
         Node to = NodeAt(1, 0);
-        var span = new ConstraintSpan(from, to);
+        var span = new ConstraintLine(from, to);
 
         Assert.Throws<ArgumentException>(() => span.From = to);
         Assert.Throws<ArgumentException>(() => span.To = from);
@@ -100,7 +87,7 @@ public class ConstraintTests
         a.Edge = DirectedEdge(a, b);
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
-            new ConstraintSpan(a, target).Edges([]));
+            new ConstraintLine(a, target).Edges([]));
 
         Assert.Contains("no aligned outgoing edge", exception.Message);
     }
@@ -117,7 +104,7 @@ public class ConstraintTests
         overshooting.Prev = incoming;
         start.Edge = overshooting;
 
-        List<Edge> result = new ConstraintSpan(start, target).Edges([]);
+        List<Edge> result = new ConstraintLine(start, target).Edges([]);
 
         Assert.Equal([destination], result);
     }
@@ -128,7 +115,7 @@ public class ConstraintTests
         Node a = NodeAt(1, 1);
         Node b = NodeAt(1, 1);
 
-        Assert.Throws<InvalidOperationException>(() => new ConstraintSpan(a, b).Edges([]));
+        Assert.Throws<InvalidOperationException>(() => new ConstraintLine(a, b).Edges([]));
     }
 
     [Theory]
@@ -142,7 +129,7 @@ public class ConstraintTests
     {
         Edge edge = DirectedEdge(NodeAt(0, 0), NodeAt(x, y));
 
-        Assert.Equal(expected, ConstraintSpan.NearlyColliniear(Vec2.UnitX, edge));
+        Assert.Equal(expected, ConstraintLine.NearlyColliniear(Vec2.UnitX, edge));
     }
 
     static Edge DirectedEdge(Node start, Node end)

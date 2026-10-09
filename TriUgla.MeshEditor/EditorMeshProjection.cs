@@ -34,22 +34,22 @@ public sealed partial class EditorMeshModel
             .Select(edge => new EdgeView(Id(edge.NodeStart), Id(edge.NodeEnd)))
             .DistinctBy(edge => edge.A < edge.B ? (edge.A, edge.B) : (edge.B, edge.A))
             .ToArray();
-        ConstraintView[] constraints = _mesher.Constraints.Select((constraint, index) =>
+        ConstraintView[] constraints = _constraints.Select((constraint, index) =>
         {
             var edges = new List<Edge>();
-            foreach (ConstraintSpan span in constraint.Spans)
+            foreach (ConstraintLine span in constraint.Lines)
             {
                 try { span.Edges(edges); }
                 catch (InvalidOperationException) { }
             }
             EdgeView[] views = edges.Select(edge =>
                 new EdgeView(Id(edge.NodeStart), Id(edge.NodeEnd))).ToArray();
-            int start = constraint.Spans.Count > 0 ? Id(constraint.Spans[0].From) : -1;
-            int end = constraint.Spans.Count > 0 ? Id(constraint.Spans[^1].To) : -1;
+            int start = constraint.Lines.Count > 0 ? Id(constraint.Lines[0].From) : -1;
+            int end = constraint.Lines.Count > 0 ? Id(constraint.Lines[^1].To) : -1;
             return new ConstraintView(
                 index,
                 constraint.Name ?? $"Constraint {index}",
-                constraint.Spans.Count,
+                constraint.Lines.Count,
                 views.Length,
                 edges.Sum(edge => edge.Length),
                 start,
@@ -66,15 +66,15 @@ public sealed partial class EditorMeshModel
 
     int LogicalConstraintCount(Node node)
     {
-        int features = _mesher.Constraints.Count(constraint =>
+        int features = _constraints.Count(constraint =>
             constraint.Points.Any(point => ReferenceEquals(point.Node, node)) ||
-            constraint.Spans.Any(span => SpanContains(span, node)));
-        int boundaries = _mesher.Loops.Count(loop =>
+            constraint.Lines.Any(line => LineContains(line, node)));
+        int boundaries = _mesher.Constraints.Loops.Count(loop =>
             loop.Nodes.Any(candidate => ReferenceEquals(candidate, node)));
         return features + boundaries;
     }
 
-    static bool SpanContains(ConstraintSpan span, Node node)
+    static bool LineContains(ConstraintLine span, Node node)
     {
         if (ReferenceEquals(span.From, node) || ReferenceEquals(span.To, node)) return true;
         try { return span.Edges([]).Any(edge => edge.Contains(node)); }

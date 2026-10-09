@@ -3,7 +3,7 @@ namespace TriUgla;
 /// <summary>
 /// Provides stamp-based visitation for mesh elements.
 /// </summary>
-public class MeshElement : IVisitable
+public class MeshElement
 {
     Stamp _stamp = Stamp.None;
 

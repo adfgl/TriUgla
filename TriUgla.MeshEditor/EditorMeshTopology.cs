@@ -71,7 +71,7 @@ public sealed partial class EditorMeshModel
 
     internal bool InsertConstraintHandle(ConstraintHandle handle)
     {
-        var spans = new List<ConstraintSpan>();
+        var lines = new List<ConstraintLine>();
         foreach (ConstraintPathHandle path in handle.Paths)
         {
             if (path.Points.Count < 2) { Fail("A constraint path needs at least two points."); return false; }
@@ -82,7 +82,7 @@ public sealed partial class EditorMeshModel
             { Fail("A constraint endpoint has no matching live node."); return false; }
             if (nodes.Zip(nodes.Skip(1)).Any(pair => ReferenceEquals(pair.First, pair.Second)))
             { Fail("Two constraint endpoints resolved to the same live node."); return false; }
-            spans.AddRange(nodes.Zip(nodes.Skip(1), (from, to) => new ConstraintSpan(from, to)));
+            lines.AddRange(nodes.Zip(nodes.Skip(1), (from, to) => new ConstraintLine(from, to)));
         }
 
         ConstraintPoint[] points = handle.Points.Select(point =>
@@ -93,36 +93,57 @@ public sealed partial class EditorMeshModel
         if (points.Length != handle.Points.Count)
         { Fail("A constrained point has no matching live node."); return false; }
 
-        var constraint = new Constraint(points: points, spans: spans, name: handle.Name);
-        try
+        var insertedLines = new List<ConstraintLine>();
+        var insertedPoints = new List<ConstraintPoint>();
+        foreach (ConstraintLine line in lines)
         {
-            if (!_mesher.TryInsertConstraint(constraint, out string? reason))
-            { Fail(reason); return false; }
-        }
-        catch (InvalidOperationException exception)
-        {
-            Fail(exception.Message);
+            if (_mesher.TryInsertConstraint(line, out string? reason))
+            { insertedLines.Add(line); continue; }
+            foreach (ConstraintLine inserted in insertedLines.AsEnumerable().Reverse())
+                _mesher.TryRemoveConstraint(inserted, out _);
+            Fail(reason);
             return false;
         }
+        foreach (ConstraintPoint point in points)
+        {
+            if (_mesher.TryInsertConstraint(point, out string? reason))
+            { insertedPoints.Add(point); continue; }
+            foreach (ConstraintPoint inserted in insertedPoints.AsEnumerable().Reverse())
+                _mesher.TryRemoveConstraint(inserted, out _);
+            foreach (ConstraintLine inserted in insertedLines.AsEnumerable().Reverse())
+                _mesher.TryRemoveConstraint(inserted, out _);
+            Fail(reason);
+            return false;
+        }
+        var constraint = new EditorConstraint(handle.Name, points, lines);
+        _constraints.Add(constraint);
         _constraintDefinitions[constraint] = handle;
         return true;
     }
 
     internal bool RemoveConstraintHandle(ConstraintHandle handle)
     {
-        Constraint? constraint = _mesher.Constraints.FirstOrDefault(candidate => Matches(candidate, handle));
+        EditorConstraint? constraint = _constraints.FirstOrDefault(candidate => Matches(candidate, handle));
         if (constraint is null)
         {
             Fail($"Constraint '{handle.Name}' is not present in the current mesh.");
             return false;
         }
-        if (_mesher.TryRemoveConstraint(constraint, out string? reason))
+        foreach (ConstraintLine line in constraint.Lines.AsEnumerable().Reverse())
         {
-            _constraintDefinitions.Remove(constraint);
-            return true;
+            if (_mesher.TryRemoveConstraint(line, out string? reason)) continue;
+            Fail(reason);
+            return false;
         }
-        Fail(reason);
-        return false;
+        foreach (ConstraintPoint point in constraint.Points.AsEnumerable().Reverse())
+        {
+            if (_mesher.TryRemoveConstraint(point, out string? reason)) continue;
+            Fail(reason);
+            return false;
+        }
+        _constraints.Remove(constraint);
+        _constraintDefinitions.Remove(constraint);
+        return true;
     }
 
     internal bool InsertLoopHandle(LoopHandle handle)
@@ -142,15 +163,15 @@ public sealed partial class EditorMeshModel
 
     internal bool RemoveLoopHandle(LoopHandle handle)
     {
-        Loop? loop = _mesher.Loops.FirstOrDefault(candidate =>
+        Loop? loop = _mesher.Constraints.Loops.FirstOrDefault(candidate =>
             candidate.Name == handle.Name && candidate.Nodes.Take(candidate.Nodes.Count - 1)
                 .Select(node => node.Position).SequenceEqual(handle.Points));
         return loop is not null && _mesher.TryRemoveLoop(loop, out _);
     }
 
-    static bool Matches(Constraint constraint, ConstraintHandle handle)
+    static bool Matches(EditorConstraint constraint, ConstraintHandle handle)
         => constraint.Name == handle.Name &&
-           constraint.Spans.Select(span => (span.From.Position, span.To.Position))
+           constraint.Lines.Select(line => (line.From.Position, line.To.Position))
                .SequenceEqual(handle.Paths.SelectMany(path => path.Points.Zip(path.Points.Skip(1),
                    (from, to) => (from, to)))) &&
            constraint.Points.Select(point => (point.Node.Position, point.Name))

@@ -2,8 +2,6 @@ namespace TriUgla;
 
 public sealed class Mesher
 {
-    readonly List<Constraint> _constraints = [];
-    readonly List<Loop> _loops = [];
     readonly Mesh _mesh;
     readonly MeshLocator _locator;
     readonly NodeInserter _nodeInserter;
@@ -55,8 +53,7 @@ public sealed class Mesher
     public MeshTraversal Traversal { get; }
     public GeometryPredicates Geometry => _geometry;
     public SuperStructure? SuperStructure => _superStructure;
-    public IReadOnlyList<Constraint> Constraints => _constraints;
-    public IReadOnlyList<Loop> Loops => _loops;
+    public Constraints Constraints { get; } = new();
 
     public LocateResult Locate(Vec2 point, Face? from = null)
         => _locator.Locate(point, from);
@@ -148,75 +145,130 @@ public sealed class Mesher
         return inserted;
     }
 
-    public bool TryInsertConstraint(Constraint constraint, out string? reason)
+    public bool TryInsertConstraint(ConstraintPoint point, out string? reason)
     {
-        ArgumentNullException.ThrowIfNull(constraint);
-        if (!ValidateConstraint(constraint, out reason)) return false;
+        ArgumentNullException.ThrowIfNull(point);
+        if (!ValidateNode(point.Node, out string why))
+            return Fail(out reason, $"Constraint point '{point.Name}': {why}");
 
         try
         {
-            using var saga = new MeshSaga();
-            foreach (ConstraintSpan span in constraint.Spans)
-            {
-                saga.Step(
-                    () => InsertEdge(span.From, span.To, EdgeConstraintKind.Feature),
-                    () => ReleaseInsertedSpan(span, EdgeConstraintKind.Feature));
-            }
-
-            foreach (ConstraintPoint point in constraint.Points)
-                saga.Step(point.Node.Constrain, point.Node.Relax);
-
-            foreach (ConstraintSpan span in constraint.Spans)
-                AssertConstrainedPath(
-                    span.From,
-                    span.To,
-                    EdgeConstraintKind.Feature);
-
-            saga.Step(
-                () => _constraints.Add(constraint),
-                () => _constraints.Remove(constraint));
-            saga.Commit();
+            point.Node.Constrain();
+            Constraints.Points.Add(point);
             reason = null;
             return true;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            reason = $"{ConstraintContext(constraint)} insertion failed atomically: {exception.Message}";
+            reason = $"Constraint point '{point.Name}' insertion failed: {exception.Message}";
             return false;
         }
     }
 
-    public bool TryRemoveConstraint(Constraint constraint, out string? reason)
+    public bool TryInsertConstraint(ConstraintLine line, out string? reason)
     {
-        ArgumentNullException.ThrowIfNull(constraint);
-        int index = _constraints.IndexOf(constraint);
-        if (index < 0) return Fail(out reason, $"{ConstraintContext(constraint)} not found in mesh.");
+        ArgumentNullException.ThrowIfNull(line);
+        if (!ValidateConstraint(line, out reason)) return false;
 
-        var paths = new List<List<Edge>>(constraint.Spans.Count);
-        for (int i = 0; i < constraint.Spans.Count; i++)
+        try
         {
-            if (!TryResolvePath(constraint.Spans[i], out List<Edge> path, out string? pathReason))
-                return Fail(out reason, $"{ConstraintContext(constraint)} span[{i}]: {pathReason}");
-            if (path.Count == 0)
-                return Fail(out reason, $"{ConstraintContext(constraint)} span[{i}]: produced no edges.");
-            if (path.Any(edge => !edge.HasFeature))
-                return Fail(out reason, $"{ConstraintContext(constraint)} span[{i}]: edge in path has no Feature constraint.");
+            InsertEdge(line.From, line.To, EdgeConstraintKind.Feature);
+            AssertConstrainedPath(line.From, line.To, EdgeConstraintKind.Feature);
+            Constraints.Lines.Add(line);
+            reason = null;
+            return true;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            reason = $"Constraint line '{line.Name}' insertion failed: {exception.Message}";
+            return false;
+        }
+    }
+
+    public bool TryRemoveConstraint(ConstraintPoint point, out string? reason)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        if (!Constraints.Points.Contains(point))
+            return Fail(out reason, $"Constraint point '{point.Name}' not found in mesh.");
+        if (!point.Node.Constrained)
+            return Fail(out reason, $"Constraint point '{point.Name}': node is not constrained.");
+
+        point.Node.Relax();
+        Constraints.Points.Remove(point);
+        reason = null;
+        return true;
+    }
+
+    public bool TryRemoveConstraint(ConstraintLine line, out string? reason)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        if (!Constraints.Lines.Contains(line))
+            return Fail(out reason, $"Constraint line '{line.Name}' not found in mesh.");
+
+        if (!TryResolvePath(line, out List<Edge> path, out string? pathReason))
+            return Fail(out reason, $"Constraint line '{line.Name}': {pathReason}");
+        if (path.Count == 0)
+            return Fail(out reason, $"Constraint line '{line.Name}': produced no edges.");
+        if (path.Any(edge => !edge.HasFeature))
+            return Fail(out reason, $"Constraint line '{line.Name}': edge in path has no Feature constraint.");
+
+        HashSet<Node> steinerNodes = CollectSteinerInsertions([path], [line.From, line.To]);
+        ReleasePaths([path], EdgeConstraintKind.Feature);
+        Constraints.Lines.Remove(line);
+        RemoveReleasedSteinerInsertions(steinerNodes);
+        reason = null;
+        return true;
+    }
+
+    public bool TryInsertPolyline(Polyline polyline, out string? reason)
+    {
+        ArgumentNullException.ThrowIfNull(polyline);
+        if (polyline.Nodes.Count < 2)
+            return Fail(out reason, $"{PolylineContext(polyline)} invalid: must have at least 2 points.");
+        for (int i = 0; i < polyline.Nodes.Count; i++)
+        {
+            if (!ValidateNode(polyline.Nodes[i], out string why))
+                return Fail(out reason, $"{PolylineContext(polyline)} invalid: node[{i}] {why}");
+            if (i > 0 && (ReferenceEquals(polyline.Nodes[i - 1], polyline.Nodes[i]) ||
+                          polyline.Nodes[i - 1].Position == polyline.Nodes[i].Position))
+                return Fail(out reason, $"{PolylineContext(polyline)} invalid: segment[{i - 1}] endpoints must be distinct.");
+        }
+
+        try
+        {
+            for (int i = 0; i < polyline.Nodes.Count - 1; i++)
+                InsertEdge(polyline.Nodes[i], polyline.Nodes[i + 1], EdgeConstraintKind.Feature);
+            Constraints.Polylines.Add(polyline);
+            reason = null;
+            return true;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            reason = $"{PolylineContext(polyline)} insertion failed: {exception.Message}";
+            return false;
+        }
+    }
+
+    public bool TryRemovePolyline(Polyline polyline, out string? reason)
+    {
+        ArgumentNullException.ThrowIfNull(polyline);
+        int index = Constraints.Polylines.IndexOf(polyline);
+        if (index < 0) return Fail(out reason, $"{PolylineContext(polyline)} not found in mesh.");
+
+        var paths = new List<List<Edge>>(polyline.Nodes.Count - 1);
+        for (int i = 0; i < polyline.Nodes.Count - 1; i++)
+        {
+            var line = new ConstraintLine(polyline.Nodes[i], polyline.Nodes[i + 1]);
+            if (!TryResolvePath(line, out List<Edge> path, out string? pathReason))
+                return Fail(out reason, $"{PolylineContext(polyline)} segment[{i}]: {pathReason}");
+            if (path.Count == 0 || path.Any(edge => !edge.HasFeature))
+                return Fail(out reason, $"{PolylineContext(polyline)} segment[{i}] has no Feature constraint.");
             paths.Add(path);
         }
 
-        for (int i = 0; i < constraint.Points.Count; i++)
-        {
-            Node node = constraint.Points[i].Node;
-            if (!node.Constrained)
-                return Fail(out reason, $"{ConstraintContext(constraint)} point[{i}]: node is not constrained.");
-        }
-
-        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, constraint.Spans
-            .SelectMany(span => new[] { span.From, span.To })
-            .Concat(constraint.Points.Select(point => point.Node)));
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, polyline.Nodes);
         ReleasePaths(paths, EdgeConstraintKind.Feature);
-        foreach (ConstraintPoint point in constraint.Points) point.Node.Relax();
-        _constraints.RemoveAt(index);
+        Constraints.Polylines.RemoveAt(index);
         RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
@@ -241,24 +293,16 @@ public sealed class Mesher
 
         try
         {
-            using var saga = new MeshSaga();
             for (int i = 0; i < loop.Nodes.Count - 1; i++)
-            {
-                var span = new ConstraintSpan(loop.Nodes[i], loop.Nodes[i + 1]);
-                saga.Step(
-                    () => InsertEdge(span.From, span.To, EdgeConstraintKind.Boundary),
-                    () => ReleaseInsertedSpan(span, EdgeConstraintKind.Boundary));
-            }
-            saga.Step(
-                () => _loops.Add(loop),
-                () => _loops.Remove(loop));
-            saga.Commit();
+                InsertEdge(loop.Nodes[i], loop.Nodes[i + 1], EdgeConstraintKind.Boundary);
+
+            Constraints.Loops.Add(loop);
             reason = null;
             return true;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            reason = $"{LoopContext(loop)} insertion failed atomically: {exception.Message}";
+            reason = $"{LoopContext(loop)} insertion failed: {exception.Message}";
             return false;
         }
     }
@@ -266,15 +310,15 @@ public sealed class Mesher
     public bool TryRemoveLoop(Loop loop, out string? reason)
     {
         ArgumentNullException.ThrowIfNull(loop);
-        int index = _loops.IndexOf(loop);
+        int index = Constraints.Loops.IndexOf(loop);
         if (index < 0) return Fail(out reason, $"{LoopContext(loop)} not found in mesh.");
 
         loop.Close();
         var paths = new List<List<Edge>>(loop.Nodes.Count - 1);
         for (int i = 0; i < loop.Nodes.Count - 1; i++)
         {
-            var span = new ConstraintSpan(loop.Nodes[i], loop.Nodes[i + 1]);
-            if (!TryResolvePath(span, out List<Edge> path, out string? pathReason))
+            var line = new ConstraintLine(loop.Nodes[i], loop.Nodes[i + 1]);
+            if (!TryResolvePath(line, out List<Edge> path, out string? pathReason))
                 return Fail(out reason, $"{LoopContext(loop)} edge[{i}]: {pathReason}");
             if (path.Count == 0 || path.Any(edge => !edge.HasBoundary))
                 return Fail(out reason, $"{LoopContext(loop)} edge[{i}] has no Boundary constraint.");
@@ -283,7 +327,7 @@ public sealed class Mesher
 
         HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, loop.Nodes);
         ReleasePaths(paths, EdgeConstraintKind.Boundary);
-        _loops.RemoveAt(index);
+        Constraints.Loops.RemoveAt(index);
         RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
@@ -314,7 +358,7 @@ public sealed class Mesher
 
     static void AssertConstrainedPath(Node start, Node end, EdgeConstraintKind kind)
     {
-        var path = new ConstraintSpan(start, end).Edges([]);
+        var path = new ConstraintLine(start, end).Edges([]);
         if (path.Count == 0 || path.Any(edge => !HasConstraint(edge, kind)))
         {
             throw new InvalidOperationException(
@@ -332,16 +376,6 @@ public sealed class Mesher
             candidates.Enqueue(edge);
         }
         Legalize(candidates);
-    }
-
-    void ReleaseInsertedSpan(ConstraintSpan span, EdgeConstraintKind kind)
-    {
-        if (!TryResolvePath(span, out List<Edge> path, out string? reason))
-            throw new InvalidOperationException(reason);
-        HashSet<Node> steinerNodes = CollectSteinerInsertions(
-            [path], [span.From, span.To]);
-        ReleasePaths([path], kind);
-        RemoveReleasedSteinerInsertions(steinerNodes);
     }
 
     static HashSet<Node> CollectSteinerInsertions(
@@ -400,11 +434,11 @@ public sealed class Mesher
     }
 
     bool IsStructuralAnchor(Node node)
-        => _constraints.Any(constraint =>
-               constraint.Points.Any(point => ReferenceEquals(point.Node, node)) ||
-               constraint.Spans.Any(span =>
-                   ReferenceEquals(span.From, node) || ReferenceEquals(span.To, node))) ||
-           _loops.Any(loop => loop.Nodes.Any(candidate => ReferenceEquals(candidate, node)));
+        => Constraints.Points.Any(point => ReferenceEquals(point.Node, node)) ||
+           Constraints.Lines.Any(line =>
+               ReferenceEquals(line.From, node) || ReferenceEquals(line.To, node)) ||
+           Constraints.Polylines.Any(polyline => polyline.Nodes.Any(candidate => ReferenceEquals(candidate, node))) ||
+           Constraints.Loops.Any(loop => loop.Nodes.Any(candidate => ReferenceEquals(candidate, node)));
 
     bool CanDissolve(Node node, ConstrainedSpoke first, ConstrainedSpoke second)
         => Counts(first, first.Other, node) == Counts(second, node, second.Other) &&
@@ -460,23 +494,14 @@ public sealed class Mesher
         TopologyChanged(result.AffectedFaces);
     }
 
-    bool ValidateConstraint(Constraint constraint, out string? reason)
+    bool ValidateConstraint(ConstraintLine line, out string? reason)
     {
-        for (int i = 0; i < constraint.Spans.Count; i++)
-        {
-            ConstraintSpan span = constraint.Spans[i];
-            if (!ValidateNode(span.From, out string fromWhy))
-                return Fail(out reason, $"{ConstraintContext(constraint)} span[{i}] From: {fromWhy}");
-            if (!ValidateNode(span.To, out string toWhy))
-                return Fail(out reason, $"{ConstraintContext(constraint)} span[{i}] To: {toWhy}");
-            if (ReferenceEquals(span.From, span.To) || span.From.Position == span.To.Position)
-                return Fail(out reason, $"{ConstraintContext(constraint)} span[{i}]: endpoints must be distinct.");
-        }
-        for (int i = 0; i < constraint.Points.Count; i++)
-        {
-            if (!ValidateNode(constraint.Points[i].Node, out string why))
-                return Fail(out reason, $"{ConstraintContext(constraint)} point[{i}]: {why}");
-        }
+        if (!ValidateNode(line.From, out string fromWhy))
+            return Fail(out reason, $"Constraint line '{line.Name}' From: {fromWhy}");
+        if (!ValidateNode(line.To, out string toWhy))
+            return Fail(out reason, $"Constraint line '{line.Name}' To: {toWhy}");
+        if (ReferenceEquals(line.From, line.To) || line.From.Position == line.To.Position)
+            return Fail(out reason, $"Constraint line '{line.Name}': endpoints must be distinct.");
         reason = null;
         return true;
     }
@@ -518,15 +543,15 @@ public sealed class Mesher
         return false;
     }
 
-    static bool TryResolvePath(ConstraintSpan span, out List<Edge> path, out string? reason)
+    static bool TryResolvePath(ConstraintLine line, out List<Edge> path, out string? reason)
     {
         path = [];
-        try { span.Edges(path); reason = null; return true; }
+        try { line.Edges(path); reason = null; return true; }
         catch (InvalidOperationException exception) { reason = exception.Message; return false; }
     }
 
     static bool Fail(out string? reason, string message) { reason = message; return false; }
-    static string ConstraintContext(Constraint constraint) => $"Constraint '{constraint.Name}'";
+    static string PolylineContext(Polyline polyline) => $"Polyline '{polyline.Name}'";
     static string LoopContext(Loop loop) => $"Loop '{loop.Name}'";
 
     void TopologyChanged(IReadOnlyList<Face> affectedFaces)

@@ -8,8 +8,9 @@ public sealed partial class EditorMeshModel
     ];
 
     readonly Dictionary<Node, int> _ids = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<Constraint, ConstraintHandle> _constraintDefinitions =
+    readonly Dictionary<EditorConstraint, ConstraintHandle> _constraintDefinitions =
         new(ReferenceEqualityComparer.Instance);
+    readonly List<EditorConstraint> _constraints = [];
     readonly Stack<IEditorCommand> _undo = new();
     readonly Stack<IEditorCommand> _redo = new();
     readonly List<Vec2> _loopPoints = [];
@@ -21,7 +22,7 @@ public sealed partial class EditorMeshModel
     internal void ClearFailure() => _failureReason = null;
     internal void Fail(string? reason) => _failureReason = reason ?? "The mesh operation failed.";
 
-    ConstraintHandle Definition(Constraint constraint)
+    ConstraintHandle Definition(EditorConstraint constraint)
         => _constraintDefinitions.TryGetValue(constraint, out ConstraintHandle? definition)
             ? definition
             : ConstraintHandle.From(constraint);
@@ -56,13 +57,13 @@ public sealed partial class EditorMeshModel
         ArgumentNullException.ThrowIfNull(constraintIds);
         ArgumentNullException.ThrowIfNull(nodeIds);
         int[] distinctConstraintIds = constraintIds.Distinct().ToArray();
-        if (distinctConstraintIds.Any(id => id < 0 || id >= _mesher.Constraints.Count))
+        if (distinctConstraintIds.Any(id => id < 0 || id >= _constraints.Count))
         {
             Fail("One or more selected constraints are no longer present in the current mesh.");
             return Snapshot(false, null);
         }
-        (int Index, Constraint Constraint)[] constraints = distinctConstraintIds
-            .Select(id => (Index: id, Constraint: _mesher.Constraints[id]))
+        (int Index, EditorConstraint Constraint)[] constraints = distinctConstraintIds
+            .Select(id => (Index: id, Constraint: _constraints[id]))
             .ToArray();
 
         int[] distinctNodeIds = nodeIds.Distinct().ToArray();
@@ -126,7 +127,7 @@ public sealed partial class EditorMeshModel
         if (nodes.Length != nodeIds.Count || nodes.Zip(nodes.Skip(1)).Any(pair => ReferenceEquals(pair.First, pair.Second)))
             return Snapshot(false, null);
 
-        var polyline = new Polyline(nodes, $"Polyline {_mesher.Constraints.Count + 1}");
+        var polyline = new Polyline(nodes, $"Polyline {_constraints.Count + 1}");
         var handle = new ConstraintHandle(
             polyline.Name,
             polyline.Nodes.Zip(polyline.Nodes.Skip(1),
@@ -143,7 +144,7 @@ public sealed partial class EditorMeshModel
         if (nodes.Length != nodeIds.Count) return Snapshot(false, null);
 
         var handle = new LoopHandle(
-            $"Polygon {_mesher.Loops.Count + 1}",
+            $"Polygon {_mesher.Constraints.Loops.Count + 1}",
             nodes.Select(node => node.Position).ToArray());
         bool inserted = Execute(new InsertLoopCommand(this, handle));
         return Snapshot(inserted, null);
@@ -151,20 +152,20 @@ public sealed partial class EditorMeshModel
 
     public IReadOnlyList<EdgeView> CollectConstraintLine(int startId, int endId)
     {
-        Constraint? constraint = FindConstraint(startId, endId);
+        EditorConstraint? constraint = FindConstraint(startId, endId);
         if (constraint is null) return [];
         return ConstraintEdges(constraint);
     }
 
     public IReadOnlyList<EdgeView> CollectConstraint(int constraintId)
     {
-        if (constraintId < 0 || constraintId >= _mesher.Constraints.Count) return [];
-        return ConstraintEdges(_mesher.Constraints[constraintId]);
+        if (constraintId < 0 || constraintId >= _constraints.Count) return [];
+        return ConstraintEdges(_constraints[constraintId]);
     }
 
     public MeshView RemoveConstraint(int startId, int endId)
     {
-        Constraint? constraint = FindConstraint(startId, endId);
+        EditorConstraint? constraint = FindConstraint(startId, endId);
         if (constraint is null)
         {
             Fail($"No constraint contains edge {startId}-{endId} in the current mesh.");
@@ -175,15 +176,15 @@ public sealed partial class EditorMeshModel
 
     public MeshView RemoveConstraint(int constraintId)
     {
-        if (constraintId < 0 || constraintId >= _mesher.Constraints.Count)
+        if (constraintId < 0 || constraintId >= _constraints.Count)
         {
             Fail($"Constraint {constraintId} is not present in the current mesh.");
             return Snapshot(false, null);
         }
-        return RemoveConstraint(_mesher.Constraints[constraintId]);
+        return RemoveConstraint(_constraints[constraintId]);
     }
 
-    MeshView RemoveConstraint(Constraint constraint)
+    MeshView RemoveConstraint(EditorConstraint constraint)
     {
         ConstraintHandle handle = Definition(constraint);
         bool removed = Execute(new RemoveConstraintCommand(this, handle));
@@ -194,6 +195,7 @@ public sealed partial class EditorMeshModel
     {
         _ids.Clear();
         _constraintDefinitions.Clear();
+        _constraints.Clear();
         _undo.Clear();
         _redo.Clear();
         _loopPoints.Clear();

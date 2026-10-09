@@ -1,6 +1,6 @@
 namespace TriUgla;
 
-public sealed class Loop : INamable
+public sealed class Loop
 {
     public Loop(IEnumerable<Node> nodes, string? name = null)
     {
