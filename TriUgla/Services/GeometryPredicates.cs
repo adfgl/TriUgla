@@ -1,8 +1,10 @@
+using System.Numerics;
+
 namespace TriUgla;
 
 /// <summary>
 /// Adaptive robust geometric predicates. Fast floating-point filters handle
-/// well-conditioned inputs; expansion arithmetic resolves uncertain signs exactly.
+/// well-conditioned inputs; integer arithmetic resolves uncertain signs exactly.
 /// </summary>
 public sealed class GeometryPredicates : IGeometry
 {
@@ -25,7 +27,7 @@ public sealed class GeometryPredicates : IGeometry
 
         if (p1p2q1 == 0 && p1p2q2 == 0 && q1q2p1 == 0 && q1q2p2 == 0)
         {
-            return CollinearOverlap(p1, p2, q1, q2) ? 2 : -1;
+            return CollinearIntersectionKind(p1, p2, q1, q2);
         }
 
         if (p1p2q1 != 0 && p1p2q2 != 0 && q1q2p1 != 0 && q1q2p2 != 0)
@@ -45,6 +47,23 @@ public sealed class GeometryPredicates : IGeometry
                Math.Min(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) &&
            Math.Max(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) <=
                Math.Min(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+
+    static int CollinearIntersectionKind(Vec2 a, Vec2 b, Vec2 c, Vec2 d)
+    {
+        // Project onto the axis on which the combined segments have the larger
+        // extent. A nonzero interval is overlap; a single shared value is contact.
+        double minX = Math.Max(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double maxX = Math.Min(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double minY = Math.Max(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double maxY = Math.Min(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (minX > maxX || minY > maxY) return -1;
+
+        double xExtent = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) -
+                         Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double yExtent = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) -
+                         Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        return xExtent >= yExtent ? (minX < maxX ? 2 : 0) : (minY < maxY ? 2 : 0);
+    }
 
     public static bool OnSegment(Vec2 a, Vec2 b, Vec2 point)
         => point.X >= Math.Min(a.X, b.X) && point.X <= Math.Max(a.X, b.X) &&
@@ -108,15 +127,12 @@ public sealed class GeometryPredicates : IGeometry
         double errorBound = 16d * UnitRoundoff * (Math.Abs(positive) + Math.Abs(negative));
         if (determinant > errorBound) return 1;
         if (determinant < -errorBound) return -1;
-        if (!AllowExactMath) return Math.Sign(determinant);
+        if (!AllowExactMath) return double.IsNaN(determinant) ? 0 : Math.Sign(determinant);
 
         ExactOrientationComputations++;
-        List<double> exact = Cross(
-            Difference(b.X, a.X),
-            Difference(b.Y, a.Y),
-            Difference(c.X, a.X),
-            Difference(c.Y, a.Y));
-        return Expansion.Sign(exact);
+        BigInteger[] v = ExactIntegers(a.X, a.Y, b.X, b.Y, c.X, c.Y);
+        return ((v[2] - v[0]) * (v[5] - v[1]) -
+                (v[3] - v[1]) * (v[4] - v[0])).Sign;
     }
 
     public int InDiameterCircleSign(Vec2 a, Vec2 b, Vec2 point)
@@ -136,10 +152,9 @@ public sealed class GeometryPredicates : IGeometry
         if (!AllowExactMath) return dot < 0d ? 1 : dot > 0d ? -1 : 0;
 
         ExactInCircleComputations++;
-        List<double> exact = Product(Difference(point.X, a.X), Difference(point.X, b.X));
-        Expansion.Add(exact, Product(Difference(point.Y, a.Y), Difference(point.Y, b.Y)));
-        Expansion.Compress(exact);
-        int sign = Expansion.Sign(exact);
+        BigInteger[] v = ExactIntegers(a.X, a.Y, b.X, b.Y, point.X, point.Y);
+        int sign = ((v[4] - v[0]) * (v[4] - v[2]) +
+                    (v[5] - v[1]) * (v[5] - v[3])).Sign;
         return sign < 0 ? 1 : sign > 0 ? -1 : 0;
     }
 
@@ -171,62 +186,57 @@ public sealed class GeometryPredicates : IGeometry
             (Math.Abs(termA) + Math.Abs(termB) + Math.Abs(termC));
         if (signedDeterminant > errorBound) return 1;
         if (signedDeterminant < -errorBound) return -1;
-        if (!AllowExactMath) return Math.Sign(signedDeterminant);
+        if (!AllowExactMath)
+            return double.IsNaN(signedDeterminant) ? 0 : Math.Sign(signedDeterminant);
 
         ExactInCircleComputations++;
-        List<double> adx = Difference(a.X, point.X);
-        List<double> ady = Difference(a.Y, point.Y);
-        List<double> bdx = Difference(b.X, point.X);
-        List<double> bdy = Difference(b.Y, point.Y);
-        List<double> cdx = Difference(c.X, point.X);
-        List<double> cdy = Difference(c.Y, point.Y);
-
-        List<double> exactA = Product(SquareSum(adx, ady), Cross(bdx, bdy, cdx, cdy));
-        List<double> exactB = Product(SquareSum(bdx, bdy), Cross(cdx, cdy, adx, ady));
-        List<double> exactC = Product(SquareSum(cdx, cdy), Cross(adx, ady, bdx, bdy));
-        Expansion.Add(exactA, exactB);
-        Expansion.Add(exactA, exactC);
-        Expansion.Compress(exactA);
-        return Expansion.Sign(exactA) * orientation;
+        BigInteger[] v = ExactIntegers(
+            a.X, a.Y, b.X, b.Y, c.X, c.Y, point.X, point.Y);
+        BigInteger adx = v[0] - v[6], ady = v[1] - v[7];
+        BigInteger bdx = v[2] - v[6], bdy = v[3] - v[7];
+        BigInteger cdx = v[4] - v[6], cdy = v[5] - v[7];
+        BigInteger exact =
+            (adx * adx + ady * ady) * (bdx * cdy - bdy * cdx) +
+            (bdx * bdx + bdy * bdy) * (cdx * ady - cdy * adx) +
+            (cdx * cdx + cdy * cdy) * (adx * bdy - ady * bdx);
+        return exact.Sign * orientation;
     }
 
-    static List<double> Difference(double left, double right)
+    static BigInteger[] ExactIntegers(params double[] values)
     {
-        Expansion.TwoSum(left, -right, out double high, out double low);
-        var result = new List<double>(2);
-        if (low != 0d) result.Add(low);
-        if (high != 0d) result.Add(high);
-        return result;
-    }
+        var mantissas = new BigInteger[values.Length];
+        var exponents = new int[values.Length];
+        int minimumExponent = int.MaxValue;
 
-    static List<double> Cross(
-        List<double> ax,
-        List<double> ay,
-        List<double> bx,
-        List<double> by)
-    {
-        List<double> result = Product(ax, by);
-        List<double> other = Product(ay, bx);
-        Expansion.Negate(other);
-        Expansion.Add(result, other);
-        Expansion.Compress(result);
-        return result;
-    }
+        for (int index = 0; index < values.Length; index++)
+        {
+            long bits = BitConverter.DoubleToInt64Bits(values[index]);
+            long fraction = bits & 0x000f_ffff_ffff_ffffL;
+            int biasedExponent = (int)((bits >> 52) & 0x7ff);
+            if (biasedExponent == 0)
+            {
+                mantissas[index] = fraction;
+                exponents[index] = -1074;
+            }
+            else
+            {
+                mantissas[index] = fraction | (1L << 52);
+                exponents[index] = biasedExponent - 1023 - 52;
+            }
 
-    static List<double> SquareSum(List<double> x, List<double> y)
-    {
-        List<double> result = Product(x, x);
-        Expansion.Add(result, Product(y, y));
-        Expansion.Compress(result);
-        return result;
-    }
+            if (bits < 0) mantissas[index] = -mantissas[index];
+            if (!mantissas[index].IsZero)
+                minimumExponent = Math.Min(minimumExponent, exponents[index]);
+        }
 
-    static List<double> Product(List<double> left, List<double> right)
-    {
-        var result = new List<double>(left);
-        Expansion.Mul(result, right);
-        Expansion.Compress(result);
-        return result;
+        if (minimumExponent == int.MaxValue) return mantissas;
+        for (int index = 0; index < values.Length; index++)
+        {
+            if (!mantissas[index].IsZero)
+                mantissas[index] <<= exponents[index] - minimumExponent;
+        }
+
+        return mantissas;
     }
 
     static void RequireFinite(Vec2 value, string parameterName)

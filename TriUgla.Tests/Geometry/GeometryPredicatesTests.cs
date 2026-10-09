@@ -48,6 +48,30 @@ public class GeometryPredicatesTests
         Assert.True(_geometry.ExactOrientationComputations > 0);
     }
 
+    [Fact]
+    public void Orient_SubnormalCoordinatesUsesExactFallback()
+    {
+        double epsilon = double.Epsilon;
+
+        int sign = _geometry.OrientSign(
+            Vec2.Zero,
+            new Vec2(epsilon, 0),
+            new Vec2(0, epsilon));
+
+        Assert.Equal(1, sign);
+    }
+
+    [Fact]
+    public void Orient_FiniteCoordinatesWhoseDifferenceOverflowsUsesExactFallback()
+    {
+        int sign = _geometry.OrientSign(
+            new Vec2(-double.MaxValue, 0),
+            new Vec2(double.MaxValue, 0),
+            new Vec2(0, 1));
+
+        Assert.Equal(1, sign);
+    }
+
     [Theory]
     [InlineData(1, 0, true)]
     [InlineData(1, 1, false)]
@@ -117,10 +141,25 @@ public class GeometryPredicatesTests
         Assert.Equal(0, predicates.ExactOrientationComputations);
     }
 
+    [Fact]
+    public void DisabledExactMathTreatsOverflowCancellationAsUncertain()
+    {
+        var predicates = new GeometryPredicates { AllowExactMath = false };
+
+        int sign = predicates.OrientSign(
+            new Vec2(-double.MaxValue, -double.MaxValue),
+            new Vec2(double.MaxValue, double.MaxValue),
+            new Vec2(double.MaxValue, double.MaxValue));
+
+        Assert.Equal(0, sign);
+        Assert.Equal(0, predicates.ExactOrientationComputations);
+    }
+
     [Theory]
     [InlineData(0, 0, 2, 2, 0, 2, 2, 0, 1)]
     [InlineData(0, 0, 1, 0, 1, 0, 2, 1, 0)]
     [InlineData(0, 0, 2, 0, 1, 0, 3, 0, 2)]
+    [InlineData(0, 0, 1, 0, 1, 0, 2, 0, 0)]
     [InlineData(0, 0, 1, 0, 2, 0, 3, 0, -1)]
     public void Intersects_ClassifiesSegmentRelationships(
         double p1x,
