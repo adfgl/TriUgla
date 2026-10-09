@@ -50,6 +50,17 @@ internal sealed class RemoveNodeCommand(EditorMeshModel model, Vec2 position, in
     public bool Undo() => model.InsertPoint(position, loopIndex);
 }
 
+internal sealed class UpdateNodeDataCommand(
+    EditorMeshModel model,
+    Vec2 position,
+    NodeData before,
+    NodeData after) : IEditorCommand
+{
+    public int? ChangedNodeId => model.NodeIdAt(position);
+    public bool Execute() => model.SetNodeData(position, after);
+    public bool Undo() => model.SetNodeData(position, before);
+}
+
 internal sealed class InsertConstraintCommand(EditorMeshModel model, ConstraintHandle constraint)
     : IEditorCommand
 {

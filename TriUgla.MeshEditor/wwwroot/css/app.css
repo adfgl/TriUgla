@@ -48,6 +48,8 @@ kbd { margin-left: 7px; color: #a8b4c8; font: 11px ui-monospace, SFMono-Regular,
 .property-card dl div { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 5px 0; border-top: 1px solid #1f2b40; font-size: 11px; }
 .property-card dt { color: #8492a9; }
 .property-card dd { margin: 0; color: #e2e8f0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
+.property-card input[type="number"] { width: 92px; box-sizing: border-box; padding: 3px 5px; border: 1px solid #33445f; border-radius: 4px; outline: none; background: #0b1322; color: #e2e8f0; font: inherit; text-align: right; }
+.property-card input[type="number"]:focus { border-color: #22d3ee; box-shadow: 0 0 0 1px #22d3ee; }
 .viewport-frame { min-width: 0; min-height: 0; margin: 16px; overflow: hidden; border: 1px solid #25324a; border-radius: 8px; background: #080d18; }
 canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 canvas.dragging { cursor: grabbing; }

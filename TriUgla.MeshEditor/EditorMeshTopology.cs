@@ -32,6 +32,18 @@ public sealed partial class EditorMeshModel
     internal int? NodeIdAt(Vec2 position)
         => LiveNode(position) is Node node ? Id(node) : null;
 
+    internal bool SetNodeData(Vec2 position, NodeData data)
+    {
+        Node? node = LiveNode(position);
+        if (node is null)
+        {
+            Fail($"No live node exists at {position}.");
+            return false;
+        }
+        node.Data = data;
+        return true;
+    }
+
     internal bool InsertPoint(Vec2 position, int? loopIndex)
     {
         if (loopIndex is not null && !ReleaseInitialLoop()) return false;

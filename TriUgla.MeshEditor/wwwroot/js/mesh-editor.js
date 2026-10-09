@@ -13,7 +13,7 @@ export function initialize(canvas, dotnet, mesh) {
         renderPending: false, reportTimer: null, hoverLookupTimer: null, hoverPoint: null,
         hoverLookupVersion: 0,
         hoverLine: [], hoverRequest: 0,
-        vertices: [], nodeKinds: [], nodeConstraintCounts: [], triangles: [], boundaryEdges: [], loopEdges: [], constraintEdges: [],
+        vertices: [], nodeKinds: [], nodeConstraintCounts: [], nodeElevations: [], nodeTargetAreas: [], triangles: [], boundaryEdges: [], loopEdges: [], constraintEdges: [],
         superNodes: new Set(), superFaces: new Set(), constraintEdgeIds: new Set(),
         constraintByEdge: new Map(), constraints: [], faceKinds: []
     };
@@ -32,6 +32,7 @@ export function initialize(canvas, dotnet, mesh) {
         setHover(view, null);
     };
     view.key = event => onKey(view, event);
+    view.doubleClick = event => onDoubleClick(view, event);
     view.contextMenu = event => deleteNode(view, event);
     canvas.addEventListener("wheel", view.wheel, { passive: false });
     canvas.addEventListener("pointerdown", view.down);
@@ -40,6 +41,7 @@ export function initialize(canvas, dotnet, mesh) {
     canvas.addEventListener("pointercancel", view.up);
     canvas.addEventListener("pointerleave", view.leave);
     canvas.addEventListener("keydown", view.key);
+    canvas.addEventListener("dblclick", view.doubleClick);
     canvas.addEventListener("contextmenu", view.contextMenu);
     sizeCanvas(view);
     fit(canvas);
@@ -154,6 +156,51 @@ export async function redo(canvas) {
     });
 }
 
+export async function updateNodeData(canvas, nodeId, elevation, targetArea) {
+    const view = views.get(canvas);
+    if (!view || view.readOnly) return;
+    return enqueueMutation(view, async () => {
+        const mesh = await view.dotnet.invokeMethodAsync(
+            "UpdateNodeData", nodeId, elevation, targetArea);
+        applyMesh(view, mesh);
+        if (mesh.succeeded) addSelection(view, { type: "node", id: nodeId });
+        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Node properties could not be updated";
+        changed(view);
+    });
+}
+
+export async function updateSelectedNodeProperty(canvas, nodeIds, propertyName, value) {
+    const view = views.get(canvas);
+    if (!view || view.readOnly || !nodeIds.length) return;
+    return enqueueMutation(view, async () => {
+        const mesh = await view.dotnet.invokeMethodAsync(
+            "UpdateNodeProperty", nodeIds, propertyName, value);
+        applyMesh(view, mesh);
+        if (mesh.succeeded) {
+            for (const id of nodeIds) {
+                if (view.vertices[id]) addSelection(view, { type: "node", id });
+            }
+        }
+        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Node properties could not be updated";
+        changed(view);
+    });
+}
+
+export async function refineSelectedFaces(canvas) {
+    const view = views.get(canvas);
+    if (!view || view.readOnly) return;
+    const faceIds = [...view.selections.values()]
+        .filter(item => item.type === "face")
+        .map(item => item.id);
+    if (!faceIds.length) return;
+    return enqueueMutation(view, async () => {
+        const mesh = await view.dotnet.invokeMethodAsync("RefineFaces", faceIds);
+        applyMesh(view, mesh);
+        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Selected faces could not be refined";
+        changed(view);
+    });
+}
+
 export function dispose(canvas) {
     const view = views.get(canvas);
     if (!view) return;
@@ -165,6 +212,7 @@ export function dispose(canvas) {
     canvas.removeEventListener("pointercancel", view.up);
     canvas.removeEventListener("pointerleave", view.leave);
     canvas.removeEventListener("keydown", view.key);
+    canvas.removeEventListener("dblclick", view.doubleClick);
     canvas.removeEventListener("contextmenu", view.contextMenu);
     if (view.reportTimer !== null) clearTimeout(view.reportTimer);
     if (view.hoverLookupTimer !== null) clearTimeout(view.hoverLookupTimer);
@@ -355,10 +403,14 @@ function applyMesh(view, mesh) {
     view.vertices = Array(maxId + 1).fill(null);
     view.nodeKinds = Array(maxId + 1).fill("Normal");
     view.nodeConstraintCounts = Array(maxId + 1).fill(0);
+    view.nodeElevations = Array(maxId + 1).fill(0);
+    view.nodeTargetAreas = Array(maxId + 1).fill(0);
     for (const node of mesh.nodes) {
         view.vertices[node.id] = [node.x, node.y];
         view.nodeKinds[node.id] = node.kind;
         view.nodeConstraintCounts[node.id] = node.constraintCount;
+        view.nodeElevations[node.id] = node.elevation;
+        view.nodeTargetAreas[node.id] = node.targetArea;
     }
     view.triangles = mesh.faces.map(face => [face.a, face.b, face.c]);
     view.faceKinds = mesh.faces.map(face => face.kind);
@@ -399,6 +451,67 @@ async function selectAt(view, screen, event) {
         }
     }
     changed(view);
+}
+
+async function onDoubleClick(view, event) {
+    if (view.tool !== "select") return;
+    event.preventDefault();
+    const hit = await resolveHit(view, localPoint(view.canvas, event), event.ctrlKey);
+    if (!hit) return;
+    const kind = selectionKind(view, hit);
+    const matches = selectionsOfKind(view, hit.type, kind);
+    if (!event.shiftKey) view.selections.clear();
+    for (const match of matches) addSelection(view, match);
+    view.message = `${matches.length} ${kind} ${hit.type}${matches.length === 1 ? "" : "s"} selected`;
+    changed(view);
+}
+
+function selectionsOfKind(view, type, kind) {
+    if (type === "node") {
+        return view.vertices.flatMap((vertex, id) =>
+            vertex && (view.showSuperStructure || !view.superNodes.has(id)) && view.nodeKinds[id] === kind
+                ? [{ type: "node", id, constraintCount: view.nodeConstraintCounts[id] }]
+                : []);
+    }
+    if (type === "face") {
+        return view.triangles.flatMap((triangle, id) =>
+            (view.showSuperStructure || !view.superFaces.has(id)) && view.faceKinds[id] === kind
+                ? [{ type: "face", id }]
+                : []);
+    }
+    if (type === "constraint") {
+        return kind !== "Feature" ? [] : view.constraints.map(constraint => ({
+            type: "constraint", id: constraint.id, constraint,
+            a: constraint.startNodeId, b: constraint.endNodeId,
+            edges: constraint.edges.map(edge => [edge.a, edge.b])
+        }));
+    }
+
+    const seen = new Set();
+    const matches = [];
+    for (const triangle of view.triangles) {
+        for (const [a, b] of [[triangle[0], triangle[1]], [triangle[1], triangle[2]], [triangle[2], triangle[0]]]) {
+            const id = edgeId(a, b);
+            if (seen.has(id)) continue;
+            seen.add(id);
+            if (!view.showSuperStructure && (view.superNodes.has(a) || view.superNodes.has(b))) continue;
+            const candidate = { type: "edge", id, a, b, constraintCount: 0 };
+            if (selectionKind(view, candidate) === kind) matches.push(candidate);
+        }
+    }
+    return matches;
+}
+
+function selectionKind(view, selection) {
+    if (selection.type === "node") return view.nodeKinds[selection.id];
+    if (selection.type === "face") return view.faceKinds[selection.id];
+    if (selection.type === "constraint") return "Feature";
+    return edgeKind(view, selection);
+}
+
+function edgeKind(view, edge) {
+    return view.loopEdges.some(candidate => edgeId(candidate[0], candidate[1]) === edge.id)
+        ? "Boundary" : view.constraintEdgeIds.has(edge.id) ? "Feature" : "Interior";
 }
 
 function setHover(view, hit) {
@@ -784,7 +897,8 @@ function scheduleReport(view) {
 }
 function report(view) {
     const selected = [...view.selections.values()];
-    const selectedObjects = selected.map(item => describeSelection(view, item));
+    const selectedObjects = combineSelectionInfo(
+        selected.map(item => describeSelection(view, item)));
     const selection = view.message || (selected.length === 0 ? "No selection" : selected.length === 1
         ? `${capitalize(selected[0].type)} ${selected[0].id}` : `${selected.length} selected`);
     const nodeCount = view.vertices.filter((vertex, id) => vertex && !view.superNodes.has(id)).length;
@@ -799,15 +913,48 @@ function report(view) {
         nodeCount, edges.size, view.constraints.length,
         selection, view.canUndo, view.canRedo, selectedObjects);
 }
+
+function combineSelectionInfo(items) {
+    const groups = new Map();
+    for (const item of items) {
+        if (!groups.has(item.type)) groups.set(item.type, []);
+        groups.get(item.type).push(item);
+    }
+    return [...groups.values()].map(group => {
+        if (group.length === 1) return group[0];
+        const properties = group[0].properties.map(property => {
+            const values = group.map(item =>
+                item.properties.find(candidate => candidate.name === property.name)?.value);
+            const value = values.every(candidate => candidate === values[0])
+                ? values[0]
+                : "Varies";
+            return { name: property.name, value };
+        });
+        return {
+            id: null,
+            ids: group.flatMap(item => item.ids),
+            type: group[0].type,
+            title: `${group.length} ${plural(group[0].type)}`,
+            properties
+        };
+    });
+}
+
+function plural(value) {
+    return value === "Face" ? "Faces" : `${value}s`;
+}
+
 function describeSelection(view, item) {
     if (item.type === "node") {
         const point = view.vertices[item.id];
         return selectionInfo("Node", `Node ${item.id}`, [
             ["ID", item.id], ["X", number(point[0])], ["Y", number(point[1])],
+            ["Elevation", view.nodeElevations[item.id]],
+            ["Target area", view.nodeTargetAreas[item.id]],
             ["Kind", view.nodeKinds[item.id]],
             ["ConstraintCount", view.nodeConstraintCounts[item.id]],
             ["Super structure", view.superNodes.has(item.id) ? "Yes" : "No"]
-        ]);
+        ], item.id);
     }
     if (item.type === "face") {
         const triangle = view.triangles[item.id];
@@ -833,15 +980,15 @@ function describeSelection(view, item) {
             ["End node", constraint?.endNodeId ?? edges.at(-1)?.[1] ?? item.b]
         ]);
     }
-    const kind = view.loopEdges.some(edge => edgeId(edge[0], edge[1]) === item.id)
-        ? "Boundary" : view.constraintEdgeIds.has(item.id) ? "Feature" : "Interior";
+    const kind = edgeKind(view, item);
     return selectionInfo("Edge", `Edge ${item.id}`, [
         ["Start node", item.a], ["End node", item.b], ["Length", number(length)], ["Kind", kind],
         ["ConstraintCount", item.constraintCount ?? 0]
     ]);
 }
-function selectionInfo(type, title, entries) {
-    return { type, title, properties: entries.map(entry => ({ name: entry[0], value: String(entry[1]) })) };
+function selectionInfo(type, title, entries, id = null) {
+    return { id, ids: id === null ? [] : [id], type, title,
+        properties: entries.map(entry => ({ name: entry[0], value: String(entry[1]) })) };
 }
 function edgeLength(view, a, b) {
     const first = view.vertices[a], second = view.vertices[b];

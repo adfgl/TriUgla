@@ -5,6 +5,102 @@ namespace TriUgla.Tests;
 public class EditorPolylineTests
 {
     [Fact]
+    public void NodePropertiesCanBeEditedUndoneAndRedone()
+    {
+        var editor = new EditorMeshModel();
+        int id = Insert(editor, 0.25, 0.5);
+
+        MeshView updated = editor.UpdateNodeData(id, 12.5, 0.75);
+
+        Assert.True(updated.Succeeded, updated.FailureReason);
+        NodeView node = Assert.Single(updated.Nodes, candidate => candidate.Id == id);
+        Assert.Equal(12.5, node.Elevation);
+        Assert.Equal(0.75, node.TargetArea);
+
+        NodeView undone = Assert.Single(editor.Undo().Nodes, candidate => candidate.Id == id);
+        Assert.Equal(default, undone.Elevation);
+        Assert.Equal(default, undone.TargetArea);
+
+        NodeView redone = Assert.Single(editor.Redo().Nodes, candidate => candidate.Id == id);
+        Assert.Equal(12.5, redone.Elevation);
+        Assert.Equal(0.75, redone.TargetArea);
+    }
+
+    [Fact]
+    public void NodePropertiesRejectInvalidValues()
+    {
+        var editor = new EditorMeshModel();
+        int id = Insert(editor, 0.25, 0.5);
+
+        MeshView negativeArea = editor.UpdateNodeData(id, 1, -0.1);
+        MeshView nonFiniteElevation = editor.UpdateNodeData(id, double.NaN, 1);
+
+        Assert.False(negativeArea.Succeeded);
+        Assert.False(nonFiniteElevation.Succeeded);
+        NodeView node = Assert.Single(editor.State().Nodes, candidate => candidate.Id == id);
+        Assert.Equal(default, node.Elevation);
+        Assert.Equal(default, node.TargetArea);
+    }
+
+    [Fact]
+    public void PropertyEditAppliesToMultipleNodesAsOneUndoableAction()
+    {
+        var editor = new EditorMeshModel();
+        int first = Insert(editor, -1, 0);
+        int second = Insert(editor, 1, 0);
+        Assert.True(editor.UpdateNodeData(first, 10, 2).Succeeded);
+        Assert.True(editor.UpdateNodeData(second, 20, 4).Succeeded);
+
+        MeshView updated = editor.UpdateNodeProperty(
+            [first, second], "Target area", 0.75);
+
+        Assert.True(updated.Succeeded, updated.FailureReason);
+        Assert.Equal([10d, 20d], updated.Nodes
+            .Where(node => node.Id == first || node.Id == second)
+            .OrderBy(node => node.Id)
+            .Select(node => node.Elevation).ToArray());
+        Assert.All(updated.Nodes.Where(node => node.Id == first || node.Id == second),
+            node => Assert.Equal(0.75, node.TargetArea));
+
+        MeshView undone = editor.Undo();
+        Assert.Equal([2d, 4d], undone.Nodes
+            .Where(node => node.Id == first || node.Id == second)
+            .OrderBy(node => node.Id)
+            .Select(node => node.TargetArea).ToArray());
+
+        MeshView redone = editor.Redo();
+        Assert.All(redone.Nodes.Where(node => node.Id == first || node.Id == second),
+            node => Assert.Equal(0.75, node.TargetArea));
+    }
+
+    [Fact]
+    public void SelectedFaceCanBeRefinedUsingNodeTargetAreas()
+    {
+        var editor = new EditorMeshModel();
+        foreach (int nodeId in new[] { 4, 5, 6, 7 })
+            Assert.True(editor.UpdateNodeData(nodeId, 0, 0.5).Succeeded);
+        MeshView before = editor.State();
+        int faceId = before.Faces.Select((face, index) => (face, index))
+            .First(item => item.face.Kind == nameof(FaceKind.Island)).index;
+
+        MeshView refined = editor.RefineFaces([faceId]);
+
+        Assert.True(refined.Succeeded, refined.FailureReason);
+        Assert.True(refined.Nodes.Count > before.Nodes.Count);
+        Assert.Contains(refined.Nodes,
+            node => node.Kind == nameof(NodeKind.SteinerRefinement));
+    }
+
+    [Fact]
+    public void RefinementRequiresAValidFaceSelection()
+    {
+        var editor = new EditorMeshModel();
+
+        Assert.False(editor.RefineFaces([]).Succeeded);
+        Assert.False(editor.RefineFaces([int.MaxValue]).Succeeded);
+    }
+
+    [Fact]
     public void InsertedPolygonCanBeRemovedAndRestoredThroughHistory()
     {
         var editor = new EditorMeshModel();

@@ -50,6 +50,97 @@ public sealed partial class EditorMeshModel
         return Snapshot(removed, null);
     }
 
+    public MeshView UpdateNodeData(int nodeId, double elevation, double targetArea)
+    {
+        Node? node = LiveNode(nodeId);
+        if (node is null)
+        {
+            Fail($"Node {nodeId} is not present in the current mesh.");
+            return Snapshot(false, null);
+        }
+        if (!double.IsFinite(elevation) || !double.IsFinite(targetArea) || targetArea < 0d)
+        {
+            Fail("Elevation must be finite and target area must be finite and non-negative.");
+            return Snapshot(false, nodeId);
+        }
+
+        var data = new NodeData(elevation, targetArea);
+        if (node.Data == data) return Snapshot(true, nodeId);
+        bool updated = Execute(new UpdateNodeDataCommand(this, node.Position, node.Data, data));
+        return Snapshot(updated, nodeId);
+    }
+
+    public MeshView UpdateNodeProperty(
+        IReadOnlyList<int> nodeIds,
+        string propertyName,
+        double value)
+    {
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        int[] distinctIds = nodeIds.Distinct().ToArray();
+        Node[] nodes = distinctIds.Select(LiveNode).OfType<Node>().ToArray();
+        if (distinctIds.Length == 0 || nodes.Length != distinctIds.Length)
+        {
+            Fail("One or more selected nodes are no longer present in the current mesh.");
+            return Snapshot(false, null);
+        }
+        if (!double.IsFinite(value) || propertyName == "Target area" && value < 0d)
+        {
+            Fail("Elevation must be finite and target area must be finite and non-negative.");
+            return Snapshot(false, null);
+        }
+        if (propertyName is not ("Elevation" or "Target area"))
+        {
+            Fail($"Node property '{propertyName}' is not editable.");
+            return Snapshot(false, null);
+        }
+
+        var commands = new List<IEditorCommand>(nodes.Length);
+        foreach (Node node in nodes)
+        {
+            NodeData after = propertyName == "Elevation"
+                ? node.Data with { Elevation = value }
+                : node.Data with { Area = value };
+            if (node.Data != after)
+                commands.Add(new UpdateNodeDataCommand(this, node.Position, node.Data, after));
+        }
+        if (commands.Count == 0) return Snapshot(true, distinctIds[0]);
+        bool updated = Execute(new CompositeEditorCommand(commands));
+        return Snapshot(updated, distinctIds.Length == 1 ? distinctIds[0] : null);
+    }
+
+    public MeshView RefineFaces(IReadOnlyList<int> faceIds)
+    {
+        ArgumentNullException.ThrowIfNull(faceIds);
+        Face[] faces = _mesher.Traversal.Faces().Where(face => !face.Dead).ToArray();
+        int[] distinctIds = faceIds.Distinct().ToArray();
+        if (distinctIds.Length == 0)
+        {
+            Fail("Select at least one face to refine.");
+            return Snapshot(false, null);
+        }
+        if (distinctIds.Any(id => id < 0 || id >= faces.Length))
+        {
+            Fail("One or more selected faces are no longer present in the current mesh.");
+            return Snapshot(false, null);
+        }
+
+        try
+        {
+            var settings = RefineSettings.Default with
+            {
+                MaxSteiners = 1_000,
+                UseSteinerBudget = true
+            };
+            _mesher.Refine(distinctIds.Select(id => faces[id]), new FaceRanker(), settings);
+            return Snapshot(true, null);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            Fail($"Selected-face refinement failed: {exception.Message}");
+            return Snapshot(false, null);
+        }
+    }
+
     public MeshView RemoveElements(
         IReadOnlyList<int> constraintIds,
         IReadOnlyList<int> nodeIds)

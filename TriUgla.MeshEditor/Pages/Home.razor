@@ -20,6 +20,9 @@
             </button>
             <button type="button" title="Undo (Cmd+Z)" disabled="@(_quadMode || !_canUndo)" @onclick="Undo">Undo</button>
             <button type="button" title="Redo (Cmd+Shift+Z)" disabled="@(_quadMode || !_canRedo)" @onclick="Redo">Redo</button>
+            <button type="button" title="Refine selected faces using node target areas"
+                    disabled="@(_quadMode || !_selectedObjects.Any(item => item.Type == "Face"))"
+                    @onclick="RefineSelectedFaces">Refine selected</button>
             <button type="button" title="Reset view (0)" @onclick="Reset">Reset <kbd>0</kbd></button>
             <button type="button" title="Fit mesh to viewport (F)" @onclick="Fit">Fit <kbd>F</kbd></button>
             <button type="button" title="Remove inserted nodes" disabled="@_quadMode" @onclick="ResetMesh">Reset mesh</button>
@@ -101,7 +104,25 @@
                         <dl>
                             @foreach (SelectionProperty property in item.Properties)
                             {
-                                <div><dt>@property.Name</dt><dd>@property.Value</dd></div>
+                                <div>
+                                    <dt>@property.Name</dt>
+                                    <dd>
+                                        @if (IsEditableNodeProperty(item, property))
+                                        {
+                                            <input type="number"
+                                                   step="any"
+                                                   min="@(property.Name == "Target area" ? "0" : null)"
+                                                   value="@(property.Value == "Varies" ? null : property.Value)"
+                                                   placeholder="@(property.Value == "Varies" ? "Varies" : null)"
+                                                   aria-label="@property.Name"
+                                                   @onchange="args => UpdateNodeProperty(item, property.Name, args.Value?.ToString())" />
+                                        }
+                                        else
+                                        {
+                                            @property.Value
+                                        }
+                                    </dd>
+                                </div>
                             }
                         </dl>
                     </section>
@@ -117,7 +138,7 @@
         }
         else
         {
-            <span>Click: select <i></i> Shift: add <i></i> Ctrl: segment/toggle <i></i> Cmd+click: insert <i></i> Middle-drag: pan</span>
+            <span>Click: select <i></i> Double-click: select same kind <i></i> Shift: add <i></i> Ctrl: segment/toggle <i></i> Cmd+click: insert <i></i> Middle-drag: pan</span>
         }
         <output class="coordinates">X @_x.ToString("0.00").PadLeft(7) &nbsp; Y @_y.ToString("0.00").PadLeft(7)</output>
         <output class="zoom">@_selection &nbsp; @_nodeCount nodes &nbsp; @(_zoom.ToString("0"))%</output>
@@ -156,6 +177,7 @@
     async Task ResetMesh() => await InvokeEditor("resetMesh");
     async Task Undo() => await InvokeEditor("undo");
     async Task Redo() => await InvokeEditor("redo");
+    async Task RefineSelectedFaces() => await InvokeEditor("refineSelectedFaces");
 
     async Task ToggleQuadMesh()
     {
@@ -180,6 +202,20 @@
     Task PolygonTool() => SetTool("polygon");
 
     string ToolClass(string tool) => _tool == tool ? "tool active" : "tool";
+
+    bool IsEditableNodeProperty(SelectionInfo item, SelectionProperty property)
+        => !_quadMode && item.Type == "Node" && item.Ids.Count > 0 &&
+           property.Name is "Elevation" or "Target area" &&
+           item.Properties.Any(value => value is { Name: "Super structure", Value: "No" });
+
+    async Task UpdateNodeProperty(SelectionInfo item, string propertyName, string? value)
+    {
+        if (_module is null || item.Ids.Count == 0 ||
+            !double.TryParse(value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double changed)) return;
+        await _module.InvokeVoidAsync(
+            "updateSelectedNodeProperty", _canvas, item.Ids, propertyName, changed);
+    }
 
     async Task ToggleSuperStructure(ChangeEventArgs args)
     {
@@ -229,6 +265,18 @@
 
     [JSInvokable]
     public MeshView RemoveNode(int nodeId) => _quadMode ? _mesh.State() : _mesh.Remove(nodeId);
+
+    [JSInvokable]
+    public MeshView UpdateNodeData(int nodeId, double elevation, double targetArea)
+        => _quadMode ? _mesh.State() : _mesh.UpdateNodeData(nodeId, elevation, targetArea);
+
+    [JSInvokable]
+    public MeshView UpdateNodeProperty(int[] nodeIds, string propertyName, double value)
+        => _quadMode ? _mesh.State() : _mesh.UpdateNodeProperty(nodeIds, propertyName, value);
+
+    [JSInvokable]
+    public MeshView RefineFaces(int[] faceIds)
+        => _quadMode ? _mesh.State() : _mesh.RefineFaces(faceIds);
 
     [JSInvokable]
     public MeshView ResetMeshState() => _quadMode ? _mesh.State() : _mesh.Reset();

@@ -17,6 +17,8 @@ public sealed record NodeView(
     int Id,
     double X,
     double Y,
+    double Elevation,
+    double TargetArea,
     bool IsSuper,
     string Kind,
     int ConstraintCount);
@@ -40,6 +42,8 @@ public sealed record ConstraintView(
     int EndNodeId,
     IReadOnlyList<EdgeView> Edges);
 public sealed record SelectionInfo(
+    int? Id,
+    IReadOnlyList<int> Ids,
     string Type,
     string Title,
     IReadOnlyList<SelectionProperty> Properties);

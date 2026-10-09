@@ -181,7 +181,7 @@ public class MeshScriptTests
             Line(9) = {9, 10};
             Transfinite Curve {1} = 5;
             Curve Loop(1) = {1, 2, 3, 4};
-            Curve Loop(2) = {5, 6, 7, 8};
+            Curve Loop(2) = {-8, -7, -6, -5};
             Plane Surface(1) = {1, 2};
             Curve {9} In Surface {1};
             Mesh 2;

@@ -10,6 +10,7 @@ public sealed partial class EditorMeshModel
         NodeView[] nodes = snapshot.Nodes.Where(node => !node.Dead)
             .Select(node => new NodeView(
                 Id(node), node.Position.X, node.Position.Y,
+                node.Data.Elevation, node.Data.Area,
                 structure?.SuperNode(node) == true, node.Kind.ToString(),
                 LogicalConstraintCount(node))).ToArray();
         FaceView[] faces = snapshot.Faces.Where(face => !face.Dead)

@@ -3,10 +3,36 @@ namespace TriUgla.Tests;
 public class FaceClassifierTests
 {
     [Fact]
-    public void ClassifiesOutsideIslandAndLakeByBoundaryDepth()
+    public void ClassifiesClockwiseHoleAndCounterClockwiseInnerSolid()
+    {
+        var mesher = new Mesher(new Vec2(-6, -6), new Vec2(6, 6), 4);
+        InsertLoop(mesher,
+            [new(-5, -5), new(5, -5), new(5, 5), new(-5, 5)],
+            "outer solid");
+        InsertLoop(mesher,
+            [new(-4, -4), new(4, -4), new(4, 4), new(-4, 4)],
+            "nested solid");
+        InsertLoop(mesher,
+            [new(-3, -3), new(-3, 3), new(3, 3), new(3, -3)],
+            "hole");
+        InsertLoop(mesher,
+            [new(-1, -1), new(1, -1), new(1, 1), new(-1, 1)],
+            "inner solid");
+
+        new FaceClassifier(mesher.Mesh, mesher.Traversal, mesher.SuperStructure!).Classify();
+
+        Assert.Equal(FaceKind.Outside, FaceAt(mesher, new Vec2(5.5, 0)).Kind);
+        Assert.Equal(FaceKind.Island, FaceAt(mesher, new Vec2(4.5, 0)).Kind);
+        Assert.Equal(FaceKind.Island, FaceAt(mesher, new Vec2(3.5, 0)).Kind);
+        Assert.Equal(FaceKind.Lake, FaceAt(mesher, new Vec2(2, 0)).Kind);
+        Assert.Equal(FaceKind.Island, FaceAt(mesher, new Vec2(0, 0)).Kind);
+    }
+
+    [Fact]
+    public void ClassifiesCounterClockwiseSolidAndClockwiseHoleByBoundaryDirection()
     {
         Chain chain = CreateChain();
-        chain.OutsideToIsland.Constrain(EdgeConstraintKind.Boundary);
+        chain.OutsideToIsland.Twin!.Constrain(EdgeConstraintKind.Boundary);
         chain.IslandToLake.Constrain(EdgeConstraintKind.Boundary);
 
         Face result = new FaceClassifier(
@@ -50,7 +76,7 @@ public class FaceClassifierTests
     public void SplittingClassifiedFacePreservesKind()
     {
         Chain chain = CreateChain();
-        chain.OutsideToIsland.Constrain(EdgeConstraintKind.Boundary);
+        chain.OutsideToIsland.Twin!.Constrain(EdgeConstraintKind.Boundary);
         new FaceClassifier(chain.Root, chain.Traversal, chain.SuperStructure).Classify();
 
         FaceSplitResult split = new Splitter().Split(chain.Island, new Node());
@@ -109,6 +135,19 @@ public class FaceClassifierTests
         var face = new Face();
         Linker.LinkTriangle(face, new Edge(), new Edge(), new Edge(), a, b, c);
         return face;
+    }
+
+    static void InsertLoop(Mesher mesher, IReadOnlyList<Vec2> positions, string name)
+    {
+        Node[] nodes = positions.Select(position => mesher.Insert(position).Node!).ToArray();
+        Assert.True(mesher.TryInsertLoop(new Loop(nodes, name), out string? reason), reason);
+    }
+
+    static Face FaceAt(Mesher mesher, Vec2 position)
+    {
+        LocateResult location = mesher.Locate(position);
+        return Assert.IsType<Face>(
+            location.Face ?? location.Edge?.Face ?? location.Node?.Edge?.Face);
     }
 
     sealed record Chain(
