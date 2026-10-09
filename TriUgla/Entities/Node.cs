@@ -3,6 +3,7 @@
 public sealed class Node : MeshElement
 {
     int _constraints = 0;
+    NodeKind? _kindBeforeInsertion;
 
     public Vec2 Position;
     public NodeData Data;
@@ -11,6 +12,21 @@ public sealed class Node : MeshElement
 
     public int ConstraintCount => _constraints;
     public bool Constrained => _constraints > 0;
+    internal bool PromotedForInsertion => _kindBeforeInsertion is not null;
+
+    internal void PromoteForInsertion()
+    {
+        if (Kind is NodeKind.Super or NodeKind.SteinerInsertion) return;
+        _kindBeforeInsertion = Kind;
+        Kind = NodeKind.SteinerInsertion;
+    }
+
+    internal void ReleaseInsertionRole()
+    {
+        if (Kind != NodeKind.SteinerInsertion || Constrained) return;
+        Kind = _kindBeforeInsertion ?? NodeKind.SteinerRefinement;
+        _kindBeforeInsertion = null;
+    }
 
     public void Constrain() => _constraints++;
 

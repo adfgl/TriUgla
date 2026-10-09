@@ -6,7 +6,8 @@ export function initialize(canvas, dotnet, mesh) {
         canvas, dotnet, zoom: 1, ox: 0, oy: 0, dragging: false, pointerId: null, x: 0, y: 0,
         moved: false, selections: new Map(), hover: null, message: null, showSuperStructure: true,
         canUndo: false, canRedo: false, tool: "select", constraintStart: null,
-        readOnly: false, quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
+        readOnly: false, viewMode: "edit", quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
+        yaw: -.65, pitch: .72,
         polylineNodes: [], polygonNodes: [],
         mutationQueue: Promise.resolve(),
         meshVersion: 0,
@@ -50,6 +51,13 @@ export function initialize(canvas, dotnet, mesh) {
 export function reset(canvas) {
     const view = views.get(canvas);
     if (!view) return;
+    if (view.viewMode === "3d") {
+        view.yaw = -.65;
+        view.pitch = .72;
+        fit3D(view);
+        changed(view);
+        return;
+    }
     view.zoom = 1;
     view.ox = view.width / 2;
     view.oy = view.height / 2;
@@ -59,6 +67,11 @@ export function reset(canvas) {
 export function fit(canvas) {
     const view = views.get(canvas);
     if (!view || !view.width || !view.height) return;
+    if (view.viewMode === "3d") {
+        fit3D(view);
+        changed(view);
+        return;
+    }
     const activeVertices = view.vertices.filter((vertex, id) =>
         vertex && (view.showSuperStructure || !view.superNodes.has(id)));
     const xs = activeVertices.map(v => v[0]);
@@ -108,6 +121,7 @@ export function showQuadMesh(canvas, overlay) {
     const view = views.get(canvas);
     if (!view) return;
     view.readOnly = true;
+    view.viewMode = "quad";
     view.tool = "select";
     view.constraintStart = null;
     view.polylineNodes = [];
@@ -124,12 +138,35 @@ export function hideQuadMesh(canvas) {
     const view = views.get(canvas);
     if (!view) return;
     view.readOnly = false;
+    view.viewMode = "edit";
     view.quadVertices = [];
     view.quads = [];
     view.quadTriangles = [];
     view.quadEdgeFlips = 0;
     view.message = null;
     changed(view);
+}
+
+export function show3DView(canvas) {
+    const view = views.get(canvas);
+    if (!view) return;
+    view.readOnly = true;
+    view.viewMode = "3d";
+    view.tool = "select";
+    view.selections.clear();
+    view.hover = null;
+    view.message = "Elevation is shown as Z";
+    fit3D(view);
+    changed(view);
+}
+
+export function hide3DView(canvas) {
+    const view = views.get(canvas);
+    if (!view) return;
+    view.readOnly = false;
+    view.viewMode = "edit";
+    view.message = null;
+    fit(canvas);
 }
 
 export async function undo(canvas) {
@@ -186,17 +223,18 @@ export async function updateSelectedNodeProperty(canvas, nodeIds, propertyName, 
     });
 }
 
-export async function refineSelectedFaces(canvas) {
+export async function refineSelectedFaces(canvas, refineLand, refineLakes) {
     const view = views.get(canvas);
     if (!view || view.readOnly) return;
     const faceIds = [...view.selections.values()]
         .filter(item => item.type === "face")
         .map(item => item.id);
-    if (!faceIds.length) return;
     return enqueueMutation(view, async () => {
-        const mesh = await view.dotnet.invokeMethodAsync("RefineFaces", faceIds);
+        const mesh = faceIds.length
+            ? await view.dotnet.invokeMethodAsync("RefineFaces", faceIds, refineLand, refineLakes)
+            : await view.dotnet.invokeMethodAsync("RefineAll", refineLand, refineLakes);
         applyMesh(view, mesh);
-        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Selected faces could not be refined";
+        view.message = mesh.succeeded ? null : mesh.failureReason ?? "Mesh could not be refined";
         changed(view);
     });
 }
@@ -221,6 +259,11 @@ export function dispose(canvas) {
 
 function onWheel(view, event) {
     event.preventDefault();
+    if (view.viewMode === "3d") {
+        view.zoom = clamp(view.zoom * Math.exp(-event.deltaY * .0015), .05, 100);
+        changed(view);
+        return;
+    }
     const p = localPoint(view.canvas, event);
     zoomAround(view, p.x, p.y, Math.exp(-event.deltaY * .0015));
 }
@@ -229,6 +272,7 @@ function onPointerDown(view, event) {
     if (event.button !== 0 && event.button !== 1) return;
     event.preventDefault();
     view.canvas.focus();
+    view.rotating = view.viewMode === "3d" && event.button === 0;
     view.dragging = event.button === 1;
     view.selecting = event.button === 0;
     view.pointerId = event.pointerId;
@@ -238,7 +282,7 @@ function onPointerDown(view, event) {
     view.downY = event.clientY;
     view.moved = false;
     view.canvas.setPointerCapture(event.pointerId);
-    if (view.dragging) view.canvas.classList.add("dragging");
+    if (view.dragging || view.rotating) view.canvas.classList.add("dragging");
 }
 
 function onPointerMove(view, event) {
@@ -248,7 +292,13 @@ function onPointerMove(view, event) {
     view.y = world.y;
     if (event.pointerId === view.pointerId &&
         (event.clientX - view.downX) ** 2 + (event.clientY - view.downY) ** 2 > 16) view.moved = true;
-    if (view.dragging && event.pointerId === view.pointerId) {
+    if (view.rotating && event.pointerId === view.pointerId) {
+        view.yaw += (event.clientX - view.lastX) * .008;
+        view.pitch = clamp(view.pitch + (event.clientY - view.lastY) * .008, -.05, Math.PI / 2 - .05);
+        view.lastX = event.clientX;
+        view.lastY = event.clientY;
+        draw(view);
+    } else if (view.dragging && event.pointerId === view.pointerId) {
         view.hoverLookupVersion++;
         view.hoverPoint = null;
         setHover(view, null);
@@ -266,8 +316,9 @@ function onPointerMove(view, event) {
 
 function onPointerUp(view, event) {
     if (event.pointerId !== view.pointerId) return;
-    const shouldSelect = view.selecting && !view.moved;
+    const shouldSelect = view.selecting && !view.moved && view.viewMode !== "3d";
     view.dragging = false;
+    view.rotating = false;
     view.selecting = false;
     view.pointerId = null;
     view.canvas.classList.remove("dragging");
@@ -701,6 +752,10 @@ function draw(view) {
     ctx.clearRect(0, 0, view.width, view.height);
     ctx.fillStyle = "#080d18";
     ctx.fillRect(0, 0, view.width, view.height);
+    if (view.viewMode === "3d") {
+        draw3DMesh(view, ctx);
+        return;
+    }
     drawGrid(view, ctx);
     if (view.readOnly) { ctx.save(); ctx.globalAlpha = .32; }
     drawMesh(view, ctx);
@@ -737,6 +792,86 @@ function drawQuadOverlay(view, ctx) {
         ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function fit3D(view) {
+    const ids = view.vertices
+        .map((vertex, id) => vertex && (view.showSuperStructure || !view.superNodes.has(id)) ? id : -1)
+        .filter(id => id >= 0);
+    if (!ids.length || !view.width || !view.height) return;
+    const xs = ids.map(id => view.vertices[id][0]);
+    const ys = ids.map(id => view.vertices[id][1]);
+    const zs = ids.map(id => view.nodeElevations[id] ?? 0);
+    view.threeDCenter = {
+        x: (Math.min(...xs) + Math.max(...xs)) / 2,
+        y: (Math.min(...ys) + Math.max(...ys)) / 2,
+        z: (Math.min(...zs) + Math.max(...zs)) / 2
+    };
+    const raw = ids.map(id => project3DRaw(view, id));
+    const minX = Math.min(...raw.map(p => p.x)), maxX = Math.max(...raw.map(p => p.x));
+    const minY = Math.min(...raw.map(p => p.y)), maxY = Math.max(...raw.map(p => p.y));
+    const padding = Math.min(80, Math.min(view.width, view.height) * .14);
+    view.zoom = clamp(Math.min(
+        (view.width - padding * 2) / (Math.max(maxX - minX, .01) * baseScale),
+        (view.height - padding * 2) / (Math.max(maxY - minY, .01) * baseScale)), .05, 100);
+    const scale = baseScale * view.zoom;
+    view.ox = view.width / 2 - (minX + maxX) * scale / 2;
+    view.oy = view.height / 2 + (minY + maxY) * scale / 2;
+}
+
+function project3DRaw(view, id) {
+    const vertex = view.vertices[id];
+    const center = view.threeDCenter ?? { x: 0, y: 0, z: 0 };
+    const dx = vertex[0] - center.x;
+    const dy = vertex[1] - center.y;
+    const dz = (view.nodeElevations[id] ?? 0) - center.z;
+    const cosY = Math.cos(view.yaw), sinY = Math.sin(view.yaw);
+    const cosP = Math.cos(view.pitch), sinP = Math.sin(view.pitch);
+    const rx = cosY * dx - sinY * dy;
+    const ry = sinY * dx + cosY * dy;
+    return { x: rx, y: cosP * ry - sinP * dz, depth: sinP * ry + cosP * dz };
+}
+
+function project3D(view, id) {
+    const p = project3DRaw(view, id);
+    const scale = baseScale * view.zoom;
+    return { x: view.ox + p.x * scale, y: view.oy - p.y * scale, depth: p.depth };
+}
+
+function draw3DMesh(view, ctx) {
+    const faces = view.triangles
+        .map((triangle, index) => ({ triangle, index, points: triangle.map(id => project3D(view, id)) }))
+        .filter(face => view.showSuperStructure || !view.superFaces.has(face.index))
+        .sort((a, b) => a.points.reduce((sum, p) => sum + p.depth, 0) -
+                        b.points.reduce((sum, p) => sum + p.depth, 0));
+
+    ctx.save();
+    ctx.lineJoin = "round";
+    for (const face of faces) {
+        const [a, b, c] = face.points;
+        const kind = view.faceKinds[face.index];
+        const shade = clamp(.42 + (a.depth + b.depth + c.depth) * .018, .26, .72);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.closePath();
+        ctx.fillStyle = kind === "Lake"
+            ? `rgba(14, 165, 233, ${shade})`
+            : kind === "Island"
+                ? `rgba(34, 197, 94, ${shade})`
+                : `rgba(100, 116, 139, ${shade * .65})`;
+        ctx.strokeStyle = view.superFaces.has(face.index) ? "#6d5ba8" : "rgba(207, 250, 254, .72)";
+        ctx.lineWidth = 1.1;
+        ctx.fill();
+        ctx.stroke();
+    }
+    for (const edges of [view.loopEdges, view.constraintEdges]) {
+        ctx.strokeStyle = edges === view.loopEdges ? "#34d399" : "#f472b6";
+        ctx.lineWidth = 2.2;
+        for (const [start, end] of edges) {
+            const a = project3D(view, start), b = project3D(view, end);
+            line(ctx, a.x, a.y, b.x, b.y);
+        }
     }
     ctx.restore();
 }

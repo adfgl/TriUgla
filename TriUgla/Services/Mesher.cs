@@ -45,8 +45,7 @@ public sealed class Mesher
             _locator,
             _edgeLegalizer,
             splitter,
-            _nodeInserter,
-            Traversal);
+            _nodeInserter);
     }
 
     public Mesh Mesh => _mesh;
@@ -80,6 +79,7 @@ public sealed class Mesher
     public RemoveNodeResult Remove(Node node)
     {
         ArgumentNullException.ThrowIfNull(node);
+        if (node.Kind == NodeKind.Super) return RemoveNodeResult.Failed(node);
         RemoveNodeResult result = _nodeRemover.Remove(node);
         if (result.Removed)
         {
@@ -116,6 +116,19 @@ public sealed class Mesher
         FaceRanker ranker,
         in RefineSettings settings,
         CancellationToken cancellationToken)
+        => RefineDetailed(faces, ranker, in settings, cancellationToken).InsertedNodes;
+
+    public RefineResult RefineDetailed(
+        FaceRanker ranker,
+        in RefineSettings settings,
+        CancellationToken cancellationToken = default)
+        => RefineDetailed(Traversal.Faces(), ranker, in settings, cancellationToken);
+
+    public RefineResult RefineDetailed(
+        IEnumerable<Face> faces,
+        FaceRanker ranker,
+        in RefineSettings settings,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(faces);
         ArgumentNullException.ThrowIfNull(ranker);
@@ -123,27 +136,10 @@ public sealed class Mesher
         ClassifyFaces();
         Face[] selected = faces.ToArray();
         cancellationToken.ThrowIfCancellationRequested();
-        int inserted = _refiner.Refine(selected, ranker, in settings, cancellationToken);
+        RefineResult result = _refiner.RefineDetailed(
+            selected, ranker, in settings, cancellationToken);
         SynchronizeTopology();
-        return inserted;
-    }
-
-    public async ValueTask<int> RefineAsync(
-        FaceRanker ranker,
-        RefineSettings settings,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(ranker);
-        ClassifyFaces();
-        Face[] selected = Traversal.Faces().ToArray();
-        cancellationToken.ThrowIfCancellationRequested();
-        int inserted = await _refiner.RefineAsync(
-            selected,
-            ranker,
-            settings,
-            cancellationToken);
-        SynchronizeTopology();
-        return inserted;
+        return result;
     }
 
     public bool TryInsertConstraint(ConstraintPoint point, out string? reason)
@@ -467,20 +463,29 @@ public sealed class Mesher
     {
         foreach (Node node in nodes)
         {
+            if (node.PromotedForInsertion && !node.Constrained)
+            {
+                node.ReleaseInsertionRole();
+                continue;
+            }
             if (!ShouldRemoveInsertionSteiner(node)) continue;
             ConstrainedSpoke[] spokes = ConstrainedSpokes(node);
             if (spokes.Length == 0)
             {
-                Remove(node);
+                if (!Remove(node).Removed) node.ReleaseInsertionRole();
                 continue;
             }
             if (spokes.Length == 1)
             {
                 Release(spokes[0]);
-                Remove(node);
+                if (!Remove(node).Removed) node.ReleaseInsertionRole();
                 continue;
             }
-            if (spokes.Length != 2 || !CanDissolve(node, spokes[0], spokes[1])) continue;
+            if (spokes.Length != 2 || !CanDissolve(node, spokes[0], spokes[1]))
+            {
+                if (!node.Constrained) node.ReleaseInsertionRole();
+                continue;
+            }
 
             Node first = spokes[0].Other;
             Node second = spokes[1].Other;

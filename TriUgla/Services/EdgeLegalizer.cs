@@ -53,14 +53,13 @@ public sealed class EdgeLegalizer
             }
         }
 
-        return new EdgeLegalizationResult(
-            _affected.ToArray(),
-            _flips.ToArray());
+        return new EdgeLegalizationResult(_affected, _flips);
     }
 
     void AddAffected(Face face)
     {
-        if (_affectedSet.Add(face))
+        // we should revisit duplicates..
+        //if (_affectedSet.Add(face))
         {
             _affected.Add(face);
         }

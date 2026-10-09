@@ -12,6 +12,8 @@ public class RefineSettingsTests
         Assert.Equal(1e-4, settings.ImproveEps);
         Assert.False(settings.ContinueOnFaceStagnation);
         Assert.False(settings.UseSteinerBudget);
+        Assert.True(settings.RefineLand);
+        Assert.False(settings.RefineLakes);
     }
 
     [Fact]

@@ -41,13 +41,26 @@ internal sealed class InsertNodeCommand(EditorMeshModel model, Vec2 position, in
     public bool Undo() => model.RemovePoint(position, loopIndex);
 }
 
-internal sealed class RemoveNodeCommand(EditorMeshModel model, Vec2 position, int? loopIndex = null)
-    : IEditorCommand
+internal sealed class RemoveNodeCommand(
+    EditorMeshModel model,
+    Vec2 position,
+    int? loopIndex = null,
+    bool allowAlreadyRemoved = false) : IEditorCommand
 {
+    bool _removed;
     public int? ChangedNodeId => model.NodeIdAt(position);
     public int? LoopIndex => loopIndex;
-    public bool Execute() => model.RemovePoint(position, loopIndex);
-    public bool Undo() => model.InsertPoint(position, loopIndex);
+    public bool Execute()
+    {
+        if (model.NodeIdAt(position) is null)
+        {
+            _removed = false;
+            return allowAlreadyRemoved;
+        }
+        _removed = model.RemovePoint(position, loopIndex);
+        return _removed;
+    }
+    public bool Undo() => !_removed || model.InsertPoint(position, loopIndex);
 }
 
 internal sealed class UpdateNodeDataCommand(

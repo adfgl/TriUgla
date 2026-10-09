@@ -167,6 +167,27 @@ public class MesherTests
             node => node.Kind == NodeKind.SteinerInsertion);
     }
 
+    [Theory]
+    [InlineData(NodeKind.SteinerRefinement)]
+    [InlineData(NodeKind.Normal)]
+    public void ConstraintInsertionTemporarilyPromotesExistingNodeKind(NodeKind originalKind)
+    {
+        var mesher = new Mesher(new Vec2(-3, -2), new Vec2(3, 2), 4);
+        Node start = mesher.Insert(new Vec2(-2, 0)).Node!;
+        Node middle = mesher.Insert(Vec2.Zero).Node!;
+        Node end = mesher.Insert(new Vec2(2, 0)).Node!;
+        typeof(Node).GetProperty(nameof(Node.Kind))!
+            .SetValue(middle, originalKind);
+        var constraint = new ConstraintLine(start, end);
+
+        Assert.True(mesher.TryInsertConstraint(constraint, out string? insertReason), insertReason);
+        Assert.Equal(NodeKind.SteinerInsertion, middle.Kind);
+
+        Assert.True(mesher.TryRemoveConstraint(constraint, out string? removeReason), removeReason);
+        Assert.False(middle.Dead);
+        Assert.Equal(originalKind, middle.Kind);
+    }
+
     [Fact]
     public void InsertAndRemoveLoopTracksBoundaryEdges()
     {
@@ -233,6 +254,35 @@ public class MesherTests
         Assert.Contains(FaceKind.Outside, kinds);
         Assert.Contains(FaceKind.Island, kinds);
         Assert.DoesNotContain(FaceKind.Undefined, kinds);
+    }
+
+    [Fact]
+    public void RepeatedRectangleRefinementDoesNotInsertMoreNodes()
+    {
+        var mesher = new Mesher(new Vec2(-1, -1), new Vec2(3, 2), 4);
+        Node[] corners =
+        [
+            mesher.Insert(new Vec2(0, 0)).Node!,
+            mesher.Insert(new Vec2(2, 0)).Node!,
+            mesher.Insert(new Vec2(2, 1)).Node!,
+            mesher.Insert(new Vec2(0, 1)).Node!
+        ];
+        foreach (Node node in corners)
+        {
+            node.Data = node.Data with { Area = 0.001 };
+        }
+        Assert.True(mesher.TryInsertLoop(new Loop(corners), out string? reason), reason);
+        var ranker = new FaceRanker();
+        RefineSettings settings = RefineSettings.Default;
+
+        int first = mesher.Refine(ranker, settings);
+        int second = mesher.Refine(ranker, settings);
+
+        Assert.True(first > 1_000);
+        Assert.Equal(0, second);
+        Assert.DoesNotContain(
+            mesher.Traversal.Faces(),
+            face => face.Kind == FaceKind.Island && ranker.Rank(face) > 0);
     }
 
     [Fact]

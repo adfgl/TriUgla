@@ -15,122 +15,116 @@ public sealed class MeshRefiner(
     MeshLocator locator,
     EdgeLegalizer legalizer,
     Splitter splitter,
-    NodeInserter nodeInserter,
-    MeshTraversal traversal)
+    NodeInserter nodeInserter)
 {
     readonly HashSet<Edge> _segments = new(ReferenceEqualityComparer.Instance);
+    readonly HashSet<SegmentKey> _segmentKeys = new(SegmentKeyComparer.Instance);
     readonly Queue<Edge> _edgeQueue = new();
     readonly HashSet<Edge> _queuedEdges = new(ReferenceEqualityComparer.Instance);
     readonly Queue<Face> _faceQueue = new();
     readonly HashSet<Face> _queuedFaces = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<Face, FaceProgress> _faceProgress = new(ReferenceEqualityComparer.Instance);
+    readonly HashSet<Face> _domainFaces = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<FaceFailureKey, int> _unchangedFailures = new(FaceFailureKeyComparer.Instance);
+    int _refining;
 
     public int Refine(
         IEnumerable<Face> faces,
         FaceRanker ranker,
         in RefineSettings settings)
-        => Refine(faces, ranker, in settings, CancellationToken.None);
+        => RefineDetailed(faces, ranker, in settings, CancellationToken.None).InsertedNodes;
 
     public int Refine(
         IEnumerable<Face> faces,
         FaceRanker ranker,
         in RefineSettings settings,
         CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(faces);
-        ArgumentNullException.ThrowIfNull(ranker);
-        Validate(settings);
-        Clear();
-        FillQueues(faces, ranker, settings);
+        => RefineDetailed(faces, ranker, in settings, cancellationToken).InsertedNodes;
 
-        int inserted = 0;
-        while ((_edgeQueue.Count > 0 || _faceQueue.Count > 0) &&
-               (!settings.UseSteinerBudget || inserted < settings.MaxSteiners))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (TryDequeueEdge(out Edge edge))
-            {
-                if (ProcessEncroachedSegment(edge, ranker, settings)) inserted++;
-                continue;
-            }
-
-            if (TryDequeueFace(out Face face) && ProcessBadFace(face, ranker, settings))
-            {
-                inserted++;
-            }
-        }
-        return inserted;
-    }
-
-    public async ValueTask<int> RefineAsync(
+    public RefineResult RefineDetailed(
         IEnumerable<Face> faces,
         FaceRanker ranker,
-        RefineSettings settings,
+        in RefineSettings settings,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(faces);
         ArgumentNullException.ThrowIfNull(ranker);
         Validate(settings);
-        Clear();
-        FillQueues(faces, ranker, settings);
-
-        int inserted = 0;
-        int operations = 0;
-        while ((_edgeQueue.Count > 0 || _faceQueue.Count > 0) &&
-               (!settings.UseSteinerBudget || inserted < settings.MaxSteiners))
+        EnterRefinement();
+        try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if ((++operations & 31) == 0)
-            {
-                // Blazor WebAssembly normally shares the browser UI thread. Yielding
-                // periodically lets click events (especially Stop) run during refinement.
-                await Task.Yield();
-            }
+            Clear();
+            FillQueues(faces, ranker, settings, cancellationToken);
 
-            if (TryDequeueEdge(out Edge edge))
+            int inserted = 0;
+            while (true)
             {
-                if (ProcessEncroachedSegment(edge, ranker, settings)) inserted++;
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                if (settings.UseSteinerBudget && inserted >= settings.MaxSteiners &&
+                    (_edgeQueue.Count > 0 || _faceQueue.Count > 0))
+                    return Result(RefineStatus.SteinerBudgetReached, inserted, ranker, settings,
+                        "The configured Steiner-node budget was reached before refinement completed.");
 
-            if (TryDequeueFace(out Face face) && ProcessBadFace(face, ranker, settings))
-            {
-                inserted++;
+                if (TryDequeueEdge(out Edge edge))
+                {
+                    if (ProcessEncroachedSegment(edge, ranker, settings)) inserted++;
+                    continue;
+                }
+
+                if (TryDequeueFace(out Face face))
+                {
+                    FaceProcessResult processed = TryProcessBadFace(face, ranker, settings);
+                    if (processed == FaceProcessResult.Inserted) inserted++;
+                    else if (processed == FaceProcessResult.Stagnated)
+                        return Result(RefineStatus.NumericalStagnation, inserted, ranker, settings,
+                            "A bad face repeatedly failed without a topology change.");
+                    continue;
+                }
+
+                if (Reconcile(ranker, settings, cancellationToken) == 0)
+                    return Result(RefineStatus.Completed, inserted, ranker, settings, null);
             }
         }
-        return inserted;
+        finally
+        {
+            ExitRefinement();
+        }
     }
 
     public bool ProcessBadFace(Face face, FaceRanker ranker, in RefineSettings settings)
+        => TryProcessBadFace(face, ranker, settings) == FaceProcessResult.Inserted;
+
+    FaceProcessResult TryProcessBadFace(Face face, FaceRanker ranker, in RefineSettings settings)
     {
         ArgumentNullException.ThrowIfNull(face);
         ArgumentNullException.ThrowIfNull(ranker);
-        if (!Processable(face)) return false;
+        if (!Processable(face, settings)) return FaceProcessResult.Ignored;
 
         double badness = ranker.Rank(face);
-        if (badness <= 0d) return false;
-        if (!ShouldProcessFace(face, badness, settings)) return false;
-        if (!TryCircumcenter(face, out Vec2 candidate)) return false;
+        if (!IsBad(badness)) return FaceProcessResult.Ignored;
+        if (!TryCircumcenter(face, out Vec2 candidate))
+            return RecordFailure(face, FaceFailureReason.NonFiniteCandidate, settings);
 
         LocateResult hit = locator.Locate(candidate, face);
         // A numerically degenerate face can yield a finite circumcenter just
         // outside the represented topology. It is not a fatal mesh error: leave
         // the face unchanged and let progress policy decide future attempts.
-        if (hit.IsEmpty) return false;
+        if (hit.IsEmpty) return RecordFailure(face, FaceFailureReason.OutsideTopology, settings);
+        if (hit.IsNode) return RecordFailure(face, FaceFailureReason.ExistingNode, settings);
 
         if (EnqueueEncroached(candidate) > 0)
         {
             EnqueueFace(face);
-            return false;
+            return FaceProcessResult.Deferred;
         }
 
         InsertNodeResult insertion = nodeInserter.Insert(candidate, face);
         TopologyChange? change = insertion.FaceSplit?.Change ?? insertion.EdgeSplit?.Change;
-        if (change is null) return false;
+        if (change is null) return RecordFailure(face, FaceFailureReason.NoTopologyChange, settings);
         insertion.Node!.Kind = NodeKind.SteinerRefinement;
 
         DrainAffected(change.Value, ranker, settings);
-        return true;
+        return FaceProcessResult.Inserted;
     }
 
     public bool ProcessEncroachedSegment(
@@ -154,9 +148,11 @@ public sealed class MeshRefiner(
                 edge.NodeEnd.Data,
                 default);
 
+        var originalSegment = new SegmentKey(edge.NodeStart, edge.NodeEnd);
         EdgeSplitResult split = splitter.Split(edge, node);
         _segments.Remove(edge);
         if (edge.Twin is not null) _segments.Remove(edge.Twin);
+        _segmentKeys.Remove(originalSegment);
         AddSegment(split.FirstHalf);
         AddSegment(split.SecondHalf);
 
@@ -171,11 +167,13 @@ public sealed class MeshRefiner(
 
     public bool Encroached(Edge edge)
     {
-        foreach (Node node in traversal.Nodes())
+        foreach (Edge incident in IncidentEdges(edge.NodeStart))
         {
-            if (!edge.Contains(node) &&
-                Encroached(edge, node.Position) &&
-                VisibleFromInterior(edge, node.Position)) return true;
+            if (EncroachedBy(edge, incident.NodeEnd)) return true;
+        }
+        foreach (Edge incident in IncidentEdges(edge.NodeEnd))
+        {
+            if (EncroachedBy(edge, incident.NodeEnd)) return true;
         }
         return false;
     }
@@ -183,34 +181,33 @@ public sealed class MeshRefiner(
     public bool Encroached(Edge edge, Vec2 point)
         => geometry.InDiameterCircle(edge.NodeStart, edge.NodeEnd, point);
 
-    void FillQueues(IEnumerable<Face> faces, FaceRanker ranker, in RefineSettings settings)
+    void FillQueues(
+        IEnumerable<Face> faces,
+        FaceRanker ranker,
+        in RefineSettings settings,
+        CancellationToken cancellationToken)
     {
         foreach (Face face in faces)
         {
-            if (Processable(face))
+            cancellationToken.ThrowIfCancellationRequested();
+            _domainFaces.Add(face);
+            if (Processable(face, settings))
             {
                 double badness = ranker.Rank(face);
-                if (badness > 0d) EnqueueFace(face);
+                if (IsBad(badness)) EnqueueFace(face);
             }
 
-        }
-
-        // Segment protection is global even when callers refine only a subset of
-        // faces. A rejected circumcenter may encroach any visible PSLG subsegment,
-        // including one whose incident faces were not selected for quality work.
-        foreach (Edge edge in traversal.Edges())
-        {
-            if (!edge.OrTwinConstrained || !AddSegment(edge)) continue;
-            if (EncroachedInvariant(edge)) EnqueueEdge(edge);
+            foreach (Edge edge in face.Edges)
+            {
+                if (!edge.OrTwinConstrained || !AddSegment(edge)) continue;
+                if (EncroachedInvariant(edge)) EnqueueEdge(edge);
+            }
         }
     }
 
     bool AddSegment(Edge edge)
     {
-        foreach (Edge existing in _segments)
-        {
-            if (existing.Contains(edge.NodeStart) && existing.Contains(edge.NodeEnd)) return false;
-        }
+        if (!_segmentKeys.Add(new SegmentKey(edge.NodeStart, edge.NodeEnd))) return false;
         return _segments.Add(edge);
     }
 
@@ -233,50 +230,34 @@ public sealed class MeshRefiner(
         foreach (Edge other in _segments)
         {
             if (SameOrAdjacent(edge, other)) continue;
-            if (Intersection.Intersect(
+            if (geometry.Intersects(
                     other.NodeStart.Position,
                     other.NodeEnd.Position,
                     midpoint,
-                    point,
-                    out _)) return false;
+                    point) >= 0) return false;
         }
         return true;
     }
 
     void DrainAffected(TopologyChange change, FaceRanker ranker, in RefineSettings settings)
     {
+        // Any successful topology mutation is genuine progress. Previously
+        // recorded failure signatures no longer describe the current mesh.
+        _unchangedFailures.Clear();
         var illegalEdges = new Queue<Edge>(change.EdgesToLegalize.Where(edge => !edge.Dead));
         EdgeLegalizationResult legalization = legalizer.Legalize(illegalEdges);
 
-        foreach (Face face in change.AffectedFaces.Concat(legalization.AffectedFaces))
+        var affected = new HashSet<Face>(ReferenceEqualityComparer.Instance);
+        affected.UnionWith(change.AffectedFaces);
+        affected.UnionWith(legalization.AffectedFaces);
+
+        foreach (Face face in affected)
         {
-            if (!Processable(face)) continue;
+            _domainFaces.Add(face);
+            if (!Processable(face, settings)) continue;
             double badness = ranker.Rank(face);
-            if (badness > 0d) EnqueueFace(face);
+            if (IsBad(badness)) EnqueueFace(face);
         }
-    }
-
-    bool ShouldProcessFace(Face face, double badness, in RefineSettings settings)
-    {
-        // Record progress only when a face is actually dequeued. Queue discovery
-        // must not consume its first attempt. Face objects are intentionally reused
-        // by topology operations, so an improvement resets their stagnation count.
-        if (!_faceProgress.TryGetValue(face, out FaceProgress progress))
-        {
-            _faceProgress.Add(face, new FaceProgress(badness, 0));
-            return true;
-        }
-
-        if (badness + settings.ImproveEps < progress.BestBadness)
-        {
-            _faceProgress[face] = new FaceProgress(badness, 0);
-            return true;
-        }
-
-        progress = progress with { Stagnation = progress.Stagnation + 1 };
-        _faceProgress[face] = progress;
-        return settings.ContinueOnFaceStagnation ||
-               progress.Stagnation <= settings.FaceStagnationBudget;
     }
 
     bool EnqueueEdge(Edge edge)
@@ -318,12 +299,110 @@ public sealed class MeshRefiner(
     void Clear()
     {
         _segments.Clear();
+        _segmentKeys.Clear();
         _edgeQueue.Clear();
         _queuedEdges.Clear();
         _faceQueue.Clear();
         _queuedFaces.Clear();
-        _faceProgress.Clear();
+        _domainFaces.Clear();
+        _unchangedFailures.Clear();
     }
+
+    int Reconcile(
+        FaceRanker ranker,
+        in RefineSettings settings,
+        CancellationToken cancellationToken)
+    {
+        int discovered = 0;
+        foreach (Edge edge in _segments.ToArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (edge.Dead || !edge.OrTwinConstrained) continue;
+            if (EncroachedInvariant(edge) && EnqueueEdge(edge)) discovered++;
+        }
+
+        foreach (Face face in _domainFaces.ToArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Processable(face, settings) || !IsBad(ranker.Rank(face))) continue;
+            if (_queuedFaces.Add(face))
+            {
+                _faceQueue.Enqueue(face);
+                discovered++;
+            }
+        }
+        return discovered;
+    }
+
+    FaceProcessResult RecordFailure(
+        Face face,
+        FaceFailureReason reason,
+        in RefineSettings settings)
+    {
+        var key = FaceFailureKey.From(face, reason);
+        int failures = _unchangedFailures.TryGetValue(key, out int count) ? count + 1 : 1;
+        _unchangedFailures[key] = failures;
+        return failures > settings.UnchangedFailureBudget
+            ? FaceProcessResult.Stagnated
+            : FaceProcessResult.Failed;
+    }
+
+    RefineResult Result(
+        RefineStatus status,
+        int inserted,
+        FaceRanker ranker,
+        in RefineSettings settings,
+        string? reason)
+    {
+        RefineSettings criteria = settings;
+        int badFaces = _domainFaces.Count(face =>
+            Processable(face, criteria) && IsBad(ranker.Rank(face)));
+        int encroached = _segments.Count(edge =>
+            !edge.Dead && edge.OrTwinConstrained && EncroachedInvariant(edge));
+        return new RefineResult(status, inserted, badFaces, encroached, reason);
+    }
+
+    bool EncroachedBy(Edge edge, Node node)
+        => !edge.Contains(node) &&
+           Encroached(edge, node.Position) &&
+           VisibleFromInterior(edge, node.Position);
+
+    static IEnumerable<Edge> IncidentEdges(Node node)
+    {
+        Edge first = node.Edge;
+        if (first is null) yield break;
+
+        Edge current = first;
+        bool closed = false;
+        do
+        {
+            yield return current;
+            Edge? next = current.Prev.Twin;
+            if (next is null) break;
+            current = next;
+            closed = ReferenceEquals(current, first);
+        }
+        while (!closed);
+
+        if (closed) yield break;
+
+        current = first;
+        while (current.Twin is not null)
+        {
+            current = current.Twin.Next;
+            if (ReferenceEquals(current, first)) yield break;
+            yield return current;
+        }
+    }
+
+    void EnterRefinement()
+    {
+        if (Interlocked.CompareExchange(ref _refining, 1, 0) != 0)
+            throw new InvalidOperationException(
+                "This mesh refiner is already running a refinement operation.");
+    }
+
+    void ExitRefinement() => Volatile.Write(ref _refining, 0);
 
     static Vec2 Candidate(Edge edge)
         => Vec2.Lerp(edge.NodeStart.Position, edge.NodeEnd.Position, 0.5d);
@@ -344,16 +423,72 @@ public sealed class MeshRefiner(
            first.Contains(second.NodeStart) ||
            first.Contains(second.NodeEnd);
 
-    static bool Processable(Face face)
-        => !face.Dead && face.Kind is FaceKind.Undefined or FaceKind.Island;
+    static bool Processable(Face face, in RefineSettings settings)
+        => !face.Dead && face.Kind switch
+        {
+            FaceKind.Undefined => true,
+            FaceKind.Island => settings.RefineLand,
+            FaceKind.Lake => settings.RefineLakes,
+            _ => false
+        };
+
+    static bool IsBad(double badness)
+        => double.IsFinite(badness) && badness > 0d;
 
     static void Validate(in RefineSettings settings)
     {
         if (settings.MaxSteiners < 0) throw new ArgumentOutOfRangeException(nameof(settings));
         if (settings.FaceStagnationBudget < 0) throw new ArgumentOutOfRangeException(nameof(settings));
+        if (settings.UnchangedFailureBudget < 0) throw new ArgumentOutOfRangeException(nameof(settings));
         if (!double.IsFinite(settings.ImproveEps) || settings.ImproveEps < 0d)
             throw new ArgumentOutOfRangeException(nameof(settings));
     }
 
-    readonly record struct FaceProgress(double BestBadness, int Stagnation);
+    enum FaceProcessResult { Ignored, Deferred, Failed, Inserted, Stagnated }
+    enum FaceFailureReason { NonFiniteCandidate, OutsideTopology, ExistingNode, NoTopologyChange }
+
+    readonly record struct FaceFailureKey(Node A, Node B, Node C, FaceFailureReason Reason)
+    {
+        public static FaceFailureKey From(Face face, FaceFailureReason reason)
+        {
+            Edge edge = face.Edge;
+            return new FaceFailureKey(edge.NodeStart, edge.NodeEnd, edge.Next.NodeEnd, reason);
+        }
+    }
+
+    sealed class FaceFailureKeyComparer : IEqualityComparer<FaceFailureKey>
+    {
+        public static readonly FaceFailureKeyComparer Instance = new();
+
+        public bool Equals(FaceFailureKey x, FaceFailureKey y)
+            => x.Reason == y.Reason && SameTriangle(x, y);
+
+        static bool SameTriangle(FaceFailureKey x, FaceFailureKey y)
+            => Contains(y, x.A) && Contains(y, x.B) && Contains(y, x.C);
+
+        static bool Contains(FaceFailureKey key, Node node)
+            => ReferenceEquals(key.A, node) || ReferenceEquals(key.B, node) ||
+               ReferenceEquals(key.C, node);
+
+        public int GetHashCode(FaceFailureKey key)
+            => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(key.A) ^
+               System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(key.B) ^
+               System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(key.C) ^
+               (int)key.Reason;
+    }
+
+    readonly record struct SegmentKey(Node First, Node Second);
+
+    sealed class SegmentKeyComparer : IEqualityComparer<SegmentKey>
+    {
+        public static readonly SegmentKeyComparer Instance = new();
+
+        public bool Equals(SegmentKey x, SegmentKey y)
+            => ReferenceEquals(x.First, y.First) && ReferenceEquals(x.Second, y.Second) ||
+               ReferenceEquals(x.First, y.Second) && ReferenceEquals(x.Second, y.First);
+
+        public int GetHashCode(SegmentKey key)
+            => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(key.First) ^
+               System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(key.Second);
+    }
 }

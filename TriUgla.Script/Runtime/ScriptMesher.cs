@@ -90,7 +90,7 @@ public static class ScriptMesher
             {
                 PreparedSurface prepared = PrepareSurface(geometry, surface, cancellationToken);
                 await Task.Yield();
-                int inserted = await RefineAsync(
+                int inserted = Refine(
                     prepared.Mesher,
                     geometry,
                     options,
@@ -207,10 +207,16 @@ public static class ScriptMesher
         CancellationToken cancellationToken)
     {
         (FaceRanker ranker, int budget) = RefinementPlan(geometry, options, positions);
-        return mesher.Refine(
+        RefineResult result = mesher.RefineDetailed(
             ranker,
             RefinementSettings(options, budget),
             cancellationToken);
+        if (!result.Completed)
+        {
+            throw new InvalidOperationException(
+                result.FailureReason ?? $"Refinement stopped with status {result.Status}.");
+        }
+        return result.InsertedNodes;
     }
 
     static (FaceRanker Ranker, int Budget) RefinementPlan(
@@ -238,23 +244,9 @@ public static class ScriptMesher
         return (ranker, budget);
     }
 
-    static async ValueTask<int> RefineAsync(
-        Mesher mesher,
-        GeometryModel geometry,
-        MeshScriptModel options,
-        IReadOnlyList<CurvePosition> positions,
-        CancellationToken cancellationToken)
-    {
-        (FaceRanker ranker, int budget) = RefinementPlan(geometry, options, positions);
-        return await mesher.RefineAsync(
-            ranker,
-            RefinementSettings(options, budget),
-            cancellationToken);
-    }
-
     static RefineSettings RefinementSettings(MeshScriptModel options, int defaultBudget)
     {
-        bool useBudget = Option(options, "RefinementUseBudget") != 0d;
+        bool useBudget = Option(options, "RefinementUseBudget") is double enabled && enabled != 0d;
         double? configuredBudget = Option(options, "RefinementSteinerBudget");
         int budget = defaultBudget;
         if (configuredBudget is double value)

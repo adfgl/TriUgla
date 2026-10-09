@@ -5,12 +5,14 @@ public readonly record struct RefineSettings(
     int FaceStagnationBudget,
     double ImproveEps,
     bool ContinueOnFaceStagnation = false,
-    bool UseSteinerBudget = true)
+    bool UseSteinerBudget = true,
+    bool RefineLand = true,
+    bool RefineLakes = false,
+    int UnchangedFailureBudget = 1)
 {
     /// <summary>
-    /// When true, refinement does not suppress faces whose measured quality has
-    /// stopped improving. Cancellation, and the optional Steiner budget, remain
-    /// the explicit safety stops.
+    /// Retained for source compatibility. Refinement no longer uses face-object
+    /// quality trends as a termination condition.
     /// </summary>
     public bool ContinueOnFaceStagnation { get; init; } = ContinueOnFaceStagnation;
 
@@ -21,10 +23,25 @@ public readonly record struct RefineSettings(
     /// </summary>
     public bool UseSteinerBudget { get; init; } = UseSteinerBudget;
 
+    /// <summary>Includes classified land/island faces in quality refinement.</summary>
+    public bool RefineLand { get; init; } = RefineLand;
+
+    /// <summary>Includes classified lake faces in quality refinement.</summary>
+    public bool RefineLakes { get; init; } = RefineLakes;
+
+    /// <summary>
+    /// Number of retries allowed when the same geometric face fails without any
+    /// intervening topology change.
+    /// </summary>
+    public int UnchangedFailureBudget { get; init; } = UnchangedFailureBudget;
+
     public static readonly RefineSettings Default = new(
         1_000_000,
         8,
         1e-4,
         false,
-        false);
+        false,
+        true,
+        false,
+        1);
 }

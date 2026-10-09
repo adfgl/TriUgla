@@ -101,6 +101,20 @@ public class EditorPolylineTests
     }
 
     [Fact]
+    public void RefineAllRefinesWithoutAFaceSelection()
+    {
+        var editor = new EditorMeshModel();
+        foreach (int nodeId in new[] { 4, 5, 6, 7 })
+            Assert.True(editor.UpdateNodeData(nodeId, 0, 0.5).Succeeded);
+        int before = editor.State().Nodes.Count;
+
+        MeshView refined = editor.RefineAll();
+
+        Assert.True(refined.Succeeded, refined.FailureReason);
+        Assert.True(refined.Nodes.Count > before);
+    }
+
+    [Fact]
     public void InsertedPolygonCanBeRemovedAndRestoredThroughHistory()
     {
         var editor = new EditorMeshModel();
@@ -541,7 +555,7 @@ public class EditorPolylineTests
     }
 
     [Fact]
-    public void RemovingGeneratedIntersectionExplainsHowToDeleteIt()
+    public void RemovingConstrainedGeneratedIntersectionIsRejected()
     {
         var editor = new EditorMeshModel();
         Assert.True(editor.InsertConstraint(4, 6).Succeeded);
@@ -552,7 +566,28 @@ public class EditorPolylineTests
         MeshView failed = editor.RemoveElements([], [intersection]);
 
         Assert.False(failed.Succeeded);
-        Assert.Contains("remove their constraints instead", failed.FailureReason);
+        Assert.Contains("ConstraintCount", failed.FailureReason);
+    }
+
+    [Fact]
+    public void UnconstrainedRefinementSteinerCanBeRemoved()
+    {
+        var editor = new EditorMeshModel();
+        MeshView inserted = editor.Insert(0, 0);
+        int id = Assert.IsType<int>(inserted.ChangedNodeId);
+        var ids = Assert.IsType<Dictionary<Node, int>>(
+            typeof(EditorMeshModel)
+                .GetField("_ids", System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(editor));
+        Node node = ids.Single(pair => pair.Value == id).Key;
+        typeof(Node).GetProperty(nameof(Node.Kind))!
+            .SetValue(node, NodeKind.SteinerRefinement);
+
+        MeshView removed = editor.RemoveElements([], [id]);
+
+        Assert.True(removed.Succeeded, removed.FailureReason);
+        Assert.DoesNotContain(removed.Nodes, candidate => candidate.Id == id);
     }
 
     static string[] ProjectedSegments(MeshView view)

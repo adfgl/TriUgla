@@ -60,6 +60,20 @@ public class NodeRemoverTests
         Assert.All(fixture.Faces, face => Assert.False(face.Dead));
     }
 
+    [Fact]
+    public void Remove_SuperNode_ReturnsFailureWithoutMutation()
+    {
+        Fixture fixture = CreateFixture();
+        typeof(Node).GetProperty(nameof(Node.Kind))!
+            .SetValue(fixture.Center, NodeKind.Super);
+
+        RemoveNodeResult result = new NodeRemover().Remove(fixture.Center);
+
+        Assert.False(result.Removed);
+        Assert.False(fixture.Center.Dead);
+        Assert.All(fixture.Faces, face => Assert.False(face.Dead));
+    }
+
     static void AssertTriangle(Face face)
     {
         Edge[] edges = face.Edges.ToArray();

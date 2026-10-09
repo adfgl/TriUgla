@@ -104,10 +104,14 @@ public sealed class EdgeInserter(
         readonly List<Node> _inserted = [];
         readonly HashSet<Face> _affected = [];
         readonly List<Edge> _toLegalize = [];
+        readonly Node _start;
+        readonly Node _end;
         int _operations;
 
         public Insertion(Node start, Node end, EdgeConstraintKind kind)
         {
+            _start = start;
+            _end = end;
             _kind = kind;
             Enqueue(start, end);
         }
@@ -126,7 +130,15 @@ public sealed class EdgeInserter(
         public void Constrain(Edge edge)
         {
             edge.Constrain(_kind);
+            PromoteIntermediate(edge.NodeStart);
+            PromoteIntermediate(edge.NodeEnd);
             _constrained.Add(edge);
+        }
+
+        void PromoteIntermediate(Node node)
+        {
+            if (!ReferenceEquals(node, _start) && !ReferenceEquals(node, _end))
+                node.PromoteForInsertion();
         }
 
         public void RecordSplit(Node node, TopologyChange change)

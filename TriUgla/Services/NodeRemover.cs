@@ -27,7 +27,7 @@ public sealed class NodeRemover
     static bool TryCollectCavity(Node node, out Cavity cavity)
     {
         cavity = default;
-        if (node.Dead || node.Constrained || node.Edge is null)
+        if (node.Dead || node.Kind == NodeKind.Super || node.Constrained || node.Edge is null)
         {
             return false;
         }

@@ -108,7 +108,10 @@ public sealed partial class EditorMeshModel
         return Snapshot(updated, distinctIds.Length == 1 ? distinctIds[0] : null);
     }
 
-    public MeshView RefineFaces(IReadOnlyList<int> faceIds)
+    public MeshView RefineFaces(
+        IReadOnlyList<int> faceIds,
+        bool refineLand = true,
+        bool refineLakes = false)
     {
         ArgumentNullException.ThrowIfNull(faceIds);
         Face[] faces = _mesher.Traversal.Faces().Where(face => !face.Dead).ToArray();
@@ -126,12 +129,11 @@ public sealed partial class EditorMeshModel
 
         try
         {
-            var settings = RefineSettings.Default with
-            {
-                MaxSteiners = 1_000,
-                UseSteinerBudget = true
-            };
-            _mesher.Refine(distinctIds.Select(id => faces[id]), new FaceRanker(), settings);
+            RefineResult result = _mesher.RefineDetailed(
+                distinctIds.Select(id => faces[id]),
+                new FaceRanker(),
+                RefinementSettings(refineLand, refineLakes));
+            if (!result.Completed) return RefinementFailed(result);
             return Snapshot(true, null);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -139,6 +141,35 @@ public sealed partial class EditorMeshModel
             Fail($"Selected-face refinement failed: {exception.Message}");
             return Snapshot(false, null);
         }
+    }
+
+    public MeshView RefineAll(bool refineLand = true, bool refineLakes = false)
+    {
+        try
+        {
+            RefineResult result = _mesher.RefineDetailed(
+                new FaceRanker(), RefinementSettings(refineLand, refineLakes));
+            if (!result.Completed) return RefinementFailed(result);
+            return Snapshot(true, null);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            Fail($"Mesh refinement failed: {exception.Message}");
+            return Snapshot(false, null);
+        }
+    }
+
+    static RefineSettings RefinementSettings(bool refineLand, bool refineLakes)
+        => RefineSettings.Default with
+        {
+            RefineLand = refineLand,
+            RefineLakes = refineLakes
+        };
+
+    MeshView RefinementFailed(RefineResult result)
+    {
+        Fail(result.FailureReason ?? $"Refinement stopped with status {result.Status}.");
+        return Snapshot(false, null);
     }
 
     public MeshView RemoveElements(
@@ -169,8 +200,9 @@ public sealed partial class EditorMeshModel
         }
 
         RemoveNodeCommand[] nodes = selectedNodes
-            .Where(node => node.Kind is not NodeKind.SteinerInsertion and not NodeKind.SteinerRefinement)
-            .Select(node => CreateRemoveNodeCommand(Id(node)))
+            .Where(node => node.Kind != NodeKind.Super)
+            .Select(node => CreateRemoveNodeCommand(
+                Id(node), node.Kind == NodeKind.SteinerInsertion))
             .OfType<RemoveNodeCommand>()
             .OrderByDescending(command => command.LoopIndex ?? -1)
             .ToArray();
@@ -183,19 +215,20 @@ public sealed partial class EditorMeshModel
             .ToArray();
         if (commands.Length == 0)
         {
-            Fail("Generated Steiner nodes cannot be deleted directly; remove their constraints instead.");
+            Fail("Super-structure nodes cannot be removed.");
             return Snapshot(false, null);
         }
         bool removed = Execute(new CompositeEditorCommand(commands));
         return Snapshot(removed, null);
     }
 
-    RemoveNodeCommand? CreateRemoveNodeCommand(int nodeId)
+    RemoveNodeCommand? CreateRemoveNodeCommand(int nodeId, bool allowAlreadyRemoved = false)
     {
         Node? node = _ids.FirstOrDefault(pair => pair.Value == nodeId).Key;
         if (node is null || node.Dead) return null;
         int loopIndex = _loopPoints.IndexOf(node.Position);
-        return new RemoveNodeCommand(this, node.Position, loopIndex >= 0 ? loopIndex : null);
+        return new RemoveNodeCommand(
+            this, node.Position, loopIndex >= 0 ? loopIndex : null, allowAlreadyRemoved);
     }
 
     public MeshView InsertConstraint(int fromId, int toId)

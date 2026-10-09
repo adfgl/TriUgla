@@ -39,6 +39,22 @@ public class MeshRefinerTests
     }
 
     [Fact]
+    public void DetailedResultReportsBudgetExhaustionAsIncomplete()
+    {
+        Fixture fixture = CreateFixture();
+
+        RefineResult result = fixture.Refiner.RefineDetailed(
+            [fixture.Face],
+            AreaRanker(1),
+            new RefineSettings(0, 8, 1e-4));
+
+        Assert.Equal(RefineStatus.SteinerBudgetReached, result.Status);
+        Assert.False(result.Completed);
+        Assert.Equal(0, result.InsertedNodes);
+        Assert.Equal(1, result.RemainingBadFaces);
+    }
+
+    [Fact]
     public void RefineAlwaysAllowsFirstFaceAttemptWhenStagnationBudgetIsZero()
     {
         Fixture fixture = CreateFixture();
@@ -50,6 +66,101 @@ public class MeshRefinerTests
 
         Assert.Equal(1, inserted);
         Assert.Equal(4, fixture.Traversal.Nodes().Count());
+    }
+
+    [Fact]
+    public void RefineConsidersLandButNotLakesByDefault()
+    {
+        Fixture land = CreateFixture();
+        SetKind(land.Face, FaceKind.Island);
+        Fixture lake = CreateFixture();
+        SetKind(lake.Face, FaceKind.Lake);
+
+        int landInserted = land.Refiner.Refine(
+            [land.Face], AreaRanker(1), RefineSettings.Default);
+        int lakeInserted = lake.Refiner.Refine(
+            [lake.Face], AreaRanker(1), RefineSettings.Default);
+
+        Assert.Equal(1, landInserted);
+        Assert.Equal(0, lakeInserted);
+    }
+
+    [Fact]
+    public void RefineCanTargetLakesWithoutConsideringLand()
+    {
+        Fixture lake = CreateFixture();
+        SetKind(lake.Face, FaceKind.Lake);
+        RefineSettings settings = RefineSettings.Default with
+        {
+            RefineLand = false,
+            RefineLakes = true
+        };
+
+        int inserted = lake.Refiner.Refine([lake.Face], AreaRanker(1), settings);
+
+        Assert.Equal(1, inserted);
+    }
+
+    [Fact]
+    public void RefineConvergesInOneRunForNodeTargetAreas()
+    {
+        Fixture fixture = CreateFixture(new Vec2(1, Math.Sqrt(3)));
+        foreach (Edge edge in fixture.Face.Edges)
+        {
+            edge.Constrain(EdgeConstraintKind.Boundary);
+        }
+        foreach (Node node in fixture.Traversal.Nodes())
+        {
+            node.Data = node.Data with { Area = 0.05 };
+        }
+        var ranker = new FaceRanker();
+        ranker.Angle.Weight = 0;
+        var settings = new RefineSettings(10_000, 8, 1e-4);
+
+        int first = fixture.Refiner.Refine([fixture.Face], ranker, settings);
+        int second = fixture.Refiner.Refine(
+            fixture.Traversal.Faces().ToArray(), ranker, settings);
+
+        Assert.True(first > 0);
+        Assert.Equal(0, second);
+        Assert.All(fixture.Traversal.Faces(), face => Assert.Equal(0, ranker.Rank(face)));
+    }
+
+    [Fact]
+    public void DetailedResultConfirmsCompletedMeshIsIdempotent()
+    {
+        Fixture fixture = CreateFixture(new Vec2(1, Math.Sqrt(3)));
+        foreach (Edge edge in fixture.Face.Edges)
+            edge.Constrain(EdgeConstraintKind.Boundary);
+        foreach (Node node in fixture.Traversal.Nodes())
+            node.Data = node.Data with { Area = 0.05 };
+        var ranker = new FaceRanker();
+        ranker.Angle.Weight = 0;
+
+        RefineResult first = fixture.Refiner.RefineDetailed(
+            [fixture.Face], ranker, RefineSettings.Default);
+        RefineResult second = fixture.Refiner.RefineDetailed(
+            fixture.Traversal.Faces().ToArray(), ranker, RefineSettings.Default);
+
+        Assert.Equal(RefineStatus.Completed, first.Status);
+        Assert.Equal(0, first.RemainingBadFaces);
+        Assert.Equal(0, first.RemainingEncroachedSegments);
+        Assert.Equal(RefineStatus.Completed, second.Status);
+        Assert.Equal(0, second.InsertedNodes);
+    }
+
+    [Fact]
+    public void DetailedResultDoesNotClaimCompletionForUnchangedFailedGeometry()
+    {
+        Fixture fixture = CreateFixture();
+
+        RefineResult result = fixture.Refiner.RefineDetailed(
+            [fixture.Face], AreaRanker(0.1), RefineSettings.Default);
+
+        Assert.Equal(RefineStatus.NumericalStagnation, result.Status);
+        Assert.False(result.Completed);
+        Assert.True(result.RemainingBadFaces > 0);
+        Assert.NotNull(result.FailureReason);
     }
 
     [Fact]
@@ -178,19 +289,41 @@ public class MeshRefinerTests
     }
 
     [Fact]
-    public async Task RefineAsyncObservesCancellationBeforeProcessingWork()
+    public void RefineObservesCancellationWhenBudgetPreventsLoopEntry()
     {
         Fixture fixture = CreateFixture();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await fixture.Refiner.RefineAsync(
+        Assert.Throws<OperationCanceledException>(() => fixture.Refiner.Refine(
+            [fixture.Face],
+            AreaRanker(1),
+            new RefineSettings(0, 8, 1e-4),
+            cancellation.Token));
+        Assert.Single(fixture.Traversal.Faces());
+    }
+
+    [Fact]
+    public void RefineRejectsReentrantInvocation()
+    {
+        Fixture fixture = CreateFixture();
+
+        IEnumerable<Face> ReentrantFaces()
+        {
+            fixture.Refiner.Refine(
                 [fixture.Face],
                 AreaRanker(1),
-                new RefineSettings(10, 8, 1e-4),
-                cancellation.Token));
-        Assert.Single(fixture.Traversal.Faces());
+                new RefineSettings(0, 8, 1e-4));
+            yield return fixture.Face;
+        }
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            fixture.Refiner.Refine(
+                ReentrantFaces(),
+                AreaRanker(1),
+                new RefineSettings(0, 8, 1e-4)));
+
+        Assert.Contains("already running", error.Message);
     }
 
     static FaceRanker AreaRanker(double maxArea)
@@ -202,6 +335,9 @@ public class MeshRefinerTests
         ranker.Area.MaxArea = maxArea;
         return ranker;
     }
+
+    static void SetKind(Face face, FaceKind kind)
+        => typeof(Face).GetProperty(nameof(Face.Kind))!.SetValue(face, kind);
 
     static Fixture CreateFixture(Vec2? third = null)
     {
@@ -228,8 +364,7 @@ public class MeshRefinerTests
             locator,
             legalizer,
             splitter,
-            inserter,
-            traversal);
+            inserter);
         return new Fixture(face, traversal, refiner);
     }
 
