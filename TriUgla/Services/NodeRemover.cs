@@ -6,28 +6,16 @@ public sealed class NodeRemover
     {
         ArgumentNullException.ThrowIfNull(node);
 
-        if (!TryCollectCavity(node, out Cavity cavity) ||
-            !EarClipper.TryTriangulate(cavity.Nodes, out var triangles))
-        {
+        if (!TryCollectCavity(node, out Cavity cavity)) return RemoveNodeResult.Failed(node);
+        if (!EarClipper.TryTriangulate(cavity.BoundaryNodes, out var triangles))
             return RemoveNodeResult.Failed(node);
-        }
 
-        Face[] affectedFaces = RebuildCavity(cavity, triangles);
-        Face[] deadFaces = cavity.Faces.Skip(affectedFaces.Length).ToArray();
-        Edge[] deadEdges = cavity.RadialEdges.ToArray();
-
-        node.MarkDead();
-        foreach (Face face in deadFaces)
-        {
-            face.MarkDead();
-        }
-
-        foreach (Edge edge in deadEdges)
-        {
-            edge.MarkDead();
-        }
-
+        Face[] affectedFaces = Retriangulate(cavity, triangles);
+        Face[] deadFaces = [.. cavity.Faces[affectedFaces.Length..]];
+        Edge[] deadEdges = [.. cavity.RadialEdges];
+        Retire(node, deadFaces, deadEdges);
         Edge[] edgesToLegalize = CollectEdgesToLegalize(affectedFaces);
+
         return new RemoveNodeResult(
             true,
             node,
@@ -44,7 +32,7 @@ public sealed class NodeRemover
             return false;
         }
 
-        var nodes = new List<Node>();
+        var boundaryNodes = new List<Node>();
         var boundaryEdges = new List<Edge>();
         var faces = new List<Face>();
         var radialEdges = new HashSet<Edge>();
@@ -55,24 +43,10 @@ public sealed class NodeRemover
         do
         {
             if (!visited.Add(current) ||
-                current.Dead ||
-                !ReferenceEquals(current.NodeStart, node) ||
-                current.Twin is null ||
-                current.OrTwinConstrained ||
-                !IsTriangle(current))
-            {
+                !TryAdvance(node, current, out Edge boundary, out Edge incoming, out Edge next))
                 return false;
-            }
 
-            Edge boundary = current.Next;
-            Edge incoming = current.Prev;
-            Edge? next = incoming.Twin;
-            if (next is null || !ReferenceEquals(next.NodeStart, node))
-            {
-                return false;
-            }
-
-            nodes.Add(boundary.NodeStart);
+            boundaryNodes.Add(boundary.NodeStart);
             boundaryEdges.Add(boundary);
             faces.Add(current.Face);
             radialEdges.Add(current);
@@ -81,25 +55,45 @@ public sealed class NodeRemover
         }
         while (!ReferenceEquals(current, start));
 
-        if (nodes.Count < 3 || faces.Distinct().Count() != faces.Count)
-        {
-            return false;
-        }
+        if (boundaryNodes.Count < 3 || faces.Distinct().Count() != faces.Count) return false;
 
-        cavity = new Cavity(nodes, boundaryEdges, faces, radialEdges);
+        cavity = new Cavity(
+            boundaryNodes.ToArray(),
+            boundaryEdges.ToArray(),
+            faces.ToArray(),
+            radialEdges.ToArray());
         return true;
     }
 
-    static Face[] RebuildCavity(
+    static bool TryAdvance(
+        Node center,
+        Edge radial,
+        out Edge boundary,
+        out Edge incoming,
+        out Edge next)
+    {
+        boundary = null!;
+        incoming = null!;
+        next = null!;
+        if (radial.Dead ||
+            !ReferenceEquals(radial.NodeStart, center) ||
+            radial.Twin is null ||
+            radial.OrTwinConstrained ||
+            !IsTriangle(radial)) return false;
+
+        boundary = radial.Next;
+        incoming = radial.Prev;
+        Edge? candidate = incoming.Twin;
+        if (candidate is null || !ReferenceEquals(candidate.NodeStart, center)) return false;
+        next = candidate;
+        return true;
+    }
+
+    static Face[] Retriangulate(
         Cavity cavity,
         IReadOnlyList<TriangleIndices> triangles)
     {
-        var directedEdges = new Dictionary<(int Start, int End), Edge>();
-
-        for (int index = 0; index < cavity.Nodes.Count; index++)
-        {
-            directedEdges.Add((index, (index + 1) % cavity.Nodes.Count), cavity.BoundaryEdges[index]);
-        }
+        Dictionary<(int Start, int End), Edge> directedEdges = IndexBoundaryEdges(cavity);
 
         var affected = new Face[triangles.Count];
         for (int index = 0; index < triangles.Count; index++)
@@ -113,13 +107,28 @@ public sealed class NodeRemover
             Linker.LinkTriangle(
                 face,
                 ab, bc, ca,
-                cavity.Nodes[triangle.A],
-                cavity.Nodes[triangle.B],
-                cavity.Nodes[triangle.C]);
+                cavity.BoundaryNodes[triangle.A],
+                cavity.BoundaryNodes[triangle.B],
+                cavity.BoundaryNodes[triangle.C]);
             affected[index] = face;
         }
 
         return affected;
+    }
+
+    static Dictionary<(int Start, int End), Edge> IndexBoundaryEdges(Cavity cavity)
+    {
+        var edges = new Dictionary<(int Start, int End), Edge>();
+        for (int index = 0; index < cavity.BoundaryNodes.Length; index++)
+            edges.Add((index, (index + 1) % cavity.BoundaryNodes.Length), cavity.BoundaryEdges[index]);
+        return edges;
+    }
+
+    static void Retire(Node node, IEnumerable<Face> faces, IEnumerable<Edge> edges)
+    {
+        node.MarkDead();
+        foreach (Face face in faces) face.MarkDead();
+        foreach (Edge edge in edges) edge.MarkDead();
     }
 
     static Edge GetOrCreateEdge(
@@ -171,8 +180,8 @@ public sealed class NodeRemover
            ReferenceEquals(first.Prev.Next, first);
 
     readonly record struct Cavity(
-        IReadOnlyList<Node> Nodes,
-        IReadOnlyList<Edge> BoundaryEdges,
-        IReadOnlyList<Face> Faces,
-        IReadOnlySet<Edge> RadialEdges);
+        Node[] BoundaryNodes,
+        Edge[] BoundaryEdges,
+        Face[] Faces,
+        Edge[] RadialEdges);
 }

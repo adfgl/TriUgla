@@ -7,12 +7,24 @@ public class ConstraintTests
     [Fact]
     public void Constraints_StartWithEmptyCollections()
     {
-        var constraints = new Constraints();
+        IConstraints constraints = new Mesher(CreateTriangle()).Constraints;
 
         Assert.Empty(constraints.Points);
         Assert.Empty(constraints.Lines);
         Assert.Empty(constraints.Polylines);
         Assert.Empty(constraints.Loops);
+    }
+
+    static Face CreateTriangle()
+    {
+        Node a = NodeAt(0, 0);
+        Node b = NodeAt(1, 0);
+        Node c = NodeAt(0, 1);
+        var ab = new Edge();
+        var bc = new Edge();
+        var ca = new Edge();
+        Linker.LinkTriangle(new Face(), ab, bc, ca, a, b, c);
+        return ab.Face;
     }
 
     [Fact]

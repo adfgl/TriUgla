@@ -163,15 +163,19 @@ public sealed partial class EditorMeshModel
 
     internal bool RemoveLoopHandle(LoopHandle handle)
     {
-        Loop? loop = _mesher.Constraints.Loops.FirstOrDefault(candidate =>
-            candidate.Name == handle.Name && candidate.Nodes.Take(candidate.Nodes.Count - 1)
-                .Select(node => node.Position).SequenceEqual(handle.Points));
-        return loop is not null && _mesher.TryRemoveLoop(loop, out _);
+        Node[] nodes = handle.Points.Select(LiveNode).OfType<Node>().ToArray();
+        if (nodes.Length != handle.Points.Count)
+        {
+            Fail("A polygon point has no matching live node.");
+            return false;
+        }
+        if (_mesher.TryRemoveLoop(new Loop(nodes, handle.Name), out string? reason)) return true;
+        Fail(reason);
+        return false;
     }
 
     static bool Matches(EditorConstraint constraint, ConstraintHandle handle)
-        => constraint.Name == handle.Name &&
-           constraint.Lines.Select(line => (line.From.Position, line.To.Position))
+        => constraint.Lines.Select(line => (line.From.Position, line.To.Position))
                .SequenceEqual(handle.Paths.SelectMany(path => path.Points.Zip(path.Points.Skip(1),
                    (from, to) => (from, to)))) &&
            constraint.Points.Select(point => (point.Node.Position, point.Name))

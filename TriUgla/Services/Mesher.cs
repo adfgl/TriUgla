@@ -11,6 +11,7 @@ public sealed class Mesher
     readonly MeshRefiner _refiner;
     readonly GeometryPredicates _geometry;
     readonly SuperStructure? _superStructure;
+    readonly Constraints _constraints = new();
 
     public Mesher(Vec2 min, Vec2 max, int superStructureSideCount = 3)
         : this(SuperStructure.Make(min, max, superStructureSideCount))
@@ -53,7 +54,7 @@ public sealed class Mesher
     public MeshTraversal Traversal { get; }
     public GeometryPredicates Geometry => _geometry;
     public SuperStructure? SuperStructure => _superStructure;
-    public Constraints Constraints { get; } = new();
+    public IConstraints Constraints => _constraints;
 
     public LocateResult Locate(Vec2 point, Face? from = null)
         => _locator.Locate(point, from);
@@ -154,7 +155,7 @@ public sealed class Mesher
         try
         {
             point.Node.Constrain();
-            Constraints.Points.Add(point);
+            _constraints.Points.Add(point);
             reason = null;
             return true;
         }
@@ -174,7 +175,7 @@ public sealed class Mesher
         {
             InsertEdge(line.From, line.To, EdgeConstraintKind.Feature);
             AssertConstrainedPath(line.From, line.To, EdgeConstraintKind.Feature);
-            Constraints.Lines.Add(line);
+            _constraints.Lines.Add(line);
             reason = null;
             return true;
         }
@@ -188,13 +189,14 @@ public sealed class Mesher
     public bool TryRemoveConstraint(ConstraintPoint point, out string? reason)
     {
         ArgumentNullException.ThrowIfNull(point);
-        if (!Constraints.Points.Contains(point))
+        ConstraintPoint? registered = FindConstraintPoint(point);
+        if (registered is null)
             return Fail(out reason, $"Constraint point '{point.Name}' not found in mesh.");
-        if (!point.Node.Constrained)
+        if (!registered.Node.Constrained)
             return Fail(out reason, $"Constraint point '{point.Name}': node is not constrained.");
 
-        point.Node.Relax();
-        Constraints.Points.Remove(point);
+        registered.Node.Relax();
+        _constraints.Points.Remove(registered);
         reason = null;
         return true;
     }
@@ -202,19 +204,21 @@ public sealed class Mesher
     public bool TryRemoveConstraint(ConstraintLine line, out string? reason)
     {
         ArgumentNullException.ThrowIfNull(line);
-        if (!Constraints.Lines.Contains(line))
+        ConstraintLine? registered = FindConstraintLine(line);
+        if (registered is null)
             return Fail(out reason, $"Constraint line '{line.Name}' not found in mesh.");
 
-        if (!TryResolvePath(line, out List<Edge> path, out string? pathReason))
+        if (!TryResolvePath(registered, out List<Edge> path, out string? pathReason))
             return Fail(out reason, $"Constraint line '{line.Name}': {pathReason}");
         if (path.Count == 0)
             return Fail(out reason, $"Constraint line '{line.Name}': produced no edges.");
         if (path.Any(edge => !edge.HasFeature))
             return Fail(out reason, $"Constraint line '{line.Name}': edge in path has no Feature constraint.");
 
-        HashSet<Node> steinerNodes = CollectSteinerInsertions([path], [line.From, line.To]);
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(
+            [path], [registered.From, registered.To]);
         ReleasePaths([path], EdgeConstraintKind.Feature);
-        Constraints.Lines.Remove(line);
+        _constraints.Lines.Remove(registered);
         RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
@@ -238,7 +242,7 @@ public sealed class Mesher
         {
             for (int i = 0; i < polyline.Nodes.Count - 1; i++)
                 InsertEdge(polyline.Nodes[i], polyline.Nodes[i + 1], EdgeConstraintKind.Feature);
-            Constraints.Polylines.Add(polyline);
+            _constraints.Polylines.Add(polyline);
             reason = null;
             return true;
         }
@@ -252,13 +256,14 @@ public sealed class Mesher
     public bool TryRemovePolyline(Polyline polyline, out string? reason)
     {
         ArgumentNullException.ThrowIfNull(polyline);
-        int index = Constraints.Polylines.IndexOf(polyline);
-        if (index < 0) return Fail(out reason, $"{PolylineContext(polyline)} not found in mesh.");
+        Polyline? registered = FindPolyline(polyline);
+        if (registered is null)
+            return Fail(out reason, $"{PolylineContext(polyline)} not found in mesh.");
 
-        var paths = new List<List<Edge>>(polyline.Nodes.Count - 1);
-        for (int i = 0; i < polyline.Nodes.Count - 1; i++)
+        var paths = new List<List<Edge>>(registered.Nodes.Count - 1);
+        for (int i = 0; i < registered.Nodes.Count - 1; i++)
         {
-            var line = new ConstraintLine(polyline.Nodes[i], polyline.Nodes[i + 1]);
+            var line = new ConstraintLine(registered.Nodes[i], registered.Nodes[i + 1]);
             if (!TryResolvePath(line, out List<Edge> path, out string? pathReason))
                 return Fail(out reason, $"{PolylineContext(polyline)} segment[{i}]: {pathReason}");
             if (path.Count == 0 || path.Any(edge => !edge.HasFeature))
@@ -266,9 +271,9 @@ public sealed class Mesher
             paths.Add(path);
         }
 
-        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, polyline.Nodes);
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, registered.Nodes);
         ReleasePaths(paths, EdgeConstraintKind.Feature);
-        Constraints.Polylines.RemoveAt(index);
+        _constraints.Polylines.Remove(registered);
         RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
@@ -296,7 +301,7 @@ public sealed class Mesher
             for (int i = 0; i < loop.Nodes.Count - 1; i++)
                 InsertEdge(loop.Nodes[i], loop.Nodes[i + 1], EdgeConstraintKind.Boundary);
 
-            Constraints.Loops.Add(loop);
+            _constraints.Loops.Add(loop);
             reason = null;
             return true;
         }
@@ -310,14 +315,15 @@ public sealed class Mesher
     public bool TryRemoveLoop(Loop loop, out string? reason)
     {
         ArgumentNullException.ThrowIfNull(loop);
-        int index = Constraints.Loops.IndexOf(loop);
-        if (index < 0) return Fail(out reason, $"{LoopContext(loop)} not found in mesh.");
+        Loop? registered = FindLoop(loop);
+        if (registered is null)
+            return Fail(out reason, $"{LoopContext(loop)} not found in mesh.");
 
-        loop.Close();
-        var paths = new List<List<Edge>>(loop.Nodes.Count - 1);
-        for (int i = 0; i < loop.Nodes.Count - 1; i++)
+        registered.Close();
+        var paths = new List<List<Edge>>(registered.Nodes.Count - 1);
+        for (int i = 0; i < registered.Nodes.Count - 1; i++)
         {
-            var line = new ConstraintLine(loop.Nodes[i], loop.Nodes[i + 1]);
+            var line = new ConstraintLine(registered.Nodes[i], registered.Nodes[i + 1]);
             if (!TryResolvePath(line, out List<Edge> path, out string? pathReason))
                 return Fail(out reason, $"{LoopContext(loop)} edge[{i}]: {pathReason}");
             if (path.Count == 0 || path.Any(edge => !edge.HasBoundary))
@@ -325,12 +331,75 @@ public sealed class Mesher
             paths.Add(path);
         }
 
-        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, loop.Nodes);
+        HashSet<Node> steinerNodes = CollectSteinerInsertions(paths, registered.Nodes);
         ReleasePaths(paths, EdgeConstraintKind.Boundary);
-        Constraints.Loops.RemoveAt(index);
+        _constraints.Loops.Remove(registered);
         RemoveReleasedSteinerInsertions(steinerNodes);
         reason = null;
         return true;
+    }
+
+    ConstraintPoint? FindConstraintPoint(ConstraintPoint requested)
+        => _constraints.Points.FirstOrDefault(candidate => ReferenceEquals(candidate, requested)) ??
+           _constraints.Points.FirstOrDefault(candidate =>
+               candidate.Node.Position == requested.Node.Position);
+
+    ConstraintLine? FindConstraintLine(ConstraintLine requested)
+        => _constraints.Lines.FirstOrDefault(candidate => ReferenceEquals(candidate, requested)) ??
+           _constraints.Lines.FirstOrDefault(candidate =>
+               SameLine(candidate, requested));
+
+    Polyline? FindPolyline(Polyline requested)
+        => _constraints.Polylines.FirstOrDefault(candidate => ReferenceEquals(candidate, requested)) ??
+           _constraints.Polylines.FirstOrDefault(candidate =>
+               SamePath(candidate.Nodes, requested.Nodes, allowReverse: true));
+
+    Loop? FindLoop(Loop requested)
+    {
+        Loop? exact = _constraints.Loops.FirstOrDefault(candidate => ReferenceEquals(candidate, requested));
+        if (exact is not null) return exact;
+        Vec2[] requestedPoints = OpenLoopPositions(requested);
+        return _constraints.Loops.FirstOrDefault(candidate =>
+            SameCycle(OpenLoopPositions(candidate), requestedPoints));
+    }
+
+    static bool SameLine(ConstraintLine left, ConstraintLine right)
+        => left.From.Position == right.From.Position && left.To.Position == right.To.Position ||
+           left.From.Position == right.To.Position && left.To.Position == right.From.Position;
+
+    static bool SamePath(IReadOnlyList<Node> left, IReadOnlyList<Node> right, bool allowReverse)
+    {
+        if (left.Count != right.Count) return false;
+        bool forward = left.Select(node => node.Position)
+            .SequenceEqual(right.Select(node => node.Position));
+        return forward || allowReverse && left.Select(node => node.Position)
+            .SequenceEqual(right.Reverse().Select(node => node.Position));
+    }
+
+    static Vec2[] OpenLoopPositions(Loop loop)
+    {
+        int count = loop.Nodes.Count;
+        if (count > 1 && loop.Nodes[0].Position == loop.Nodes[^1].Position) count--;
+        return loop.Nodes.Take(count).Select(node => node.Position).ToArray();
+    }
+
+    static bool SameCycle(IReadOnlyList<Vec2> left, IReadOnlyList<Vec2> right)
+    {
+        if (left.Count != right.Count) return false;
+        if (left.Count == 0) return true;
+        for (int start = 0; start < right.Count; start++)
+        {
+            if (left[0] != right[start]) continue;
+            bool forward = true;
+            bool reverse = true;
+            for (int offset = 1; offset < left.Count && (forward || reverse); offset++)
+            {
+                forward &= left[offset] == right[(start + offset) % right.Count];
+                reverse &= left[offset] == right[(start - offset + right.Count) % right.Count];
+            }
+            if (forward || reverse) return true;
+        }
+        return false;
     }
 
     void InsertEdge(Node start, Node end, EdgeConstraintKind kind)
@@ -398,7 +467,7 @@ public sealed class Mesher
     {
         foreach (Node node in nodes)
         {
-            if (node.Dead || IsStructuralAnchor(node)) continue;
+            if (!ShouldRemoveInsertionSteiner(node)) continue;
             ConstrainedSpoke[] spokes = ConstrainedSpokes(node);
             if (spokes.Length == 0)
             {
@@ -432,6 +501,11 @@ public sealed class Mesher
                 InsertEdge(second, first, EdgeConstraintKind.Boundary);
         }
     }
+
+    bool ShouldRemoveInsertionSteiner(Node node)
+        => node.Kind == NodeKind.SteinerInsertion &&
+           !node.Dead &&
+           !IsStructuralAnchor(node);
 
     bool IsStructuralAnchor(Node node)
         => Constraints.Points.Any(point => ReferenceEquals(point.Node, node)) ||

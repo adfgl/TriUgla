@@ -25,6 +25,18 @@ public class ExpansionTests
     }
 
     [Fact]
+    public void Split_ReconstructsLargeFiniteNumberWithoutOverflow()
+    {
+        double value = Math.BitDecrement(double.MaxValue);
+
+        Expansion.Split(value, out double high, out double low);
+
+        Assert.True(double.IsFinite(high));
+        Assert.True(double.IsFinite(low));
+        Assert.Equal(value, high + low);
+    }
+
+    [Fact]
     public void TwoProd_ReturnsRoundedProductAndResidual()
     {
         const double left = 134217727d;
@@ -34,6 +46,13 @@ public class ExpansionTests
 
         Assert.Equal(left * right, high);
         Assert.Equal(-1d, low);
+    }
+
+    [Fact]
+    public void TwoProd_ThrowsWhenProductOverflows()
+    {
+        Assert.Throws<OverflowException>(() =>
+            Expansion.TwoProd(double.MaxValue, 2d, out _, out _));
     }
 
     [Fact]
@@ -92,6 +111,14 @@ public class ExpansionTests
         Assert.Equal(-1, Expansion.Sign(expansion));
         Assert.Equal(-2d, Expansion.Approximate(expansion));
         Assert.Equal(0, Expansion.Sign([]));
+    }
+
+    [Fact]
+    public void Sign_RejectsNonFiniteComponents()
+    {
+        Assert.Throws<ArgumentException>(() => Expansion.Sign([double.NaN]));
+        Assert.Throws<ArgumentException>(() => Expansion.Sign([double.PositiveInfinity]));
+        Assert.Throws<ArgumentException>(() => Expansion.Sign([double.NaN, 1d]));
     }
 
     [Fact]

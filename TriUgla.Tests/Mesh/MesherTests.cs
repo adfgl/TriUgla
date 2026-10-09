@@ -90,8 +90,10 @@ public class MesherTests
         Assert.True(a.Constrained);
         Assert.True(Edge.Find(a, b)!.HasFeature);
 
-        Assert.True(mesher.TryRemoveConstraint(span, out string? removeSpanReason), removeSpanReason);
-        Assert.True(mesher.TryRemoveConstraint(point, out string? removePointReason), removePointReason);
+        Assert.True(mesher.TryRemoveConstraint(
+            new ConstraintLine(b, a), out string? removeSpanReason), removeSpanReason);
+        Assert.True(mesher.TryRemoveConstraint(
+            new ConstraintPoint(a), out string? removePointReason), removePointReason);
         Assert.Empty(mesher.Constraints.Points);
         Assert.Empty(mesher.Constraints.Lines);
         Assert.False(a.Constrained);
@@ -111,7 +113,8 @@ public class MesherTests
         Assert.Same(polyline, Assert.Single(mesher.Constraints.Polylines));
         Assert.True(Edge.Find(a, b)!.HasFeature);
 
-        Assert.True(mesher.TryRemovePolyline(polyline, out string? removeReason), removeReason);
+        Assert.True(mesher.TryRemovePolyline(
+            new Polyline([b, a]), out string? removeReason), removeReason);
         Assert.Empty(mesher.Constraints.Polylines);
         Assert.False(Edge.Find(a, b)!.HasFeature);
     }
@@ -178,7 +181,8 @@ public class MesherTests
         Assert.Same(loop, Assert.Single(mesher.Constraints.Loops));
         Assert.All(loop.Edges([]), edge => Assert.True(edge.HasBoundary));
 
-        Assert.True(mesher.TryRemoveLoop(loop, out string? removeReason), removeReason);
+        Assert.True(mesher.TryRemoveLoop(
+            new Loop([b, a, c]), out string? removeReason), removeReason);
         Assert.Empty(mesher.Constraints.Loops);
         Assert.All(loop.Edges([]), edge => Assert.False(edge.HasBoundary));
     }

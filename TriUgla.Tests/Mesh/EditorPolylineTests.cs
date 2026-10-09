@@ -5,6 +5,29 @@ namespace TriUgla.Tests;
 public class EditorPolylineTests
 {
     [Fact]
+    public void InsertedPolygonCanBeRemovedAndRestoredThroughHistory()
+    {
+        var editor = new EditorMeshModel();
+        int a = Insert(editor, -2, -1);
+        int b = Insert(editor, 2, -1);
+        int c = Insert(editor, 0, 2);
+        int initialBoundaryCount = editor.State().LoopEdges.Count;
+
+        MeshView inserted = editor.InsertPolygon([a, b, c]);
+
+        Assert.True(inserted.Succeeded, inserted.FailureReason);
+        Assert.True(inserted.LoopEdges.Count > initialBoundaryCount);
+
+        MeshView removed = editor.Undo();
+        Assert.True(removed.Succeeded, removed.FailureReason);
+        Assert.Equal(initialBoundaryCount, removed.LoopEdges.Count);
+
+        MeshView restored = editor.Redo();
+        Assert.True(restored.Succeeded, restored.FailureReason);
+        Assert.Equal(inserted.LoopEdges.Count, restored.LoopEdges.Count);
+    }
+
+    [Fact]
     public void InsertedPolylineCanBeRemovedAndUndone()
     {
         var editor = new EditorMeshModel();

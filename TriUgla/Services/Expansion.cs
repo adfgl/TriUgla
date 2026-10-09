@@ -11,6 +11,9 @@ public static class Expansion
     /// <summary>2^27 + 1, used to split an IEEE 754 double into high and low words.</summary>
     public const double SPLITTER = 134217729d;
 
+    const double SplitOverflowThreshold = double.MaxValue / SPLITTER;
+    const long SplitLowBitsMask = (1L << 27) - 1;
+
     /// <summary>Renormalizes an expansion in place and removes zero components.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int Compress(List<double> expansion)
@@ -59,6 +62,14 @@ public static class Expansion
     public static int Sign(List<double> expansion)
     {
         ArgumentNullException.ThrowIfNull(expansion);
+        for (int index = 0; index < expansion.Count; index++)
+        {
+            if (!double.IsFinite(expansion[index]))
+            {
+                throw new ArgumentException("Expansion components must be finite.", nameof(expansion));
+            }
+        }
+
         for (int index = expansion.Count - 1; index >= 0; index--)
         {
             if (expansion[index] != 0d)
@@ -180,7 +191,14 @@ public static class Expansion
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void TwoSum(double a, double b, out double high, out double low)
     {
+        RequireFinite(a, nameof(a));
+        RequireFinite(b, nameof(b));
         high = a + b;
+        if (!double.IsFinite(high))
+        {
+            throw new OverflowException("The exact sum cannot be represented by a double expansion.");
+        }
+
         double storedB = high - a;
         low = (a - (high - storedB)) + (b - storedB);
     }
@@ -188,19 +206,36 @@ public static class Expansion
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Split(double value, out double high, out double low)
     {
-        double combined = SPLITTER * value;
-        double large = combined - value;
-        high = combined - large;
-        low = value - high;
+        RequireFinite(value, nameof(value));
+        if (Math.Abs(value) > SplitOverflowThreshold)
+        {
+            // Clearing the lower significand bits splits the value without an
+            // arithmetic intermediate that could overflow.
+            long bits = BitConverter.DoubleToInt64Bits(value);
+            high = BitConverter.Int64BitsToDouble(bits & ~SplitLowBitsMask);
+            low = value - high;
+        }
+        else
+        {
+            double combined = SPLITTER * value;
+            double large = combined - value;
+            high = combined - large;
+            low = value - high;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void TwoProd(double a, double b, out double high, out double low)
     {
+        RequireFinite(a, nameof(a));
+        RequireFinite(b, nameof(b));
         high = a * b;
-        Split(a, out double aHigh, out double aLow);
-        Split(b, out double bHigh, out double bLow);
-        low = ((aHigh * bHigh - high) + aHigh * bLow + aLow * bHigh) + aLow * bLow;
+        if (!double.IsFinite(high))
+        {
+            throw new OverflowException("The exact product cannot be represented by a double expansion.");
+        }
+
+        low = Math.FusedMultiplyAdd(a, b, -high);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -216,6 +251,15 @@ public static class Expansion
         if (value != 0d)
         {
             expansion.Add(value);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static void RequireFinite(double value, string parameterName)
+    {
+        if (!double.IsFinite(value))
+        {
+            throw new ArgumentOutOfRangeException(parameterName, "Expansion arithmetic requires finite values.");
         }
     }
 }
