@@ -5,6 +5,7 @@ export function initialize(canvas, dotnet, mesh) {
     const view = {
         canvas, dotnet, zoom: 1, ox: 0, oy: 0, dragging: false, pointerId: null, x: 0, y: 0,
         moved: false, selections: new Map(), hover: null, message: null, showSuperStructure: true,
+        showOutside: true, showLand: true, showLakes: true,
         canUndo: false, canRedo: false, tool: "select", constraintStart: null,
         readOnly: false, viewMode: "edit", quadVertices: [], quads: [], quadTriangles: [], quadEdgeFlips: 0,
         yaw: -.65, pitch: .72,
@@ -97,13 +98,15 @@ export async function resetMesh(canvas) {
     });
 }
 
-export function setSuperStructureVisibility(canvas, visible) {
+export function setFaceVisibility(canvas, showOutside, showLand, showLakes) {
     const view = views.get(canvas);
     if (!view) return;
-    view.showSuperStructure = visible;
+    view.showOutside = showOutside;
+    view.showLand = showLand;
+    view.showLakes = showLakes;
     view.selections.clear();
     view.hover = null;
-    fit(canvas);
+    changed(view);
 }
 
 export function setToolMode(canvas, tool) {
@@ -135,8 +138,8 @@ export function showQuadMesh(canvas, overlay) {
     view.polylineNodes = [];
     view.polygonNodes = [];
     view.quadVertices = overlay.nodes.map(node => [node.x, node.y]);
-    view.quads = overlay.quads.map(face => [face.a, face.b, face.c, face.d]);
-    view.quadTriangles = overlay.triangles.map(face => [face.a, face.b, face.c]);
+    view.quads = overlay.quads.map(face => ({ vertices: [face.a, face.b, face.c, face.d], kind: face.kind }));
+    view.quadTriangles = overlay.triangles.map(face => ({ vertices: [face.a, face.b, face.c], kind: face.kind }));
     view.quadEdgeFlips = overlay.edgeFlips;
     view.message = `${view.quads.length} quads · ${view.quadTriangles.length} remaining triangles · ${view.quadEdgeFlips} flips`;
     changed(view);
@@ -822,7 +825,8 @@ function drawQuadOverlay(view, ctx) {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     for (const quad of view.quads) {
-        const points = quad.map(index => worldToScreen(view, view.quadVertices[index]));
+        if (!faceVisible(view, quad.kind)) continue;
+        const points = quad.vertices.map(index => worldToScreen(view, view.quadVertices[index]));
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let index = 1; index < points.length; index++) ctx.lineTo(points[index].x, points[index].y);
@@ -835,7 +839,8 @@ function drawQuadOverlay(view, ctx) {
     }
     ctx.setLineDash([7, 5]);
     for (const triangle of view.quadTriangles) {
-        const points = triangle.map(index => worldToScreen(view, view.quadVertices[index]));
+        if (!faceVisible(view, triangle.kind)) continue;
+        const points = triangle.vertices.map(index => worldToScreen(view, view.quadVertices[index]));
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         ctx.lineTo(points[1].x, points[1].y);
@@ -897,7 +902,8 @@ function project3D(view, id) {
 function draw3DMesh(view, ctx) {
     const faces = view.triangles
         .map((triangle, index) => ({ triangle, index, points: triangle.map(id => project3D(view, id)) }))
-        .filter(face => view.showSuperStructure || !view.superFaces.has(face.index))
+        .filter(face => (view.showSuperStructure || !view.superFaces.has(face.index)) &&
+            faceVisible(view, view.faceKinds[face.index]))
         .sort((a, b) => a.points.reduce((sum, p) => sum + p.depth, 0) -
                         b.points.reduce((sum, p) => sum + p.depth, 0));
 
@@ -953,6 +959,7 @@ function drawMesh(view, ctx) {
     ctx.lineJoin = "round";
     for (let triangleIndex = 0; triangleIndex < view.triangles.length; triangleIndex++) {
         if (!view.showSuperStructure && view.superFaces.has(triangleIndex)) continue;
+        if (!faceVisible(view, view.faceKinds[triangleIndex])) continue;
         const triangle = view.triangles[triangleIndex];
         const points = triangle.map(i => worldToScreen(view, view.vertices[i]));
         ctx.beginPath();
@@ -1067,6 +1074,13 @@ function drawMesh(view, ctx) {
         ctx.beginPath(); ctx.arc(p.x, p.y, selected ? 6 : hovered ? 5 : 3.2, 0, Math.PI * 2); ctx.fill();
     }
     drawDensityBrush(view, ctx);
+}
+
+function faceVisible(view, kind) {
+    if (kind === "Outside") return view.showOutside;
+    if (kind === "Island") return view.showLand;
+    if (kind === "Lake") return view.showLakes;
+    return true;
 }
 
 function drawDensityBrush(view, ctx) {

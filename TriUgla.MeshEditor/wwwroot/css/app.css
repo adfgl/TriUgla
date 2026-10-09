@@ -27,6 +27,7 @@ button, canvas { font: inherit; }
 .quad-toggle.active:hover, .view-toggle.active:hover { border-color: #fbbf24; background: #52280a; }
 .toggle { display: flex; align-items: center; gap: 5px; padding: 0 5px; color: #a8b4c8; font-size: 11px; cursor: pointer; }
 .toggle input { width: 14px; height: 14px; margin: 0; accent-color: #22d3ee; cursor: pointer; }
+.visibility-filters { display: flex; align-items: center; }
 button { min-height: 30px; padding: 4px 9px; border: 1px solid #25324a; border-radius: 4px; background: #19243a; color: #f8fafc; font-size: 12px; cursor: pointer; }
 button:hover { background: #243450; border-color: #3f567a; }
 button:active { background: #0e7490; }

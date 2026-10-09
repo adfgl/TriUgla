@@ -10,10 +10,20 @@
         </div>
         <div class="toolbar-actions">
             <div class="toolbar-group">
-                <label class="toggle" title="Show or hide super-structure topology">
-                    <input type="checkbox" checked="@_showSuperStructure" @onchange="ToggleSuperStructure" />
-                    <span>Super</span>
-                </label>
+                <span class="visibility-filters" aria-label="Visible face kinds">
+                    <label class="toggle" title="Show or hide outside faces">
+                        <input type="checkbox" checked="@_showOutside" @onchange="ToggleOutside" />
+                        <span>Outside</span>
+                    </label>
+                    <label class="toggle" title="Show or hide land faces">
+                        <input type="checkbox" checked="@_showLand" @onchange="ToggleLand" />
+                        <span>Land</span>
+                    </label>
+                    <label class="toggle" title="Show or hide lake faces">
+                        <input type="checkbox" checked="@_showLakes" @onchange="ToggleLakes" />
+                        <span>Lakes</span>
+                    </label>
+                </span>
                 <button type="button" class="@(_quadMode ? "quad-toggle active" : "quad-toggle")"
                         title="@(_quadMode ? "Return to editable triangular mesh" : "Build and show read-only quad representation")"
                         aria-pressed="@_quadMode" @onclick="ToggleQuadMesh">@(_quadMode ? "Triangles" : "Quads")</button>
@@ -224,7 +234,9 @@
     double _zoom = 100;
     int _nodeCount = 11;
     string _selection = "No selection";
-    bool _showSuperStructure = true;
+    bool _showOutside = true;
+    bool _showLand = true;
+    bool _showLakes = true;
     int _edgeCount;
     int _constraintCount;
     bool _canUndo;
@@ -259,6 +271,30 @@
     async Task ResetMesh() => await InvokeEditor("resetMesh");
     async Task Undo() => await InvokeEditor("undo");
     async Task Redo() => await InvokeEditor("redo");
+    async Task ToggleLand(ChangeEventArgs args)
+    {
+        _showLand = args.Value is true;
+        await UpdateFaceVisibility();
+    }
+
+    async Task ToggleLakes(ChangeEventArgs args)
+    {
+        _showLakes = args.Value is true;
+        await UpdateFaceVisibility();
+    }
+
+    async Task ToggleOutside(ChangeEventArgs args)
+    {
+        _showOutside = args.Value is true;
+        await UpdateFaceVisibility();
+    }
+
+    async Task UpdateFaceVisibility()
+    {
+        if (_module is not null)
+            await _module.InvokeVoidAsync(
+                "setFaceVisibility", _canvas, _showOutside, _showLand, _showLakes);
+    }
     async Task RefineSelectedFaces()
     {
         if (_module is not null)
@@ -341,13 +377,6 @@
                 System.Globalization.CultureInfo.InvariantCulture, out double changed)) return;
         await _module.InvokeVoidAsync(
             "updateSelectedNodeProperty", _canvas, item.Ids, propertyName, changed);
-    }
-
-    async Task ToggleSuperStructure(ChangeEventArgs args)
-    {
-        _showSuperStructure = args.Value is true;
-        if (_module is not null)
-            await _module.InvokeVoidAsync("setSuperStructureVisibility", _canvas, _showSuperStructure);
     }
 
     async Task InvokeEditor(string method)

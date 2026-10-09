@@ -22,21 +22,23 @@ public sealed class QuadMeshBuilder
     int ImprovePairing(Mesh mesh, double minimumQuality, int maximumFlips)
     {
         int accepted = 0;
-        Pairing current = FindPairing(mesh, minimumQuality);
         var flipper = new EdgeFlipper(_geometry);
         while (accepted < maximumFlips)
         {
             bool improved = false;
+            Face[] faces = LiveFaces(mesh);
+            Dictionary<Face, int> depths = BoundaryDepths(faces);
             Edge[] edges = CollectInternalEdges(mesh);
             for (int index = 0; index < edges.Length; index++)
             {
                 Edge edge = edges[index];
                 if (!CanFlip(edge)) continue;
+                HashSet<Face> neighbourhood = Neighbourhood(edge);
+                Pairing current = FindPairing(neighbourhood, depths, minimumQuality);
                 flipper.Flip(edge);
-                Pairing candidate = FindPairing(mesh, minimumQuality);
+                Pairing candidate = FindPairing(neighbourhood, depths, minimumQuality);
                 if (candidate.BetterThan(current))
                 {
-                    current = candidate;
                     accepted++;
                     improved = true;
                     break;
@@ -60,14 +62,26 @@ public sealed class QuadMeshBuilder
     {
         Face[] faces = LiveFaces(mesh);
         Dictionary<Face, int> depths = BoundaryDepths(faces);
-        var candidates = new List<PairCandidate>(faces.Length * 2);
+        return FindPairing(faces, depths, minimumQuality);
+    }
+
+    Pairing FindPairing(
+        IEnumerable<Face> faces,
+        Dictionary<Face, int> depths,
+        double minimumQuality)
+    {
+        int capacity = faces is ICollection<Face> collection ? collection.Count * 2 : 16;
+        var candidates = new List<PairCandidate>(capacity);
         var visited = new HashSet<Edge>(ReferenceEqualityComparer.Instance);
-        for (int faceIndex = 0; faceIndex < faces.Length; faceIndex++)
+        HashSet<Face>? included = faces as HashSet<Face>;
+        foreach (Face face in faces)
         {
-            foreach (Edge edge in faces[faceIndex].Edges)
+            foreach (Edge edge in face.Edges)
             {
                 if (!visited.Add(edge)) continue;
                 if (edge.Twin is Edge twin) visited.Add(twin);
+                if (included is not null &&
+                    (edge.Twin is null || !included.Contains(edge.Twin.Face))) continue;
                 if (TryCandidate(edge, depths, minimumQuality, out PairCandidate candidate))
                     candidates.Add(candidate);
             }
@@ -81,7 +95,7 @@ public sealed class QuadMeshBuilder
         });
 
         var paired = new HashSet<Face>(ReferenceEqualityComparer.Instance);
-        var pairs = new List<PairCandidate>(faces.Length / 2);
+        var pairs = new List<PairCandidate>(capacity / 4);
         double quality = 0d;
         for (int index = 0; index < candidates.Count; index++)
         {
@@ -96,6 +110,27 @@ public sealed class QuadMeshBuilder
             quality += candidate.Quality;
         }
         return new Pairing(pairs.ToArray(), quality);
+    }
+
+    static HashSet<Face> Neighbourhood(Edge diagonal)
+    {
+        var faces = new HashSet<Face>(ReferenceEqualityComparer.Instance)
+        {
+            diagonal.Face,
+            diagonal.Twin!.Face
+        };
+        AddNeighbours(diagonal.Face);
+        AddNeighbours(diagonal.Twin.Face);
+        return faces;
+
+        void AddNeighbours(Face face)
+        {
+            foreach (Edge edge in face.Edges)
+            {
+                Face? neighbour = edge.Twin?.Face;
+                if (neighbour is not null && !neighbour.Dead) faces.Add(neighbour);
+            }
+        }
     }
 
     bool TryCandidate(Edge edge, Dictionary<Face, int> depths, double minimumQuality,

@@ -150,17 +150,17 @@ public class MeshRefinerTests
     }
 
     [Fact]
-    public void DetailedResultDoesNotClaimCompletionForUnchangedFailedGeometry()
+    public void DetailedResultDefersFaceWhoseCircumcenterIsOutsideTopology()
     {
         Fixture fixture = CreateFixture();
 
         RefineResult result = fixture.Refiner.RefineDetailed(
             [fixture.Face], AreaRanker(0.1), RefineSettings.Default);
 
-        Assert.Equal(RefineStatus.NumericalStagnation, result.Status);
-        Assert.False(result.Completed);
+        Assert.Equal(RefineStatus.Completed, result.Status);
+        Assert.True(result.Completed);
         Assert.True(result.RemainingBadFaces > 0);
-        Assert.NotNull(result.FailureReason);
+        Assert.Null(result.FailureReason);
     }
 
     [Fact]
